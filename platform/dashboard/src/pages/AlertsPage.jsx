@@ -14,7 +14,7 @@ import { useMemo, useState, useCallback } from 'react';
 import {
   Box, Card, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Tabs, Tab,
-  Alert as MuiAlert, alpha, TablePagination, Button
+  Alert as MuiAlert, alpha, TablePagination, Button, Switch, FormControlLabel
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
@@ -363,6 +363,7 @@ export default function AlertsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [hideResolved, setHideResolved] = useState(true);
 
   // Still fetch all alerts ONLY to drive the global unresolved count and tab counts without breaking backend.
   // In a massive deployment, we would replace this with dedicated count endpoints.
@@ -374,8 +375,8 @@ export default function AlertsPage() {
     else if (activeTab === 'ai') types = Array.from(AI_TYPES);
     else if (activeTab === 'infra') types = Array.from(INFRA_TYPES);
     
-    return fetchAlertsPage(false, types, page, rowsPerPage);
-  }, [activeTab, page, rowsPerPage]);
+    return fetchAlertsPage(hideResolved, types, page, rowsPerPage);
+  }, [activeTab, page, rowsPerPage, hideResolved]);
 
   const { data: pageData, loading: pageLoading, refetch: refetchPage } = usePolling(fetchPaginatedFn, page === 0 ? API.POLL_INTERVAL : null);
 
@@ -448,15 +449,21 @@ export default function AlertsPage() {
             {unresolvedCount} unresolved alert{unresolvedCount !== 1 ? 's' : ''} total
           </Typography>
         </Box>
-        <Button 
-          variant="contained" 
-          color="primary"
-          disabled={unresolvedCount === 0 || counts[activeTab] === 0 || resolving}
-          onClick={handleResolveAll}
-          sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 2 }}
-        >
-          {resolving ? 'Resolving...' : `Resolve ${activeTab === 'all' ? 'All' : 'Category'} Alerts`}
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <FormControlLabel
+            control={<Switch checked={hideResolved} onChange={(e) => { setHideResolved(e.target.checked); setPage(0); }} size="small" />}
+            label={<Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', fontWeight: 500 }}>Hide Resolved</Typography>}
+          />
+          <Button 
+            variant="contained" 
+            color="primary"
+            disabled={unresolvedCount === 0 || counts[activeTab] === 0 || resolving}
+            onClick={handleResolveAll}
+            sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 2 }}
+          >
+            {resolving ? 'Resolving...' : `Resolve ${activeTab === 'all' ? 'All' : 'Category'} Alerts`}
+          </Button>
+        </Box>
       </Box>
 
       {alertsError && <ErrorBanner />}
