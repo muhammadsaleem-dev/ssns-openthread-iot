@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 /**
  * Core service for ingesting and querying sensor telemetry data.
@@ -69,17 +71,30 @@ public class SensorDataService {
     }
 
     /**
-     * Return all telemetry records, optionally filtered by nodeId.
+     * Return limited telemetry records (max 400) for real-time charts.
      */
     public List<SensorDataResponse> findAll(String nodeId) {
         List<SensorData> data;
         if (nodeId != null && !nodeId.isBlank()) {
-            log.debug("Querying telemetry for node: {}", nodeId);
-            data = sensorDataRepository.findTop2000ByNodeIdOrderByTimestampDesc(nodeId);
+            log.debug("Querying chart telemetry for node: {}", nodeId);
+            data = sensorDataRepository.findTop400ByNodeIdOrderByTimestampDesc(nodeId);
         } else {
-            data = sensorDataRepository.findTop2000ByOrderByTimestampDesc();
+            data = sensorDataRepository.findTop400ByOrderByTimestampDesc();
         }
         return data.stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Return paginated telemetry records for historical table view.
+     */
+    public Page<SensorDataResponse> getPaginatedData(String nodeId, int page, int size) {
+        if (nodeId != null && !nodeId.isBlank()) {
+            return sensorDataRepository.findByNodeIdOrderByTimestampDesc(nodeId, PageRequest.of(page, size))
+                    .map(this::toResponse);
+        } else {
+            return sensorDataRepository.findAllByOrderByTimestampDesc(PageRequest.of(page, size))
+                    .map(this::toResponse);
+        }
     }
 
     /**

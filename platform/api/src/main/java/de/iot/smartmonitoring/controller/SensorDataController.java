@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
 
 /**
  * REST controller for sensor telemetry ingestion and retrieval.
@@ -59,6 +60,23 @@ public class SensorDataController {
             @RequestParam(required = false) String nodeId) {
         log.info("GET /api/sensor-data — nodeId={}", nodeId);
         return ResponseEntity.ok(sensorDataService.findAll(nodeId));
+    }
+
+    @GetMapping("/page")
+    @Operation(
+            summary = "Retrieve sensor data (Paginated)",
+            description = "Returns paginated telemetry records. Optionally filter by nodeId."
+    )
+    @ApiResponse(responseCode = "200", description = "Page of telemetry records")
+    public ResponseEntity<Page<SensorDataResponse>> getPaginated(
+            @Parameter(description = "Filter by sensor node ID", example = "node-01")
+            @RequestParam(required = false) String nodeId,
+            @Parameter(description = "Page number (0-based)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size", example = "10")
+            @RequestParam(defaultValue = "10") int size) {
+        log.info("GET /api/sensor-data/page — nodeId={}, page={}, size={}", nodeId, page, size);
+        return ResponseEntity.ok(sensorDataService.getPaginatedData(nodeId, page, size));
     }
 
     @GetMapping("/latest/{nodeId}")
