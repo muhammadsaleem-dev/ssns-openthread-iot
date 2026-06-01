@@ -15,8 +15,9 @@ static uint16_t next_read_id = 1;
 
 /* Callback used to find the oldest packet */
 struct find_ctx {
-    char *buf;
+    uint8_t *buf;
     size_t max_len;
+    size_t found_len;
     uint16_t found_id;
     bool found;
 };
@@ -28,11 +29,11 @@ static int settings_load_cb(const char *name, size_t len, settings_read_cb read_
     int id = atoi(name);
     
     if (id > 0 && id == next_read_id && !ctx->found) {
-        if (len > ctx->max_len - 1) {
-            len = ctx->max_len - 1;
+        if (len > ctx->max_len) {
+            len = ctx->max_len;
         }
         read_cb(cb_arg, ctx->buf, len);
-        ctx->buf[len] = '\0';
+        ctx->found_len = len;
         ctx->found_id = id;
         ctx->found = true;
     }
@@ -64,7 +65,7 @@ int storage_init(void)
     return 0;
 }
 
-int storage_save_packet(const char *payload)
+int storage_save_packet(const uint8_t *payload, size_t len)
 {
     char key[32];
     snprintf(key, sizeof(key), "q/%d", next_write_id);
@@ -75,7 +76,7 @@ int storage_save_packet(const char *payload)
         return -ENOMEM;
     }
 
-    int rc = settings_save_one(key, payload, strlen(payload));
+    int rc = settings_save_one(key, payload, len);
     if (rc == 0) {
         LOG_INF("Saved packet to NVS ID %d", next_write_id);
         next_write_id++;
@@ -89,7 +90,7 @@ int storage_save_packet(const char *payload)
     return rc;
 }
 
-int storage_read_oldest_packet(char *buf, size_t max_len, uint16_t *out_id)
+int storage_read_oldest_packet(uint8_t *buf, size_t max_len, size_t *out_len, uint16_t *out_id)
 {
     if (next_read_id == next_write_id) {
         return -ENOENT; /* Queue empty */
@@ -103,6 +104,7 @@ int storage_read_oldest_packet(char *buf, size_t max_len, uint16_t *out_id)
     settings_load_subtree_direct("q", settings_load_cb, &ctx);
 
     if (ctx.found) {
+        *out_len = ctx.found_len;
         *out_id = ctx.found_id;
         return 0;
     }
@@ -132,8 +134,15 @@ int storage_delete_packet(uint16_t id)
     return rc;
 }
 
-ssize_t storage_get_free_space(void)
+int storage_get_queue_usage(void)
 {
-    /* The settings API abstracts free space away, so we just return a dummy value */
-    return 8192; 
+    if (next_write_id >= next_read_id) {
+        return (int)(next_write_id - next_read_id);
+    }
+    return 0;
+}
+
+int storage_get_queue_capacity(void)
+{
+    return QUEUE_MAX_ITEMS;
 }

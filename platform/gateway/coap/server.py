@@ -7,6 +7,7 @@ deserializes them, and forwards them to the Spring Boot backend.
 
 import asyncio
 import json
+import cbor2
 import aiocoap
 import aiocoap.resource as resource
 from cachetools import TTLCache
@@ -28,15 +29,38 @@ class StoreDataResource(resource.Resource):
     
     async def render_put(self, request):
         try:
-            payload_str = request.payload.decode("utf-8")
-            payload = json.loads(payload_str)
+            # Decode CBOR Array from binary payload
+            cbor_data = cbor2.loads(request.payload)
+            if not isinstance(cbor_data, list) or len(cbor_data) < 14:
+                logger.error("Malformed CBOR array received")
+                return aiocoap.Message(code=aiocoap.BAD_REQUEST)
             
-            node_id = payload.get("nodeId") or payload.get("id")
-            boot_id = payload.get("bootId")
-            seq_num = payload.get("sequenceNumber")
+            node_id = cbor_data[0]
+            boot_id = cbor_data[1]
+            seq_num = cbor_data[2]
+            
+            # Reconstruct the original JSON dictionary for the downstream pipeline
+            payload = {
+                "id": node_id,
+                "t": cbor_data[4],
+                "h": cbor_data[5],
+                "c": cbor_data[6],
+                "tv": cbor_data[7],
+                "ec": cbor_data[8],
+                "p1": cbor_data[9],
+                "p25": cbor_data[10],
+                "p4": cbor_data[11],
+                "p10": cbor_data[12],
+                "li": cbor_data[13],
+                "nodeId": node_id,
+                "bootId": boot_id,
+                "sequenceNumber": seq_num,
+                "uptimeMs": cbor_data[3]
+            }
+            payload_str = json.dumps(payload)
             
             if not node_id or not boot_id or seq_num is None:
-                logger.error("Malformed payload: Missing required identity fields (nodeId, bootId, or sequenceNumber)")
+                logger.error("Malformed payload: Missing required identity fields")
                 return aiocoap.Message(code=aiocoap.BAD_REQUEST)
             
             # Deduplication Check
@@ -54,11 +78,8 @@ class StoreDataResource(resource.Resource):
             logger.info("CoAP PUT queued: %s", dedup_key)
             return aiocoap.Message(code=aiocoap.CHANGED)
             
-        except json.JSONDecodeError:
-            logger.error("Invalid JSON payload received via CoAP")
-            return aiocoap.Message(code=aiocoap.BAD_REQUEST)
-        except Exception as e:
-            logger.error("CoAP processing error: %s", e)
+        except (cbor2.CBORDecodeError, Exception) as e:
+            logger.error("CBOR processing error: %s", e)
             return aiocoap.Message(code=aiocoap.BAD_REQUEST)
 
 

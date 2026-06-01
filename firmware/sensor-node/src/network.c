@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <zephyr/random/random.h>
 #include <zephyr/posix/poll.h>
+#include <zcbor_encode.h>
 
 LOG_MODULE_REGISTER(network, LOG_LEVEL_DBG);
 
@@ -22,7 +23,8 @@ static char node_id[16];
 static char boot_id[9];
 static int udp_sock = -1;
 static struct sockaddr_in6 gateway_addr;
-static char last_payload[384];
+static uint8_t last_payload[384];
+static size_t last_payload_len = 0;
 
 static void resolve_boot_id(void)
 {
@@ -120,9 +122,14 @@ int network_init(void)
     return 0;
 }
 
-const char* network_get_last_payload(void)
+const uint8_t* network_get_last_payload(void)
 {
     return last_payload;
+}
+
+size_t network_get_last_payload_len(void)
+{
+    return last_payload_len;
 }
 
 static int wait_for_coap_ack(uint16_t expected_msg_id)
@@ -178,40 +185,34 @@ int network_send_coap(struct sensor_state *sensors)
     sensor_service_read(sensors, &t, &h, &co2, &tvoc, &eco2,
                  &p1, &p25, &p4, &p10, &li);
 
-    int it   = (int)(t   * 10);
-    int ih   = (int)(h   * 10);
-    int ico2 = (int)(co2 * 10);
-    int itv  = (int)(tvoc* 10);
-    int iec  = (int)(eco2* 10);
-    int ip1  = (int)(p1  * 10);
-    int ip25 = (int)(p25 * 10);
-    int ip4  = (int)(p4  * 10);
-    int ip10 = (int)(p10 * 10);
-    int ili  = (int)(li  * 10);
-
     static uint32_t seq_num = 0;
     uint32_t uptime_ms = k_uptime_get_32();
 
-    int len = snprintf(last_payload, sizeof(last_payload),
-             "{\"id\":\"%s\","
-             "\"t\":%d.%d,\"h\":%d.%d,\"c\":%d.%d,"
-             "\"tv\":%d.%d,\"ec\":%d.%d,"
-             "\"p1\":%d.%d,\"p25\":%d.%d,\"p4\":%d.%d,\"p10\":%d.%d,"
-             "\"li\":%d.%d,"
-             "\"nodeId\":\"%s\",\"bootId\":\"%s\",\"sequenceNumber\":%u,\"uptimeMs\":%u}",
-             node_id,
-             it/10, abs(it)%10,   ih/10, abs(ih)%10,   ico2/10, abs(ico2)%10,
-             itv/10, abs(itv)%10, iec/10, abs(iec)%10,
-             ip1/10, abs(ip1)%10, ip25/10, abs(ip25)%10,
-             ip4/10, abs(ip4)%10, ip10/10, abs(ip10)%10,
-             ili/10, abs(ili)%10,
-             node_id, boot_id, seq_num++, uptime_ms);
+    ZCBOR_STATE_E(zse, 2, last_payload, sizeof(last_payload), 15);
+    bool ok = zcbor_list_start_encode(zse, 15) &&
+              zcbor_tstr_put_term(zse, node_id, sizeof(node_id)) &&
+              zcbor_tstr_put_term(zse, boot_id, sizeof(boot_id)) &&
+              zcbor_uint32_put(zse, seq_num++) &&
+              zcbor_uint32_put(zse, uptime_ms) &&
+              zcbor_float32_put(zse, t) &&
+              zcbor_float32_put(zse, h) &&
+              zcbor_float32_put(zse, co2) &&
+              zcbor_float32_put(zse, tvoc) &&
+              zcbor_float32_put(zse, eco2) &&
+              zcbor_float32_put(zse, p1) &&
+              zcbor_float32_put(zse, p25) &&
+              zcbor_float32_put(zse, p4) &&
+              zcbor_float32_put(zse, p10) &&
+              zcbor_float32_put(zse, li) &&
+              zcbor_list_end_encode(zse, 15);
 
-    if (len >= sizeof(last_payload)) {
-        LOG_WRN("JSON payload truncated! Length: %d, Buffer: %zu", len, sizeof(last_payload));
+    if (!ok) {
+        LOG_ERR("CBOR encode failed!");
+        return -1;
     }
 
-    LOG_INF("Sending payload: %s", last_payload);
+    last_payload_len = (size_t)(zse->payload_mut - last_payload);
+    LOG_INF("Generated CBOR Array payload: %zu bytes (was ~200 bytes as JSON)", last_payload_len);
 
     /* --- build raw CoAP packet --- */
     uint8_t packet[512];
@@ -231,9 +232,8 @@ int network_send_coap(struct sensor_state *sensors)
     off += ulen;
 
     packet[off++] = 0xFF;
-    size_t plen = strlen(last_payload);
-    memcpy(&packet[off], last_payload, plen);
-    off += plen;
+    memcpy(&packet[off], last_payload, last_payload_len);
+    off += last_payload_len;
 
     int r = sendto(udp_sock, packet, off, 0, (struct sockaddr *)&gateway_addr, sizeof(struct sockaddr_in6));
     if (r < 0) {
@@ -249,7 +249,7 @@ int network_send_coap(struct sensor_state *sensors)
     return wait_for_coap_ack(msg_id - 1);
 }
 
-int network_send_raw_payload(const char *payload)
+int network_send_raw_payload(const uint8_t *payload, size_t len)
 {
     if (udp_sock < 0) return -1;
 
@@ -270,9 +270,8 @@ int network_send_raw_payload(const char *payload)
     off += ulen;
 
     packet[off++] = 0xFF;
-    size_t plen = strlen(payload);
-    memcpy(&packet[off], payload, plen);
-    off += plen;
+    memcpy(&packet[off], payload, len);
+    off += len;
 
     int r = sendto(udp_sock, packet, off, 0, (struct sockaddr *)&gateway_addr, sizeof(struct sockaddr_in6));
     if (r < 0) {

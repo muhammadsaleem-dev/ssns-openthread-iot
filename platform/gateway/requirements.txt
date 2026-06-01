@@ -14,3 +14,6 @@ aiocoap>=0.4.0
 
 # In-memory deduplication and caching
 cachetools>=5.3.0
+
+# CBOR Decoding for compressed binary payloads
+cbor2==5.6.2
