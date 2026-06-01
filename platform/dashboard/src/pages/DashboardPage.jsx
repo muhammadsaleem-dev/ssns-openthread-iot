@@ -5,8 +5,8 @@
  * a recent telemetry feed, and a live alerts panel.
  */
 
-import { useMemo, useState } from 'react';
-import { Box, Grid, Card, CardContent, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, alpha, Select, MenuItem, FormControl, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
+import { useMemo, useState, useCallback } from 'react';
+import { Box, Grid, Card, CardContent, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, alpha, Select, MenuItem, FormControl, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, TablePagination } from '@mui/material';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import AirIcon from '@mui/icons-material/Air';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
@@ -20,7 +20,7 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import ErrorBanner from '../components/ErrorBanner';
 import TelemetryChart from '../charts/TelemetryChart';
 import usePolling from '../hooks/usePolling';
-import { fetchSensorData, fetchNodes, fetchAlerts, updateNodeLocation } from '../services/api';
+import { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, updateNodeLocation } from '../services/api';
 import { formatTimestamp, average, computeAqi } from '../utils/format';
 import API from '../config/api';
 
@@ -41,6 +41,18 @@ export default function DashboardPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState('');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
+
+  // Pagination State for the Table
+  const [tablePage, setTablePage] = useState(0);
+  const [tableRowsPerPage, setTableRowsPerPage] = useState(10);
+
+  // Intelligent polling for the paginated table
+  const fetchPaginatedFn = useCallback(
+    () => fetchSensorDataPage(selectedNodeId, tablePage, tableRowsPerPage),
+    [selectedNodeId, tablePage, tableRowsPerPage]
+  );
+  // Auto-refresh only if on the very first page
+  const { data: pageData, loading: loadingPage } = usePolling(fetchPaginatedFn, tablePage === 0 ? API.POLL_INTERVAL : null);
 
   const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4'];
 
@@ -137,13 +149,11 @@ export default function DashboardPage() {
     }));
   };
 
-  // Recent feed (latest 8 records, newest first)
+  // Recent feed is now populated directly from the paginated endpoint
   const recentFeed = useMemo(() => {
-    if (!filteredSensorData) return [];
-    return [...filteredSensorData]
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-      .slice(0, 8);
-  }, [filteredSensorData]);
+    if (!pageData || !pageData.content) return [];
+    return pageData.content;
+  }, [pageData]);
 
   // Recent alerts (latest 5)
   const recentAlerts = useMemo(() => {
@@ -401,6 +411,18 @@ export default function DashboardPage() {
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              component="div"
+              count={pageData ? pageData.totalElements : 0}
+              page={tablePage}
+              onPageChange={(e, newPage) => setTablePage(newPage)}
+              rowsPerPage={tableRowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setTableRowsPerPage(parseInt(e.target.value, 10));
+                setTablePage(0);
+              }}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+            />
           </Card>
         </Grid>
 

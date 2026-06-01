@@ -32,10 +32,13 @@ export default function usePolling(fetchFn, interval = 10000) {
   useEffect(() => {
     mountedRef.current = true;
     load();
-    const id = setInterval(load, interval);
+    let id;
+    if (interval !== null) {
+      id = setInterval(load, interval);
+    }
     return () => {
       mountedRef.current = false;
-      clearInterval(id);
+      if (id) clearInterval(id);
     };
   }, [load, interval]);
 

@@ -18,6 +18,14 @@ export const fetchSensorData = async (nodeId) => {
   return data;
 };
 
+/** Fetch paginated sensor telemetry. */
+export const fetchSensorDataPage = async (nodeId, page = 0, size = 10) => {
+  const params = { page, size };
+  if (nodeId) params.nodeId = nodeId;
+  const { data } = await client.get('/api/sensor-data/page', { params });
+  return data;
+};
+
 /** Fetch all registered sensor nodes. */
 export const fetchNodes = async () => {
   const { data } = await client.get('/api/nodes');
@@ -36,4 +44,4 @@ export const updateNodeLocation = async (nodeId, location) => {
   return data;
 };
 
-export default { fetchSensorData, fetchNodes, fetchAlerts, updateNodeLocation };
+export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, updateNodeLocation };

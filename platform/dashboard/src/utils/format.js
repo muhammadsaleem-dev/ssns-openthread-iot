@@ -9,13 +9,31 @@
 export function formatTimestamp(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return d.toLocaleString('en-GB', {
+  const absolute = d.toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   });
+
+  const now = new Date();
+  const diffInSeconds = Math.floor((now - d) / 1000);
+  
+  let relative = '';
+  if (diffInSeconds < 5) {
+    relative = 'Just now';
+  } else if (diffInSeconds < 60) {
+    relative = `${diffInSeconds}s ago`;
+  } else if (diffInSeconds < 3600) {
+    relative = `${Math.floor(diffInSeconds / 60)}m ago`;
+  } else if (diffInSeconds < 86400) {
+    relative = `${Math.floor(diffInSeconds / 3600)}h ago`;
+  } else {
+    relative = `${Math.floor(diffInSeconds / 86400)}d ago`;
+  }
+
+  return `${absolute} (${relative})`;
 }
 
 /**
