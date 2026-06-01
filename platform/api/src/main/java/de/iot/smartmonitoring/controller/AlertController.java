@@ -78,4 +78,30 @@ public class AlertController {
         AlertResponse response = alertService.createExternalAlert(request);
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(response);
     }
+    @org.springframework.web.bind.annotation.PutMapping("/resolve-all")
+    @Operation(
+            summary = "Resolve all unresolved alerts",
+            description = "Marks all currently unresolved alerts as resolved, optionally filtered by type."
+    )
+    @ApiResponse(responseCode = "200", description = "Number of alerts resolved")
+    public ResponseEntity<Integer> resolveAll(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) List<AlertType> types) {
+        log.info("PUT /api/alerts/resolve-all - types={}", types);
+        return ResponseEntity.ok(alertService.resolveAllUnresolved(types));
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/resolve")
+    @Operation(
+            summary = "Resolve a single alert",
+            description = "Marks a specific alert as resolved by its ID."
+    )
+    @ApiResponse(responseCode = "200", description = "Alert resolved successfully")
+    @ApiResponse(responseCode = "404", description = "Alert not found")
+    public ResponseEntity<Void> resolveAlert(@org.springframework.web.bind.annotation.PathVariable String id) {
+        log.info("PUT /api/alerts/{}/resolve", id);
+        if (alertService.resolveAlert(id)) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
 }

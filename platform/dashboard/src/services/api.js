@@ -51,10 +51,26 @@ export const fetchAlertsPage = async (unresolvedOnly = false, types = [], page =
   return data;
 };
 
+/** Mark all unresolved alerts as resolved, optionally filtered by types. */
+export const resolveAllAlerts = async (types = []) => {
+  const params = new URLSearchParams();
+  if (types && types.length > 0) {
+    types.forEach(type => params.append('types', type));
+  }
+  const { data } = await client.put('/api/alerts/resolve-all', null, { params });
+  return data;
+};
+
+/** Mark a single alert as resolved. */
+export const resolveAlert = async (id) => {
+  const { data } = await client.put(`/api/alerts/${id}/resolve`);
+  return data;
+};
+
 /** Update the human-readable location of a specific node. */
 export const updateNodeLocation = async (nodeId, location) => {
   const { data } = await client.put(`/api/nodes/${nodeId}/location`, { location });
   return data;
 };
 
-export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertsPage, updateNodeLocation };
+export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation };

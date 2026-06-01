@@ -107,6 +107,38 @@ public class AlertService {
     }
 
     /**
+     * Mark all currently unresolved alerts as resolved, optionally filtered by types.
+     * @return the number of alerts resolved.
+     */
+    public int resolveAllUnresolved(List<Alert.AlertType> types) {
+        List<Alert> unresolved;
+        if (types == null || types.isEmpty()) {
+            unresolved = alertRepository.findByResolvedFalse();
+        } else {
+            unresolved = alertRepository.findByTypeInAndResolvedFalse(types);
+        }
+        if (unresolved.isEmpty()) {
+            return 0;
+        }
+        unresolved.forEach(a -> a.setResolved(true));
+        alertRepository.saveAll(unresolved);
+        log.info("Bulk resolved {} alerts.", unresolved.size());
+        return unresolved.size();
+    }
+
+    /**
+     * Mark a single alert as resolved.
+     */
+    public boolean resolveAlert(String id) {
+        return alertRepository.findById(id).map(alert -> {
+            alert.setResolved(true);
+            alertRepository.save(alert);
+            log.info("Resolved alert {}", id);
+            return true;
+        }).orElse(false);
+    }
+
+    /**
      * Return paginated alerts, optionally filtered by unresolved status and category types.
      */
     public Page<AlertResponse> getPaginatedAlerts(boolean unresolvedOnly, List<Alert.AlertType> types, int page, int size) {

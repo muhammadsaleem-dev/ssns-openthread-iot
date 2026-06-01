@@ -14,7 +14,7 @@ import { useMemo, useState, useCallback } from 'react';
 import {
   Box, Card, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Tabs, Tab,
-  Alert as MuiAlert, alpha, TablePagination
+  Alert as MuiAlert, alpha, TablePagination, Button
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
@@ -24,11 +24,12 @@ import AllInboxIcon from '@mui/icons-material/AllInbox';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
+import CheckIcon from '@mui/icons-material/Check';
 
 import LoadingOverlay from '../components/LoadingOverlay';
 import ErrorBanner from '../components/ErrorBanner';
 import usePolling from '../hooks/usePolling';
-import { fetchAlerts, fetchAlertsPage, fetchNodes } from '../services/api';
+import { fetchAlerts, fetchAlertsPage, fetchNodes, resolveAllAlerts, resolveAlert } from '../services/api';
 import { formatTimestamp } from '../utils/format';
 import API from '../config/api';
 
@@ -147,13 +148,13 @@ const EmptyRow = ({ colSpan, label }) => (
 
 // ── Table: Operational ─────────────────────────────────────────────────────────
 
-function OperationalTable({ rows, nodeMap }) {
+function OperationalTable({ rows, nodeMap, onResolve }) {
   return (
     <Table size="small">
       <TableHead>
         <TableRow>
           <TH>Severity</TH><TH>Type</TH><TH>Node</TH>
-          <TH>Message</TH><TH>Measured</TH><TH>Threshold</TH><TH>Time</TH>
+          <TH>Message</TH><TH>Measured</TH><TH>Threshold</TH><TH>Time</TH><TH>Action</TH>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -177,8 +178,13 @@ function OperationalTable({ rows, nodeMap }) {
               </Typography>
             </TD>
             <TimeCell ts={a.createdAt} />
+            <TD align="center">
+              <Button size="small" disabled={a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
+                <CheckIcon fontSize="small" />
+              </Button>
+            </TD>
           </TableRow>
-        )) : <EmptyRow colSpan={7} label="No operational alerts" />}
+        )) : <EmptyRow colSpan={8} label="No operational alerts" />}
       </TableBody>
     </Table>
   );
@@ -186,12 +192,12 @@ function OperationalTable({ rows, nodeMap }) {
 
 // ── Table: AI Insights ─────────────────────────────────────────────────────────
 
-function AiInsightsTable({ rows, nodeMap }) {
+function AiInsightsTable({ rows, nodeMap, onResolve }) {
   return (
     <Table size="small">
       <TableHead>
         <TableRow>
-          <TH>Severity</TH><TH>Type</TH><TH>Node</TH><TH>Details</TH><TH>Time</TH>
+          <TH>Severity</TH><TH>Type</TH><TH>Node</TH><TH>Details</TH><TH>Time</TH><TH>Action</TH>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -224,9 +230,14 @@ function AiInsightsTable({ rows, nodeMap }) {
                 <RecommendedAction action={a.recommendedAction} />
               </TD>
               <TimeCell ts={a.createdAt} />
+              <TD align="center">
+                <Button size="small" disabled={a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
+                  <CheckIcon fontSize="small" />
+                </Button>
+              </TD>
             </TableRow>
           );
-        }) : <EmptyRow colSpan={5} label="No AI insight alerts" />}
+        }) : <EmptyRow colSpan={6} label="No AI insight alerts" />}
       </TableBody>
     </Table>
   );
@@ -234,12 +245,12 @@ function AiInsightsTable({ rows, nodeMap }) {
 
 // ── Table: Infrastructure ──────────────────────────────────────────────────────
 
-function InfraTable({ rows, nodeMap }) {
+function InfraTable({ rows, nodeMap, onResolve }) {
   return (
     <Table size="small">
       <TableHead>
         <TableRow>
-          <TH>Severity</TH><TH>Event</TH><TH>Node</TH><TH>Details</TH><TH>Time</TH>
+          <TH>Severity</TH><TH>Event</TH><TH>Node</TH><TH>Details</TH><TH>Time</TH><TH>Action</TH>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -250,8 +261,13 @@ function InfraTable({ rows, nodeMap }) {
             <NodeChip nodeId={a.nodeId} location={nodeMap[a.nodeId]} />
             <TD sx={{ maxWidth: 420 }}><Typography sx={{ fontSize: '0.8rem' }}>{a.message}</Typography></TD>
             <TimeCell ts={a.createdAt} />
+            <TD align="center">
+              <Button size="small" disabled={a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
+                <CheckIcon fontSize="small" />
+              </Button>
+            </TD>
           </TableRow>
-        )) : <EmptyRow colSpan={5} label="No infrastructure events" />}
+        )) : <EmptyRow colSpan={6} label="No infrastructure events" />}
       </TableBody>
     </Table>
   );
@@ -259,12 +275,12 @@ function InfraTable({ rows, nodeMap }) {
 
 // ── Table: All (universal adaptive) ───────────────────────────────────────────
 
-function AllAlertsTable({ rows, nodeMap }) {
+function AllAlertsTable({ rows, nodeMap, onResolve }) {
   return (
     <Table size="small">
       <TableHead>
         <TableRow>
-          <TH>Severity</TH><TH>Category</TH><TH>Node</TH><TH>Message</TH><TH>Detail</TH><TH>Time</TH>
+          <TH>Severity</TH><TH>Category</TH><TH>Node</TH><TH>Message</TH><TH>Detail</TH><TH>Time</TH><TH>Action</TH>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -325,9 +341,14 @@ function AllAlertsTable({ rows, nodeMap }) {
               </TD>
 
               <TimeCell ts={a.createdAt} />
+              <TD align="center">
+                <Button size="small" disabled={a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
+                  <CheckIcon fontSize="small" />
+                </Button>
+              </TD>
             </TableRow>
           );
-        }) : <EmptyRow colSpan={6} label="No alerts have been triggered yet" />}
+        }) : <EmptyRow colSpan={7} label="No alerts have been triggered yet" />}
       </TableBody>
     </Table>
   );
@@ -345,7 +366,7 @@ export default function AlertsPage() {
 
   // Still fetch all alerts ONLY to drive the global unresolved count and tab counts without breaking backend.
   // In a massive deployment, we would replace this with dedicated count endpoints.
-  const { data: alerts, loading: alertsLoading, error: alertsError } = usePolling(fetchAlerts, API.POLL_INTERVAL);
+  const { data: alerts, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = usePolling(fetchAlerts, API.POLL_INTERVAL);
 
   const fetchPaginatedFn = useCallback(() => {
     let types = [];
@@ -356,7 +377,7 @@ export default function AlertsPage() {
     return fetchAlertsPage(false, types, page, rowsPerPage);
   }, [activeTab, page, rowsPerPage]);
 
-  const { data: pageData, loading: pageLoading } = usePolling(fetchPaginatedFn, page === 0 ? API.POLL_INTERVAL : null);
+  const { data: pageData, loading: pageLoading, refetch: refetchPage } = usePolling(fetchPaginatedFn, page === 0 ? API.POLL_INTERVAL : null);
 
   const nodeMap = useMemo(() => {
     const map = {};
@@ -385,6 +406,34 @@ export default function AlertsPage() {
 
   const unresolvedCount = alerts ? alerts.filter((a) => !a.resolved).length : 0;
 
+  const [resolving, setResolving] = useState(false);
+  const handleResolveAll = async () => {
+    setResolving(true);
+    try {
+      let typesToResolve = [];
+      if (activeTab === 'operational') typesToResolve = [...OPERATIONAL_TYPES];
+      if (activeTab === 'ai') typesToResolve = Array.from(AI_TYPES);
+      if (activeTab === 'infra') typesToResolve = Array.from(INFRA_TYPES);
+      await resolveAllAlerts(typesToResolve);
+      refetchAlerts();
+      refetchPage();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const handleResolveOne = async (id) => {
+    try {
+      await resolveAlert(id);
+      refetchAlerts();
+      refetchPage();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const loading = alertsLoading || nodesLoading || pageLoading;
   if (loading && !pageData) return <LoadingOverlay message="Loading alerts..." />;
 
@@ -392,11 +441,22 @@ export default function AlertsPage() {
     <Box sx={{ p: { xs: 2, md: 3 } }}>
 
       {/* Page header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>Alerts</Typography>
-        <Typography variant="subtitle1" sx={{ color: 'text.secondary' }}>
-          {unresolvedCount} unresolved alert{unresolvedCount !== 1 ? 's' : ''}
-        </Typography>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 700 }}>Alerts</Typography>
+          <Typography variant="subtitle1" sx={{ color: 'text.secondary' }}>
+            {unresolvedCount} unresolved alert{unresolvedCount !== 1 ? 's' : ''} total
+          </Typography>
+        </Box>
+        <Button 
+          variant="contained" 
+          color="primary"
+          disabled={unresolvedCount === 0 || counts[activeTab] === 0 || resolving}
+          onClick={handleResolveAll}
+          sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 2 }}
+        >
+          {resolving ? 'Resolving...' : `Resolve ${activeTab === 'all' ? 'All' : 'Category'} Alerts`}
+        </Button>
       </Box>
 
       {alertsError && <ErrorBanner />}
@@ -445,10 +505,10 @@ export default function AlertsPage() {
 
         {/* Adaptive table */}
         <TableContainer>
-          {activeTab === 'operational' && <OperationalTable rows={paginatedAlerts} nodeMap={nodeMap} />}
-          {activeTab === 'ai' && <AiInsightsTable rows={paginatedAlerts} nodeMap={nodeMap} />}
-          {activeTab === 'infra' && <InfraTable rows={paginatedAlerts} nodeMap={nodeMap} />}
-          {activeTab === 'all' && <AllAlertsTable rows={paginatedAlerts} nodeMap={nodeMap} />}
+          {activeTab === 'operational' && <OperationalTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} />}
+          {activeTab === 'ai' && <AiInsightsTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} />}
+          {activeTab === 'infra' && <InfraTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} />}
+          {activeTab === 'all' && <AllAlertsTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} />}
         </TableContainer>
         
         <TablePagination

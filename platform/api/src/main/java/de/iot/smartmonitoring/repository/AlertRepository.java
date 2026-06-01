@@ -33,4 +33,6 @@ public interface AlertRepository extends MongoRepository<Alert, String> {
     Page<Alert> findByTypeInOrderByCreatedAtDesc(List<Alert.AlertType> types, Pageable pageable);
 
     Page<Alert> findByTypeInAndResolvedFalseOrderByCreatedAtDesc(List<Alert.AlertType> types, Pageable pageable);
+
+    List<Alert> findByTypeInAndResolvedFalse(List<Alert.AlertType> types);
 }
