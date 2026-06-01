@@ -32,7 +32,16 @@ Before WSL can see the nRF52840 Dongle, you must "bind" and "attach" it using Po
     ```powershell
     usbipd attach --wsl --busid <BUSID>
     ```
-    *Note: You must keep the PowerShell window open or re-attach if you unplug the dongle.*
+
+### ⚡ Self-Healing USB (Highly Recommended)
+To prevent the OTBR from crashing if the dongle is bumped or power-flickers, keep this command running in a dedicated **PowerShell** window:
+
+```powershell
+# Automatically re-attaches the dongle whenever it is detected
+# Replace '1-2' with your actual BUSID if it changes
+usbipd attach --wsl --busid 1-2 --auto-attach
+```
+Using `--auto-attach` ensures that your Fog Node is self-healing at the physical hardware layer. Once running, you can unplug and replug the dongle, and Windows will instantly hand it back to WSL.
 
 ---
 
@@ -103,7 +112,26 @@ In the same gateway logs, look for successful delivery to the Mac:
 
 ---
 
-## 6. Architecture Benefits (The "Why")
+## 6. Troubleshooting & Stable Reset
+
+If the OTBR logs show `Spinel Failure` or the bridge stops responding, follow this **"Golden Reset"** sequence to clear the hardware and network pipes:
+
+1.  **Kill Hung Sockets (WSL Terminal):**
+    ```bash
+    # Forces any "ghost" connections on the bridge port to close
+    sudo fuser -k 2000/tcp || true
+    ```
+2.  **Stop Docker Containers:**
+    ```bash
+    docker compose -f docker-compose.otbr-windows.yml down
+    ```
+3.  **Physical Reset:** Unplug the dongle and plug it back in (ensure `usbipd` re-attaches).
+4.  **Restart Bridge:** Run `./start_otbr_bridge_windows.sh` in Terminal 1.
+5.  **Restart Docker:** Run `docker compose up -d` in Terminal 2.
+
+---
+
+## 7. Architecture Benefits (The "Why")
 *   **Autonomous Edge:** If your internet/VPN goes down, the Windows node will safely store sensor data in its local Redis queue and flush it automatically once the connection returns.
 *   **Distributed Range:** By using Windows as a Fog Node, you extend the physical radio coverage of your sensor network beyond the range of a single machine.
 *   **Platform Independent:** Proves the SSNS Gateway tier can run on any OS that supports Docker and WSL2.
