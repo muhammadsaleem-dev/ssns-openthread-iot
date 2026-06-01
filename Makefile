@@ -14,12 +14,11 @@ stop: stop-otbr stop-platform
 
 # Start just the platform (Gateway, Dashboard, Mongo, ML)
 start-platform:
-# 	cd platform && docker-compose up -d --build
-	cd platform && docker-compose -f docker-compose.server.yml up -d --build
+	cd platform && docker-compose -f docker-compose.ha.yml up -d --build
 
 # Stop just the platform
 stop-platform:
-	cd platform && docker-compose -f docker-compose.server.yml down
+	cd platform && docker-compose -f docker-compose.ha.yml down
 
 # Start just the Mac OTBR
 start-otbr:
