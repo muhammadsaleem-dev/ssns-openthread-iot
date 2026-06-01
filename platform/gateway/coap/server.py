@@ -10,10 +10,9 @@ import json
 import cbor2
 import aiocoap
 import aiocoap.resource as resource
-from cachetools import TTLCache
 
 from telemetry.model import TelemetryReading
-from forwarding.queue_manager import SQLiteQueueManager
+from forwarding.queue_manager import RedisQueueManager
 from logging_ import setup_logger
 
 logger = setup_logger(__name__)
@@ -21,11 +20,9 @@ logger = setup_logger(__name__)
 class StoreDataResource(resource.Resource):
     """CoAP resource that receives sensor telemetry PUT requests."""
     
-    def __init__(self, queue_manager: SQLiteQueueManager):
+    def __init__(self, queue_manager: RedisQueueManager):
         super().__init__()
         self._queue_manager = queue_manager
-        # Deduplication cache: holds 10000 recent keys, expires after 5 minutes
-        self._cache = TTLCache(maxsize=10000, ttl=300)
     
     async def render_put(self, request):
         try:
@@ -63,14 +60,18 @@ class StoreDataResource(resource.Resource):
                 logger.error("Malformed payload: Missing required identity fields")
                 return aiocoap.Message(code=aiocoap.BAD_REQUEST)
             
-            # Deduplication Check
-            dedup_key = f"{node_id}:{boot_id}:{seq_num}"
-            if dedup_key in self._cache:
+            # Distributed Deduplication Check via Redis SETNX
+            dedup_key = f"dedup:{node_id}:{boot_id}:{seq_num}"
+            
+            # SETNX returns 1 if key was set (meaning it's new), 0 if key already exists
+            is_new = self._queue_manager.r.setnx(dedup_key, "1")
+            
+            if not is_new:
                 logger.info("Duplicate packet dropped: %s", dedup_key)
                 return aiocoap.Message(code=aiocoap.CHANGED)
             
-            # Not a duplicate, add to cache and queue it for asynchronous processing
-            self._cache[dedup_key] = True
+            # Key is new, set TTL to 5 minutes (300 seconds)
+            self._queue_manager.r.expire(dedup_key, 300)
             
             # Enqueue the raw payload string (queue_manager will append gateway_timestamp)
             self._queue_manager.enqueue(node_id, seq_num, payload_str)
@@ -83,7 +84,7 @@ class StoreDataResource(resource.Resource):
             return aiocoap.Message(code=aiocoap.BAD_REQUEST)
 
 
-async def start_coap_server(queue_manager: SQLiteQueueManager, port: int = 5683):
+async def start_coap_server(queue_manager: RedisQueueManager, port: int = 5683):
     """Start the aiocoap server context."""
     root = resource.Site()
     root.add_resource(["storedata"], StoreDataResource(queue_manager))

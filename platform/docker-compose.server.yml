@@ -25,6 +25,21 @@ services:
     networks:
       - ssns-network
 
+  # ── Redis (Cache & Queue) ─────────────────────────────────
+  redis:
+    image: redis:7
+    container_name: ssns-monitoring-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - ssns-network
+
   # ── Backend API ───────────────────────────────────────────
   backend:
     build:
@@ -55,11 +70,13 @@ services:
     environment:
       GATEWAY_MODE: coap
       BACKEND_URL: http://backend:8080/api/sensor-data
+      REDIS_URL: redis://redis:6379/0
       TELEMETRY_INTERVAL: 10
       NODE_COUNT: 4
       LOG_LEVEL: INFO
     depends_on:
       - backend
+      - redis
     restart: unless-stopped
     networks:
       - ssns-network

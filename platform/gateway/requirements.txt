@@ -12,8 +12,11 @@ python-dotenv>=1.0.0,<2.0.0
 # Async CoAP server for receiving Thread sensor node telemetry
 aiocoap>=0.4.0
 
-# In-memory deduplication and caching
+# In-memory deduplication and caching (Legacy, being replaced by Redis)
 cachetools>=5.3.0
+
+# Distributed deduplication and message queuing
+redis>=5.0.1
 
 # CBOR Decoding for compressed binary payloads
 cbor2==5.6.2

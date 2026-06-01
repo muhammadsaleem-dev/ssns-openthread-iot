@@ -16,6 +16,7 @@ Usage:
 import asyncio
 import signal
 import sys
+import os
 import time
 
 from config import load_config
@@ -81,9 +82,10 @@ def main():
     if config.gateway_mode == "coap":
         logger.info("Gateway running in CoAP server mode — press Ctrl+C to stop")
         from coap.server import start_coap_server
-        from forwarding.queue_manager import SQLiteQueueManager
+        from forwarding.queue_manager import RedisQueueManager
         
-        queue_manager = SQLiteQueueManager()
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        queue_manager = RedisQueueManager(redis_url=redis_url)
         
         async def run_services():
             worker_task = asyncio.create_task(queue_manager.worker_loop(forwarder))
