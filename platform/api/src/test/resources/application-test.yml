@@ -1,0 +1,14 @@
+# ============================================================
+# Test profile configuration
+# ============================================================
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/ble_monitoring_test
+      database: ble_monitoring_test
+
+logging:
+  level:
+    root: WARN
+    de.iot.smartmonitoring: DEBUG

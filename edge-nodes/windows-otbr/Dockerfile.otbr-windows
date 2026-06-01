@@ -1,0 +1,18 @@
+FROM openthread/otbr:latest
+
+# =========================================================================
+# SSNS Custom OTBR Edge Image (Windows/AMD64)
+# -------------------------------------------------------------------------
+# We pre-install the required network bridging tools directly into the image 
+# during the build phase. This completely removes the startup latency and 
+# ensures the container boots safely even if the host is completely offline 
+# or Ubuntu's apt repositories are unreachable.
+# =========================================================================
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends socat iproute2 && \
+    rm -rf /var/lib/apt/lists/*
+
+# The default ENTRYPOINT from openthread/otbr:latest remains untouched here.
+# The custom initialization sequence and CoAP routing is injected 
+# via the 'entrypoint' override in docker-compose.otbr-windows.yml.

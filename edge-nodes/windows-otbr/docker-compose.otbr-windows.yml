@@ -1,0 +1,111 @@
+# ============================================================
+# SSNS Smart Monitoring System — Windows/WSL2 Edge Node
+#
+# Runs natively on AMD64 WSL2 with direct USB passthrough.
+# Connects physical nRF52840 to the Thread mesh and forwards 
+# telemetry over Wi-Fi back to the Mac Gateway.
+# ============================================================
+
+services:
+
+  otbr:
+    # Build a native image with bridging dependencies preinstalled
+    build:
+      context: .
+      dockerfile: Dockerfile.otbr-windows
+    container_name: ssns-otbr-windows
+    privileged: true
+    ports:
+      - "8081:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.forwarding=1
+      - net.ipv6.conf.all.forwarding=1
+    
+    environment:
+      # ⚠️ CRITICAL: The official openthread/otbr:latest entrypoint reads RADIO_URL,
+      # NOT OT_RCP_DEVICE. If RADIO_URL is unset, it defaults to /dev/ttyUSB0
+      # which does not exist, causing "No such file or directory".
+      RADIO_URL: "spinel+hdlc+uart:///dev/ttyACM0"
+      BACKBONE_INTERFACE: "eth0"
+      NAT64: "0"
+      FIREWALL: "0"
+      
+      # The Mac's Tailscale IP ADDRESS (Bypasses all Wi-Fi isolation)
+      GATEWAY_HOST_IP: "100.98.119.40"
+      
+    # =========================================================================
+    # CUSTOM ENTRYPOINT EXPLANATION
+    # -------------------------------------------------------------------------
+    # Why a custom entrypoint? 
+    # We cannot use the default OTBR startup directly because we must inject 
+    # dependencies (socat, iproute2) and configure the Thread dataset alongside 
+    # the OTBR agent booting. This custom script bootstraps the environment and 
+    # then hands control back to the official OTBR entrypoint.
+    # 
+    # STEP-BY-STEP BREAKDOWN:
+    # 
+    # 1. socat UDP6-LISTEN...
+    #    - Thread devices communicate natively using IPv6 CoAP.
+    #    - The Mac Gateway listens on an IPv4 Wi-Fi address.
+    #    - This bridges incoming IPv6 CoAP traffic from the Thread mesh to the IPv4 Gateway.
+    # 
+    # 2. Dataset Initialization Block (ot-ctl state | grep -q disabled)
+    #    - Checks if the node is "disabled" to ensure the dataset is only created 
+    #      if the Border Router is not already commissioned.
+    # 
+    # 4. Thread Parameters
+    #    - Network Name: Human-readable identifier for the Thread mesh.
+    #    - PAN ID: Personal Area Network ID, must match the sensor node.
+    #    - Extended PAN ID: 64-bit globally unique network identifier.
+    #    - Network Key: The AES-128 encryption key securing the Thread mesh.
+    #    - Channel: The 802.15.4 physical radio channel the network operates on.
+    #    - Mesh Local Prefix: The IPv6 prefix used for routing within the mesh.
+    # 
+    # 5. ot-ctl ifconfig up & ot-ctl thread start
+    #    - Brings up the Thread interface and starts participation in the Thread mesh.
+    # 
+    # 6. ot-ctl netdata register
+    #    - Registers network data and services so other nodes know this router exists.
+    # 
+    # 7. ip -6 addr add ... dev wpan0
+    #    - Advertises a stable, known IPv6 address inside the Thread network so 
+    #      sensors always know where to send CoAP telemetry.
+    # 
+    # 8. exec /app/etc/docker/test/docker_entrypoint.sh
+    #    - Hands control back to the official OpenThread OTBR startup process.
+    #    - This launches otbr-agent, the web UI, and supporting services.
+    # =========================================================================
+    entrypoint: >
+      bash -c "(while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000 2>/dev/null; sleep 1; done) & \
+      socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:$${GATEWAY_HOST_IP}:5683 & \
+      (until ot-ctl state 2>/dev/null; do sleep 1; done; \
+       if ot-ctl state | grep -q disabled; then \
+         ot-ctl dataset init new && \
+         ot-ctl dataset networkname WSN01 && \
+         ot-ctl dataset panid 0x1235 && \
+         ot-ctl dataset extpanid 1111111122222222 && \
+         ot-ctl dataset networkkey 112233445566778899aabbccddeeff00 && \
+         ot-ctl dataset channel 15 && \
+         ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12:: && \
+         ot-ctl dataset commit active && \
+         ot-ctl ifconfig up && \
+         ot-ctl thread start; \
+       fi; \
+       sleep 5; \
+       ot-ctl netdata register; \
+       ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0) & \
+      until [ -e /dev/ttyACM0 ]; do echo 'Waiting for serial bridge...'; sleep 1; done; \
+      sleep 2; \
+      exec /app/etc/docker/test/docker_entrypoint.sh"
+    restart: unless-stopped
+    networks:
+      - ssns-windows-network
+
+networks:
+  ssns-windows-network:
+    name: ssns-windows-network
+    driver: bridge

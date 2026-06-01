@@ -1,0 +1,16 @@
+# ============================================================
+# Thread Serial Gateway — Python Dependencies
+# ============================================================
+
+# HTTP client for backend communication
+requests>=2.31.0,<3.0.0
+
+# Environment and configuration management
+python-dotenv>=1.0.0,<2.0.0
+
+# ----- OpenThread CoAP Integration -----
+# Async CoAP server for receiving Thread sensor node telemetry
+aiocoap>=0.4.0
+
+# In-memory deduplication and caching
+cachetools>=5.3.0

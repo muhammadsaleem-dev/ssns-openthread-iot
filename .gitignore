@@ -1,0 +1,53 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+
+# Old BLE directories
+ble-smart-monitoring-backend/
+ble-smart-monitoring-gateway/
+ble-smart-monitoring-dashboard/
+
+# Zephyr & Firmware
+build/
+*.hex
+*.elf
+*.map
+
+# Temporarily Ignore Docs
+docs/
+
+# Python / Gateway
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+*.db
+
+# Node.js / React Dashboard
+node_modules/
+dist/
+build/
+.npm/
+
+# Java / Spring Boot API
+target/
+*.jar
+*.war
+.mvn/
+
+# Docker
+.docker/
+*.tar
+*.tar.gz

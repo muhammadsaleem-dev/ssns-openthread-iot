@@ -1,0 +1,60 @@
+# ============================================================
+# BLE Smart Monitoring Backend — Application Configuration
+# ============================================================
+
+spring:
+  application:
+    name: smart-monitoring-api
+
+  # ---- MongoDB ----
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/openthread_monitoring}
+      database: ${MONGODB_DATABASE:openthread_monitoring}
+      auto-index-creation: true
+
+  # ---- Jackson ----
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# ---- Server ----
+server:
+  port: ${SERVER_PORT:8080}
+
+# ---- Actuator ----
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ---- SpringDoc / Swagger ----
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+# ---- Logging ----
+logging:
+  level:
+    root: INFO
+    de.iot.smartmonitoring: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# ---- Application-specific ----
+app:
+  alerts:
+    temperature-max: 35.0
+    temperature-min: 10.0
+    co2-max: 1500.0
+    pm25-max: 35.0
+    tvoc-max: 1000.0

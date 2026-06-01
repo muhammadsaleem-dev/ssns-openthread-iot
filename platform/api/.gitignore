@@ -1,0 +1,40 @@
+# === Build output ===
+target/
+
+# === IDE ===
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Compiled class files ===
+*.class
+
+# === Log files ===
+*.log
+logs/
+
+# === Package files ===
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# === JVM crash logs ===
+hs_err_pid*
+replay_pid*
+
+# === Environment ===
+.env
+*.env.local

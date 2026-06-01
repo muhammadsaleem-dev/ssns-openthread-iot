@@ -1,0 +1,12 @@
+# ============================================================
+# Simulator profile — extends base application.yml
+# Activated with: --spring.profiles.active=simulator
+# ============================================================
+
+app:
+  simulator:
+    interval-ms: 10000    # Generate telemetry every 10 seconds
+
+logging:
+  level:
+    de.iot.smartmonitoring.telemetry: DEBUG

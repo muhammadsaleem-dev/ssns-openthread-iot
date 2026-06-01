@@ -1,0 +1,15 @@
+# ============================================================
+# Docker Compose — BLE Monitoring Dashboard (standalone)
+#
+# For full-stack orchestration, use a compose file in the
+# project root that includes backend + MongoDB + gateway.
+# ============================================================
+
+services:
+
+  dashboard:
+    build: .
+    container_name: ble-monitoring-dashboard
+    ports:
+      - "3000:80"
+    restart: unless-stopped

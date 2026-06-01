@@ -1,0 +1,66 @@
+# ============================================================
+# SSNS Smart Monitoring System — Remote OTBR Deployment
+#
+# Runs on the Raspberry Pi (or any remote antenna host)
+# ============================================================
+
+services:
+
+  # ── OpenThread Border Router ─────────────────────────────
+  otbr:
+    image: openthread/otbr:custom
+    container_name: ssns-otbr
+    privileged: true
+    ports:
+      - "8081:8080"
+    
+    # Note: On macOS, physical USB mapping is impossible. 
+    # We rely on the host-side start_otbr_bridge.sh script instead.
+    
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.forwarding=1
+      - net.ipv6.conf.all.forwarding=1
+    
+    environment:
+      # Tell OTBR to use the direct USB device instead of the Mac socat bridge
+      OT_RCP_DEVICE: "spinel+hdlc+uart:///dev/ttyACM0"
+      OT_INFRA_IF: "eth0"
+      OT_WEB_LISTEN_ADDR: "0.0.0.0"
+      
+      # ⚠️ macOS HOST ROUTING
+      # Docker automatically routes this DNS name back to the Mac's host OS,
+      # bypassing any need for physical Wi-Fi IP addresses.
+      GATEWAY_HOST_IP: "host.docker.internal"
+      
+    entrypoint: >
+      bash -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y socat iproute2; \
+      (while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000 2>/dev/null; sleep 1; done) & \
+      socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:$${GATEWAY_HOST_IP}:5683 &
+      (until ot-ctl state 2>/dev/null; do sleep 1; done; \
+       if ot-ctl state | grep -q disabled; then \
+         ot-ctl dataset init new && \
+         ot-ctl dataset networkname WSN01 && \
+         ot-ctl dataset panid 0x1235 && \
+         ot-ctl dataset extpanid 1111111122222222 && \
+         ot-ctl dataset networkkey 112233445566778899aabbccddeeff00 && \
+         ot-ctl dataset channel 15 && \
+         ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12:: && \
+         ot-ctl dataset commit active && \
+         ot-ctl ifconfig up && \
+         ot-ctl thread start; \
+       fi; \
+       sleep 5; \
+       ot-ctl netdata register; \
+       ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0) &
+      until [ -e /dev/ttyACM0 ]; do echo 'Waiting for serial bridge...'; sleep 1; done; \
+      sleep 2; \
+      exec /init"
+    restart: unless-stopped
+    networks:
+      - ssns-otbr-network
+
+networks:
+  ssns-otbr-network:
+    name: ssns-otbr-network
+    driver: bridge

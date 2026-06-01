@@ -1,0 +1,23 @@
+# ============================================================
+# Docker Compose — OpenThread Gateway Simulator (standalone)
+#
+# For full-stack orchestration including backend + MongoDB,
+# use the compose file in the project root or the backend repo.
+# ============================================================
+
+services:
+
+  gateway:
+    build: .
+    container_name: openthread-monitoring-gateway
+    environment:
+      BACKEND_URL: http://host.docker.internal:8080/api/sensor-data
+      TELEMETRY_INTERVAL: 10
+      NODE_COUNT: 1
+      LOG_LEVEL: INFO
+    restart: unless-stopped
+    # Use host networking on Linux for backend connectivity,
+    # or host.docker.internal on macOS/Windows:
+    # network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
