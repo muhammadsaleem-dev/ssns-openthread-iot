@@ -1,0 +1,26 @@
+FROM ubuntu:bionic
+
+# Install essential tools required to clone and build OpenThread
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    sudo \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Clone the OpenThread Border Router repository
+RUN git clone https://github.com/openthread/ot-br-posix.git . \
+    && git submodule update --init --recursive
+
+# Run the official bootstrap script to install all dependencies
+RUN ./script/bootstrap
+
+# Run the setup script with explicit CMake flags to disable Mac-crashing features
+# -DOTBR_BORDER_ROUTING=OFF: Disables standard border routing
+# -DOTBR_BACKBONE_ROUTER=OFF: Disables the Multicast Socket (prevents Mac kernel panic)
+# -DOTBR_NAT64=OFF: Disables NAT64 routing
+RUN ./script/setup -DOTBR_BORDER_ROUTING=OFF -DOTBR_BACKBONE_ROUTER=OFF -DOTBR_NAT64=OFF
+
+# Set the standard test entrypoint
+ENTRYPOINT ["/app/etc/docker/test/docker_entrypoint.sh"]
