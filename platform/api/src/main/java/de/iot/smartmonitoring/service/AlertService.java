@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
 /**
  * Service responsible for evaluating telemetry against configured thresholds
@@ -102,6 +104,31 @@ public class AlertService {
     public List<AlertResponse> findUnresolved() {
         return alertRepository.findByResolvedFalse()
                 .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Return paginated alerts, optionally filtered by unresolved status and category types.
+     */
+    public Page<AlertResponse> getPaginatedAlerts(boolean unresolvedOnly, List<Alert.AlertType> types, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, size);
+
+        if (types != null && !types.isEmpty()) {
+            if (unresolvedOnly) {
+                return alertRepository.findByTypeInAndResolvedFalseOrderByCreatedAtDesc(types, pageRequest)
+                        .map(this::toResponse);
+            } else {
+                return alertRepository.findByTypeInOrderByCreatedAtDesc(types, pageRequest)
+                        .map(this::toResponse);
+            }
+        } else {
+            if (unresolvedOnly) {
+                return alertRepository.findByResolvedFalseOrderByCreatedAtDesc(pageRequest)
+                        .map(this::toResponse);
+            } else {
+                return alertRepository.findAllByOrderByCreatedAtDesc(pageRequest)
+                        .map(this::toResponse);
+            }
+        }
     }
 
     // ---- Internal helpers ----

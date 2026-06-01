@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.RequestParam;
+import de.iot.smartmonitoring.model.Alert.AlertType;
 
 /**
  * REST controller for querying alerts.
@@ -46,6 +49,21 @@ public class AlertController {
     public ResponseEntity<List<AlertResponse>> getUnresolved() {
         log.info("GET /api/alerts/unresolved");
         return ResponseEntity.ok(alertService.findUnresolved());
+    }
+
+    @GetMapping("/page")
+    @Operation(
+            summary = "Retrieve alerts (Paginated)",
+            description = "Returns paginated alerts. Optionally filter by unresolved status and category types."
+    )
+    @ApiResponse(responseCode = "200", description = "Page of alerts")
+    public ResponseEntity<Page<AlertResponse>> getPaginated(
+            @RequestParam(defaultValue = "false") boolean unresolvedOnly,
+            @RequestParam(required = false) List<AlertType> types,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        log.info("GET /api/alerts/page — unresolvedOnly={}, types={}, page={}, size={}", unresolvedOnly, types, page, size);
+        return ResponseEntity.ok(alertService.getPaginatedAlerts(unresolvedOnly, types, page, size));
     }
 
     @org.springframework.web.bind.annotation.PostMapping
