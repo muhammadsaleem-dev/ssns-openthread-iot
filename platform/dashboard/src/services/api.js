@@ -38,10 +38,23 @@ export const fetchAlerts = async () => {
   return data;
 };
 
+/** Fetch paginated alerts with optional filters. */
+export const fetchAlertsPage = async (unresolvedOnly = false, types = [], page = 0, size = 10) => {
+  const params = new URLSearchParams();
+  params.append('unresolvedOnly', unresolvedOnly);
+  params.append('page', page);
+  params.append('size', size);
+  if (types && types.length > 0) {
+    types.forEach(type => params.append('types', type));
+  }
+  const { data } = await client.get('/api/alerts/page', { params });
+  return data;
+};
+
 /** Update the human-readable location of a specific node. */
 export const updateNodeLocation = async (nodeId, location) => {
   const { data } = await client.put(`/api/nodes/${nodeId}/location`, { location });
   return data;
 };
 
-export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, updateNodeLocation };
+export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertsPage, updateNodeLocation };

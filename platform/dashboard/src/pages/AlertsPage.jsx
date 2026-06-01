@@ -10,25 +10,25 @@
  * All categorisation is client-side. No backend or API changes required.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import {
   Box, Card, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Tabs, Tab,
-  Alert as MuiAlert, alpha,
+  Alert as MuiAlert, alpha, TablePagination
 } from '@mui/material';
-import WarningAmberIcon   from '@mui/icons-material/WarningAmber';
-import ThermostatIcon     from '@mui/icons-material/Thermostat';
-import PsychologyIcon     from '@mui/icons-material/Psychology';
-import RouterIcon         from '@mui/icons-material/Router';
-import AllInboxIcon       from '@mui/icons-material/AllInbox';
-import TrendingUpIcon     from '@mui/icons-material/TrendingUp';
-import BubbleChartIcon    from '@mui/icons-material/BubbleChart';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ThermostatIcon from '@mui/icons-material/Thermostat';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import RouterIcon from '@mui/icons-material/Router';
+import AllInboxIcon from '@mui/icons-material/AllInbox';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 
 import LoadingOverlay from '../components/LoadingOverlay';
-import ErrorBanner    from '../components/ErrorBanner';
-import usePolling     from '../hooks/usePolling';
-import { fetchAlerts, fetchNodes }    from '../services/api';
+import ErrorBanner from '../components/ErrorBanner';
+import usePolling from '../hooks/usePolling';
+import { fetchAlerts, fetchAlertsPage, fetchNodes } from '../services/api';
 import { formatTimestamp } from '../utils/format';
 import API from '../config/api';
 
@@ -39,14 +39,14 @@ const OPERATIONAL_TYPES = new Set([
   'HIGH_CO2', 'HIGH_PARTICULATES', 'HIGH_VOC',
   'AIR_QUALITY_POOR', 'LIGHT_INTENSITY_HIGH',        // legacy DB compat
 ]);
-const AI_TYPES    = new Set(['ML_ANOMALY', 'FORECAST_WARNING']);
+const AI_TYPES = new Set(['ML_ANOMALY', 'FORECAST_WARNING']);
 const INFRA_TYPES = new Set(['NODE_OFFLINE']);
 
 const CATEGORY_FILTER = {
-  all:         () => true,
+  all: () => true,
   operational: (a) => OPERATIONAL_TYPES.has(a.type),
-  ai:          (a) => AI_TYPES.has(a.type),
-  infra:       (a) => INFRA_TYPES.has(a.type),
+  ai: (a) => AI_TYPES.has(a.type),
+  infra: (a) => INFRA_TYPES.has(a.type),
 };
 
 // ── Display helpers ────────────────────────────────────────────────────────────
@@ -54,12 +54,12 @@ const CATEGORY_FILTER = {
 const SEVERITY_COLOR = { CRITICAL: 'error', WARNING: 'warning', INFO: 'info' };
 
 const OPERATIONAL_LABELS = {
-  TEMPERATURE_HIGH:     'Temp High',
-  TEMPERATURE_LOW:      'Temp Low',
-  HIGH_CO2:             'High CO2',
-  HIGH_PARTICULATES:    'High PM2.5',
-  HIGH_VOC:             'High TVOC',
-  AIR_QUALITY_POOR:     'Air Quality (Legacy)',
+  TEMPERATURE_HIGH: 'Temp High',
+  TEMPERATURE_LOW: 'Temp Low',
+  HIGH_CO2: 'High CO2',
+  HIGH_PARTICULATES: 'High PM2.5',
+  HIGH_VOC: 'High TVOC',
+  AIR_QUALITY_POOR: 'Air Quality (Legacy)',
   LIGHT_INTENSITY_HIGH: 'Light High (Legacy)',
 };
 
@@ -67,13 +67,13 @@ const OPERATIONAL_LABELS = {
 const AI_META = {
   ML_ANOMALY: {
     label: 'Behavioural Anomaly',
-    Icon:  BubbleChartIcon,
+    Icon: BubbleChartIcon,
     color: 'warning.main',
     predictive: false,
   },
   FORECAST_WARNING: {
     label: 'Predictive Forecast',
-    Icon:  TrendingUpIcon,
+    Icon: TrendingUpIcon,
     color: 'info.main',
     predictive: true,
   },
@@ -84,10 +84,10 @@ const getAiMeta = (type) => AI_META[type] ?? { label: type, Icon: PsychologyIcon
 // ── Tab config ─────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'all',         label: 'All',            Icon: AllInboxIcon },
-  { key: 'operational', label: 'Operational',    Icon: ThermostatIcon },
-  { key: 'ai',          label: 'AI Insights',    Icon: PsychologyIcon },
-  { key: 'infra',       label: 'Infrastructure', Icon: RouterIcon },
+  { key: 'all', label: 'All', Icon: AllInboxIcon },
+  { key: 'operational', label: 'Operational', Icon: ThermostatIcon },
+  { key: 'ai', label: 'AI Insights', Icon: PsychologyIcon },
+  { key: 'infra', label: 'Infrastructure', Icon: RouterIcon },
 ];
 
 // ── Shared primitives ──────────────────────────────────────────────────────────
@@ -269,9 +269,9 @@ function AllAlertsTable({ rows, nodeMap }) {
       </TableHead>
       <TableBody>
         {rows.length > 0 ? rows.map((a, i) => {
-          const isAi    = AI_TYPES.has(a.type);
+          const isAi = AI_TYPES.has(a.type);
           const isInfra = INFRA_TYPES.has(a.type);
-          const meta    = isAi ? getAiMeta(a.type) : null;
+          const meta = isAi ? getAiMeta(a.type) : null;
 
           return (
             <TableRow
@@ -337,10 +337,26 @@ function AllAlertsTable({ rows, nodeMap }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function AlertsPage() {
-  const { data: alerts, loading: alertsLoading, error: alertsError } = usePolling(fetchAlerts, API.POLL_INTERVAL);
   const { data: nodes, loading: nodesLoading } = usePolling(fetchNodes, API.POLL_INTERVAL);
   
   const [activeTab, setActiveTab] = useState('all');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Still fetch all alerts ONLY to drive the global unresolved count and tab counts without breaking backend.
+  // In a massive deployment, we would replace this with dedicated count endpoints.
+  const { data: alerts, loading: alertsLoading, error: alertsError } = usePolling(fetchAlerts, API.POLL_INTERVAL);
+
+  const fetchPaginatedFn = useCallback(() => {
+    let types = [];
+    if (activeTab === 'operational') types = Array.from(OPERATIONAL_TYPES);
+    else if (activeTab === 'ai') types = Array.from(AI_TYPES);
+    else if (activeTab === 'infra') types = Array.from(INFRA_TYPES);
+    
+    return fetchAlertsPage(false, types, page, rowsPerPage);
+  }, [activeTab, page, rowsPerPage]);
+
+  const { data: pageData, loading: pageLoading } = usePolling(fetchPaginatedFn, page === 0 ? API.POLL_INTERVAL : null);
 
   const nodeMap = useMemo(() => {
     const map = {};
@@ -362,15 +378,15 @@ export default function AlertsPage() {
     };
   }, [alerts]);
 
-  const visibleAlerts = useMemo(
-    () => (alerts ? alerts.filter(CATEGORY_FILTER[activeTab]) : []),
-    [alerts, activeTab],
-  );
+  const paginatedAlerts = useMemo(() => {
+    if (!pageData || !pageData.content) return [];
+    return pageData.content;
+  }, [pageData]);
 
   const unresolvedCount = alerts ? alerts.filter((a) => !a.resolved).length : 0;
 
-  const loading = alertsLoading || nodesLoading;
-  if (loading && !alerts) return <LoadingOverlay message="Loading alerts..." />;
+  const loading = alertsLoading || nodesLoading || pageLoading;
+  if (loading && !pageData) return <LoadingOverlay message="Loading alerts..." />;
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -390,7 +406,7 @@ export default function AlertsPage() {
         {/* Tab navigation */}
         <Tabs
           value={activeTab}
-          onChange={(_, v) => setActiveTab(v)}
+          onChange={(_, v) => { setActiveTab(v); setPage(0); }}
           sx={{
             px: 2,
             borderBottom: 1,
@@ -414,7 +430,7 @@ export default function AlertsPage() {
                       sx={{
                         height: 18, fontSize: '0.7rem', fontWeight: 700,
                         bgcolor: activeTab === key ? 'primary.main' : alpha('#6B7280', 0.15),
-                        color:   activeTab === key ? '#fff' : 'text.secondary',
+                        color: activeTab === key ? '#fff' : 'text.secondary',
                         '.MuiChip-label': { px: 0.8 },
                       }}
                     />
@@ -429,11 +445,24 @@ export default function AlertsPage() {
 
         {/* Adaptive table */}
         <TableContainer>
-          {activeTab === 'operational' && <OperationalTable rows={visibleAlerts} nodeMap={nodeMap} />}
-          {activeTab === 'ai'          && <AiInsightsTable  rows={visibleAlerts} nodeMap={nodeMap} />}
-          {activeTab === 'infra'       && <InfraTable        rows={visibleAlerts} nodeMap={nodeMap} />}
-          {activeTab === 'all'         && <AllAlertsTable    rows={visibleAlerts} nodeMap={nodeMap} />}
+          {activeTab === 'operational' && <OperationalTable rows={paginatedAlerts} nodeMap={nodeMap} />}
+          {activeTab === 'ai' && <AiInsightsTable rows={paginatedAlerts} nodeMap={nodeMap} />}
+          {activeTab === 'infra' && <InfraTable rows={paginatedAlerts} nodeMap={nodeMap} />}
+          {activeTab === 'all' && <AllAlertsTable rows={paginatedAlerts} nodeMap={nodeMap} />}
         </TableContainer>
+        
+        <TablePagination
+          component="div"
+          count={pageData ? pageData.totalElements : 0}
+          page={page}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+        />
       </Card>
     </Box>
   );
