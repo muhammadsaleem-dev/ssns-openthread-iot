@@ -87,6 +87,11 @@ async def start_polling_loop():
                         latest_reading["lightIntensity"],
                     ]
 
+                    # Sanity Filter: Skip inference if any hardware fault placeholders (-999.0) are present
+                    if any(v <= -900.0 for v in features):
+                        logger.warning(f"Hardware fault detected for node {node_id}; skipping ML inference.")
+                        continue
+
                     # 3. Run ML inference (Anomaly Detection)
                     is_anomaly, anomaly_context, anomaly_action = detector_manager.process(node_id, features)
 
