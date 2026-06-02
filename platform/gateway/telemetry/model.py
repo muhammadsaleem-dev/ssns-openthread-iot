@@ -27,6 +27,7 @@ class TelemetryReading:
     pm4_0: float
     pm10: float
     light_intensity: float
+    health_status: int = 255
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict:
@@ -51,10 +52,15 @@ class TelemetryReading:
             "pm4_0": round(self.pm4_0, 1),
             "pm10": round(self.pm10, 1),
             "lightIntensity": round(self.light_intensity, 1),
+            "healthStatus": self.health_status,
             "timestamp": self.timestamp,
         }
 
     def __str__(self) -> str:
+        health_str = f"health={self.health_status:08b}"
+        if self.health_status != 255:
+            health_str = f"⚠️  {health_str} (FAULT)"
+            
         return (
             f"[{self.node_id}] "
             f"temp={self.temperature:.1f}°C, "
@@ -62,5 +68,6 @@ class TelemetryReading:
             f"co2={self.co2:.0f}ppm, "
             f"tvoc={self.tvoc:.0f}ppb, "
             f"pm2.5={self.pm2_5:.1f}µg/m³, "
-            f"light={self.light_intensity:.0f}lux"
+            f"light={self.light_intensity:.0f}lux, "
+            f"{health_str}"
         )

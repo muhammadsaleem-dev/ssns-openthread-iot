@@ -29,7 +29,7 @@ class StoreDataResource(resource.Resource):
             # Decode CBOR Array from binary payload
             cbor_data = cbor2.loads(request.payload)
             if not isinstance(cbor_data, list) or len(cbor_data) < 14:
-                logger.error("Malformed CBOR array received")
+                logger.error("Malformed CBOR array received (len: %d)", len(cbor_data))
                 return aiocoap.Message(code=aiocoap.BAD_REQUEST)
             
             node_id = cbor_data[0]
@@ -54,6 +54,11 @@ class StoreDataResource(resource.Resource):
                 "sequenceNumber": seq_num,
                 "uptimeMs": cbor_data[3]
             }
+
+            # Extract healthStatus if present (16th item in the list)
+            if len(cbor_data) >= 15:
+                 payload["healthStatus"] = cbor_data[14]
+
             payload_str = json.dumps(payload)
             
             if not node_id or not boot_id or seq_num is None:

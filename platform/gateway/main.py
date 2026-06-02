@@ -88,8 +88,11 @@ def main():
         queue_manager = RedisQueueManager(redis_url=redis_url)
         
         async def run_services():
-            worker_task = asyncio.create_task(queue_manager.worker_loop(forwarder))
-            await start_coap_server(queue_manager)
+            # Run both services in parallel
+            await asyncio.gather(
+                queue_manager.worker_loop(forwarder),
+                start_coap_server(queue_manager)
+            )
             
         try:
             asyncio.run(run_services())
