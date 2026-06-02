@@ -162,16 +162,22 @@ export default function NodeCard({ node, latestTelemetry, hasActiveAlerts, onLoc
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
                 <ThermostatIcon sx={{ fontSize: 14, mr: 0.5, color: '#3B82F6' }} /> Temp
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {latestTelemetry.temperature != null ? latestTelemetry.temperature.toFixed(1) : '--'} <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>°C</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: latestTelemetry.temperature <= -900 ? '#EF4444' : 'inherit' }}>
+                {latestTelemetry.temperature != null ? (latestTelemetry.temperature <= -900 ? 'FAULT' : latestTelemetry.temperature.toFixed(1)) : '--'} 
+                {latestTelemetry.temperature != null && latestTelemetry.temperature > -900 && (
+                  <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>°C</Typography>
+                )}
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
                 <AirIcon sx={{ fontSize: 14, mr: 0.5, color: '#10B981' }} /> CO2
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {latestTelemetry.co2 != null ? Math.round(latestTelemetry.co2) : '--'} <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>ppm</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: latestTelemetry.co2 <= -900 ? '#EF4444' : 'inherit' }}>
+                {latestTelemetry.co2 != null ? (latestTelemetry.co2 <= -900 ? 'FAULT' : Math.round(latestTelemetry.co2)) : '--'} 
+                {latestTelemetry.co2 != null && latestTelemetry.co2 > -900 && (
+                  <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>ppm</Typography>
+                )}
               </Typography>
             </Box>
           </Box>

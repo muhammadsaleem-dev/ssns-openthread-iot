@@ -381,26 +381,34 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {recentFeed.map((row, i) => (
-                    <TableRow key={row.id || i} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600, fontSize: '0.7rem' }}>{getNodeName(row.nodeId)}</Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.temperature?.toFixed(1)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.humidity?.toFixed(1)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.co2?.toFixed(0)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.tvoc?.toFixed(0)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.eco2?.toFixed(0)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.pm1_0?.toFixed(1)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.pm2_5?.toFixed(1)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.pm4_0?.toFixed(1)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.pm10?.toFixed(1)}</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem' }}>{row.lightIntensity?.toFixed(0)}</TableCell>
-                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                        {formatTimestamp(row.timestamp)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {recentFeed.map((row, i) => {
+                    const formatVal = (v, precision = 1) => {
+                       if (v == null) return '--';
+                       if (v <= -900) return <Typography component="span" sx={{ color: 'error.main', fontWeight: 700, fontSize: '0.65rem' }}>FAULT</Typography>;
+                       return v.toFixed(precision);
+                    };
+
+                    return (
+                      <TableRow key={row.id || i} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                        <TableCell>
+                          <Typography sx={{ fontWeight: 600, fontSize: '0.7rem' }}>{getNodeName(row.nodeId)}</Typography>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.temperature)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.humidity)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.co2, 0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.tvoc, 0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.eco2, 0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm1_0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm2_5)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm4_0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm10)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.lightIntensity, 0)}</TableCell>
+                        <TableCell sx={{ color: 'text.secondary', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+                          {formatTimestamp(row.timestamp)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {recentFeed.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={12} align="center" sx={{ py: 4, color: 'text.secondary' }}>
