@@ -16,6 +16,15 @@ struct sensor_state {
     int   trend_ticks;
     float co2_slope;
     float pm25_slope;
+
+    /* High Integrity Health Status (Bitmask)
+     * Bit 0: Temp/Hum (MCP9808)
+     * Bit 1: CO2 (SCD41)
+     * Bit 2: PM (SPS30)
+     * Bit 3: TVOC (CCS811)
+     * 1 = OK, 0 = FAULT
+     */
+    unsigned char health_mask;
 };
 
 /**

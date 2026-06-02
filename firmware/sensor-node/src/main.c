@@ -21,6 +21,14 @@ int main(void)
     while (1) {
         int rc;
         
+        /* High Integrity: Silent Start (60s Warm-up) */
+        uint32_t uptime_ms = k_uptime_get_32();
+        if (uptime_ms < 60000) {
+            LOG_INF("System warming up... (%d/60s)", uptime_ms / 1000);
+            k_sleep(K_SECONDS(10));
+            continue;
+        }
+
         /* 1. Send live telemetry */
         rc = network_send_coap(&sensors);
         if (rc < 0) {
