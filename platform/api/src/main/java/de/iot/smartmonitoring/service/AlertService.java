@@ -163,6 +163,46 @@ public class AlertService {
         }
     }
 
+    /**
+     * Create an alert when physical sensor hardware is reporting faults (-999.0).
+     * Uses the healthStatus bitmask to identify the specific faulty sensor.
+     */
+    public void triggerHardwareFault(String nodeId, Integer healthStatus) {
+        if (healthStatus == null || healthStatus == 255) {
+            return; // No fault or unknown status
+        }
+
+        StringBuilder message = new StringBuilder("Physical sensor failure detected: ");
+        StringBuilder action = new StringBuilder("Action required: ");
+        
+        // Bit 0: Temp/Hum (MCP9808)
+        if ((healthStatus & 0x01) == 0) {
+            message.append("MCP9808 (Temp/Hum) ");
+            action.append("Check Temperature sensor wiring. ");
+        }
+        // Bit 1: CO2 (SCD41)
+        if ((healthStatus & 0x02) == 0) {
+            message.append("SCD41 (CO2) ");
+            action.append("Verify CO2 sensor I2C connection. ");
+        }
+        // Bit 2: PM (SPS30)
+        if ((healthStatus & 0x04) == 0) {
+            message.append("SPS30 (Particulates) ");
+            action.append("Inspect PM sensor 5V power supply. ");
+        }
+        // Bit 3: TVOC (CCS811)
+        if ((healthStatus & 0x08) == 0) {
+            message.append("CCS811 (VOC) ");
+            action.append("Check VOC sensor heater pins. ");
+        }
+
+        createAlert(nodeId, Alert.AlertType.HARDWARE_FAULT,
+                Alert.AlertSeverity.CRITICAL,
+                message.toString().trim(),
+                action.toString().trim(),
+                -999.0, null);
+    }
+
     // ---- Internal helpers ----
 
     private void createAlert(String nodeId, Alert.AlertType type,

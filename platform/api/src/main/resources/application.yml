@@ -52,6 +52,7 @@ logging:
 
 # ---- Application-specific ----
 app:
+  node-timeout-seconds: 120
   alerts:
     temperature-max: 35.0
     temperature-min: 10.0

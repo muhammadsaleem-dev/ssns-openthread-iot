@@ -57,6 +57,7 @@ public class Alert {
         NODE_OFFLINE,
         FORECAST_WARNING,
         ML_ANOMALY,
+        HARDWARE_FAULT,
         
         // Legacy types kept for backward compatibility with existing DB records
         @Deprecated AIR_QUALITY_POOR,

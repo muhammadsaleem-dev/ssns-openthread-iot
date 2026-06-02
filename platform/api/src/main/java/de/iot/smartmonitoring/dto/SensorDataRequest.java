@@ -72,6 +72,9 @@ public class SensorDataRequest {
     @Schema(description = "Light intensity in lux", example = "320")
     private Double lightIntensity;
 
+    @Schema(description = "Bitmask representing physical sensor health (1=OK, 0=FAULT)", example = "255")
+    private Integer healthStatus;
+
     @Schema(description = "Timestamp of the reading (ISO-8601). Defaults to server time if omitted.",
             example = "2026-05-10T14:22:00Z")
     private Instant timestamp;

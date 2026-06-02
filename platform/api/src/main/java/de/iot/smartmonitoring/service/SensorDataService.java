@@ -48,8 +48,21 @@ public class SensorDataService {
                 .pm4_0(request.getPm4_0())
                 .pm10(request.getPm10())
                 .lightIntensity(request.getLightIntensity())
+                .healthStatus(request.getHealthStatus())
                 .timestamp(request.getTimestamp() != null ? request.getTimestamp() : Instant.now())
                 .build();
+
+        // Check for hardware faults (-999.0 placeholder)
+        boolean hasHardwareFault = (request.getTemperature() != null && request.getTemperature() <= -900.0) ||
+                                   (request.getHumidity() != null && request.getHumidity() <= -900.0) ||
+                                   (request.getCo2() != null && request.getCo2() <= -900.0) ||
+                                   (request.getTvoc() != null && request.getTvoc() <= -900.0) ||
+                                   (request.getPm2_5() != null && request.getPm2_5() <= -900.0);
+
+        if (hasHardwareFault) {
+            log.warn("Hardware fault detected in telemetry from node: {}", request.getNodeId());
+            alertService.triggerHardwareFault(request.getNodeId(), request.getHealthStatus());
+        }
 
         SensorData saved;
         try {
@@ -133,6 +146,7 @@ public class SensorDataService {
                 .pm4_0(entity.getPm4_0())
                 .pm10(entity.getPm10())
                 .lightIntensity(entity.getLightIntensity())
+                .healthStatus(entity.getHealthStatus())
                 .timestamp(entity.getTimestamp())
                 .build();
     }

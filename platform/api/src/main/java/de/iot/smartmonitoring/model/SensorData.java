@@ -51,6 +51,8 @@ public class SensorData {
 
     private Double lightIntensity;
 
+    private Integer healthStatus;
+
     @Indexed
     @Builder.Default
     private Instant timestamp = Instant.now();
