@@ -28,14 +28,14 @@ class StoreDataResource(resource.Resource):
         try:
             # Decode CBOR Array from binary payload
             cbor_data = cbor2.loads(request.payload)
-            if not isinstance(cbor_data, list) or len(cbor_data) < 14:
-                logger.error("Malformed CBOR array received (len: %d)", len(cbor_data))
+            if not isinstance(cbor_data, list) or len(cbor_data) < 15:
+                logger.error("Malformed CBOR array received (expected 15 items, got %d)", len(cbor_data))
                 return aiocoap.Message(code=aiocoap.BAD_REQUEST)
-            
+
             node_id = cbor_data[0]
             boot_id = cbor_data[1]
             seq_num = cbor_data[2]
-            
+
             # Reconstruct the original JSON dictionary for the downstream pipeline
             payload = {
                 "id": node_id,
@@ -49,6 +49,7 @@ class StoreDataResource(resource.Resource):
                 "p4": cbor_data[11],
                 "p10": cbor_data[12],
                 "li": cbor_data[13],
+                "healthStatus": cbor_data[14],
                 "nodeId": node_id,
                 "bootId": boot_id,
                 "sequenceNumber": seq_num,

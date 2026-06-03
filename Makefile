@@ -69,3 +69,19 @@ build-sensor:
 flash-sensor:
 	@echo "⚡ Flashing Sensor Node to board..."
 	@./scripts/flash_sensor.sh
+
+# Build the experimental Shadow Capture firmware
+build-shadow:
+	@echo "🔨 Building Shadow Capture firmware..."
+	@export PATH="/opt/nordic/ncs/toolchains/b8efef2ad5/bin:$$PATH" && \
+	 export ZEPHYR_BASE=/opt/nordic/ncs/v2.9.2/zephyr && \
+	 cd firmware/sensor-node-shadow && \
+	 west build -p always -b nrf52840dk/nrf52840
+
+# Flash the experimental Shadow Capture firmware
+flash-shadow:
+	@echo "⚡ Flashing Shadow Capture to board..."
+	@export PATH="/opt/nordic/ncs/toolchains/b8efef2ad5/bin:$$PATH" && \
+	 export ZEPHYR_BASE=/opt/nordic/ncs/v2.9.2/zephyr && \
+	 cd firmware/sensor-node-shadow && \
+	 west flash 2>&1 | grep --line-buffered -v "\[error\] \[SeggerBackend\]"

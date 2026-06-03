@@ -61,7 +61,7 @@ int main(void)
         LOG_INF("Offline Queue Usage: %d / %d packets", 
                 storage_get_queue_usage(), storage_get_queue_capacity());
         
-        k_sleep(K_SECONDS(10));
+        k_sleep(K_SECONDS(30));
     }
 
     return 0;

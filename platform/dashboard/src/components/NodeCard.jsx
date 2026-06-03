@@ -157,7 +157,8 @@ export default function NodeCard({ node, latestTelemetry, hasActiveAlerts, onLoc
             Sensor is offline. No live data available.
           </Typography>
         ) : latestTelemetry ? (
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
+            {/* Row 1: Temp & Humidity */}
             <Box>
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
                 <ThermostatIcon sx={{ fontSize: 14, mr: 0.5, color: '#3B82F6' }} /> Temp
@@ -171,12 +172,60 @@ export default function NodeCard({ node, latestTelemetry, hasActiveAlerts, onLoc
             </Box>
             <Box>
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
+                <WaterDropIcon sx={{ fontSize: 14, mr: 0.5, color: '#3B82F6' }} /> Humid
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: latestTelemetry.humidity <= -900 ? '#EF4444' : 'inherit' }}>
+                {latestTelemetry.humidity != null ? (latestTelemetry.humidity <= -900 ? 'FAULT' : latestTelemetry.humidity.toFixed(0)) : '--'} 
+                {latestTelemetry.humidity != null && latestTelemetry.humidity > -900 && (
+                  <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>%</Typography>
+                )}
+              </Typography>
+            </Box>
+
+            {/* Row 2: CO2 & TVOC */}
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
                 <AirIcon sx={{ fontSize: 14, mr: 0.5, color: '#10B981' }} /> CO2
               </Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, color: latestTelemetry.co2 <= -900 ? '#EF4444' : 'inherit' }}>
                 {latestTelemetry.co2 != null ? (latestTelemetry.co2 <= -900 ? 'FAULT' : Math.round(latestTelemetry.co2)) : '--'} 
                 {latestTelemetry.co2 != null && latestTelemetry.co2 > -900 && (
                   <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>ppm</Typography>
+                )}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
+                <CloudOutlinedIcon sx={{ fontSize: 14, mr: 0.5, color: '#F59E0B' }} /> TVOC
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: latestTelemetry.tvoc <= -900 ? '#EF4444' : 'inherit' }}>
+                {latestTelemetry.tvoc != null ? (latestTelemetry.tvoc <= -900 ? 'FAULT' : Math.round(latestTelemetry.tvoc)) : '--'} 
+                {latestTelemetry.tvoc != null && latestTelemetry.tvoc > -900 && (
+                  <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>ppb</Typography>
+                )}
+              </Typography>
+            </Box>
+
+            {/* Row 3: PM 2.5 & PM 10 */}
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
+                <AirIcon sx={{ fontSize: 14, mr: 0.5, color: '#6366F1' }} /> PM2.5
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: latestTelemetry.pm2_5 <= -900 ? '#EF4444' : 'inherit' }}>
+                {latestTelemetry.pm2_5 != null ? (latestTelemetry.pm2_5 <= -900 ? 'FAULT' : latestTelemetry.pm2_5.toFixed(1)) : '--'} 
+                {latestTelemetry.pm2_5 != null && latestTelemetry.pm2_5 > -900 && (
+                  <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>µg</Typography>
+                )}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
+                <AirIcon sx={{ fontSize: 14, mr: 0.5, color: '#8B5CF6' }} /> PM10
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: latestTelemetry.pm10 <= -900 ? '#EF4444' : 'inherit' }}>
+                {latestTelemetry.pm10 != null ? (latestTelemetry.pm10 <= -900 ? 'FAULT' : latestTelemetry.pm10.toFixed(1)) : '--'} 
+                {latestTelemetry.pm10 != null && latestTelemetry.pm10 > -900 && (
+                  <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>µg</Typography>
                 )}
               </Typography>
             </Box>

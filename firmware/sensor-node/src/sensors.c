@@ -99,7 +99,7 @@ void sensor_service_read(struct sensor_state *s,
 
     // 1. Temperature Latency (100ms)
     k_msleep(100);
-    if (rand_float(0, 100) < 1.0f) { // 1% failure chance
+    if (rand_float(0, 100) < 15.0f) { // 15% failure chance
         s->health_mask &= ~(1 << 0);
         *temp = -999.0f;
         *hum = -999.0f;
@@ -107,7 +107,7 @@ void sensor_service_read(struct sensor_state *s,
 
     // 2. CO2 Latency (10,000ms - The "Slow" Sensor)
     k_msleep(10000);
-    if (rand_float(0, 100) < 10.0f) { // 10% failure chance for demo
+    if (rand_float(0, 100) < 15.0f) { // 15% failure chance
         s->health_mask &= ~(1 << 1);
         *co2 = -999.0f;
         *eco2 = -999.0f;
@@ -115,7 +115,7 @@ void sensor_service_read(struct sensor_state *s,
 
     // 3. Particulate Matter Latency (1,000ms)
     k_msleep(1000);
-    if (rand_float(0, 100) < 1.0f) { // 1% failure chance
+    if (rand_float(0, 100) < 15.0f) { // 15% failure chance
         s->health_mask &= ~(1 << 2);
         *pm1 = -999.0f;
         *pm25 = -999.0f;
@@ -125,7 +125,7 @@ void sensor_service_read(struct sensor_state *s,
 
     // 4. TVOC Latency (1,000ms)
     k_msleep(1000);
-    if (rand_float(0, 100) < 1.0f) { // 1% failure chance
+    if (rand_float(0, 100) < 15.0f) { // 15% failure chance
         s->health_mask &= ~(1 << 3);
         *tvoc = -999.0f;
     }

@@ -43,6 +43,9 @@ public class AlertService {
      * Evaluate a telemetry reading against all configured alert thresholds.
      */
     public void evaluate(SensorData data) {
+        // First check for physical hardware faults
+        triggerHardwareFault(data.getNodeId(), data.getHealthStatus());
+
         if (data.getTemperature() != null) {
             if (data.getTemperature() > temperatureMax) {
                 createAlert(data.getNodeId(), Alert.AlertType.TEMPERATURE_HIGH,
