@@ -1,16 +1,16 @@
 # ============================================================
-# SSNS Smart Monitoring System — High Availability (HA) Deployment
+# SSNS Smart Monitoring System — High Availability (HA) Platform Core
 #
-# Features:
-#   - 2x Backend API Replicas (api-1, api-2)
-#   - 2x Gateway Workers (gateway-1, gateway-2)
-#   - Centralized Redis Queue for distributed processing
-#   - Nginx Load Balancer (inside Dashboard)
+# This file runs the Central Management brain:
+#   - 2x Redundant Backend APIs (api-1, api-2)
+#   - 1x Central Database (MongoDB)
+#   - 1x Load Balancer & UI (Dashboard)
+#   - 1x ML Analytics Service
 # ============================================================
 
 services:
 
-  # ── Database ──────────────────────────────────────────────
+  # ── Database (Central Core) ──────────────────────────────
   mongodb:
     image: mongo:7
     container_name: ssns-monitoring-mongo
@@ -26,24 +26,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    networks:
-      - ssns-network
-
-  # ── Redis (Shared Queue & Deduplication) ──────────────────
-  redis:
-    image: redis:7-alpine
-    container_name: ssns-monitoring-redis
-    command: redis-server --appendonly yes
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
     networks:
       - ssns-network
 
@@ -82,7 +64,7 @@ services:
       - ssns-network
 
   # ── Load Balancer & Dashboard ───────────────────────────
-  # Acts as the entry point for all API and Web traffic
+  # The "Front Door" for all Fog Nodes and Web Users
   dashboard:
     build:
       context: ./dashboard
@@ -90,71 +72,12 @@ services:
     container_name: dashboard
     ports:
       - "3000:80"
-      - "8080:80" # Also expose on 8080 to act as a direct API load balancer
+      - "8080:80" # Receives HTTP telemetry from distributed Fog Nodes
     volumes:
       - ./nginx-orchestrated.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - api-1
       - api-2
-    restart: unless-stopped
-    networks:
-      - ssns-network
-
-  # ── UDP Load Balancer (Active-Active Gateway Routing) ─────
-  coap-proxy:
-    image: nginx:alpine
-    container_name: coap-proxy
-    ports:
-      - "5683:5683/udp"
-    volumes:
-      - ./nginx-udp.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - gateway-1
-      - gateway-2
-    restart: unless-stopped
-    networks:
-      - ssns-network
-
-  # ── Gateway (Instance 1 - Primary CoAP Receiver) ──────────
-  gateway-1:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    container_name: gateway-1
-    # Port 5683 is now handled by the coap-proxy service
-    environment:
-      GATEWAY_MODE: coap
-      # Route traffic through the Load Balancer (dashboard)
-      BACKEND_URL: http://dashboard/api/sensor-data
-      REDIS_URL: redis://redis:6379/0
-      TELEMETRY_INTERVAL: 10
-      NODE_COUNT: 4
-      LOG_LEVEL: INFO
-    depends_on:
-      - dashboard
-      - redis
-    restart: unless-stopped
-    networks:
-      - ssns-network
-
-  # ── Gateway (Instance 2 - Secondary Worker) ───────────────
-  # Processes the Redis queue alongside Instance 1
-  gateway-2:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    container_name: gateway-2
-    # No port mapping (only one container can bind to host 5683)
-    environment:
-      GATEWAY_MODE: coap
-      BACKEND_URL: http://dashboard/api/sensor-data
-      REDIS_URL: redis://redis:6379/0
-      TELEMETRY_INTERVAL: 10
-      NODE_COUNT: 4
-      LOG_LEVEL: INFO
-    depends_on:
-      - dashboard
-      - redis
     restart: unless-stopped
     networks:
       - ssns-network
@@ -168,10 +91,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Route traffic through the Load Balancer (dashboard)
+      # Polls the local load balancer
       BACKEND_URL: http://dashboard
       POLL_INTERVAL_SECONDS: 15
-      BASELINE_WINDOW_SIZE: 20
+      BASELINE_WINDOW_SIZE: 15
     depends_on:
       - dashboard
     restart: unless-stopped
@@ -185,4 +108,3 @@ networks:
 
 volumes:
   mongo_data:
-  redis_data:

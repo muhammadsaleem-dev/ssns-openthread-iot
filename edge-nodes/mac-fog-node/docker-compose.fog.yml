@@ -1,7 +1,8 @@
 # ============================================================
-# SSNS Smart Monitoring System — Remote OTBR Deployment
+# SSNS Smart Monitoring System — Mac/Linux Fog Node
 #
-# Runs on the Raspberry Pi (or any remote antenna host)
+# Turns this machine into an autonomous edge receiver.
+# Includes: OTBR, Local Gateway, and Local Redis Buffer.
 # ============================================================
 
 services:
@@ -14,29 +15,21 @@ services:
     ports:
       - "8081:8080"
     
-    # Note: On macOS, physical USB mapping is impossible. 
-    # We rely on the host-side start_otbr_bridge.sh script instead.
-    
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
       - net.ipv4.conf.all.forwarding=1
       - net.ipv6.conf.all.forwarding=1
     
     environment:
-      # Tell OTBR to use the direct USB device instead of the Mac socat bridge
       OT_RCP_DEVICE: "spinel+hdlc+uart:///dev/ttyACM0"
       OT_INFRA_IF: "eth0"
       OT_WEB_LISTEN_ADDR: "0.0.0.0"
       
-      # ⚠️ macOS HOST ROUTING
-      # Docker automatically routes this DNS name back to the Mac's host OS,
-      # bypassing any need for physical Wi-Fi IP addresses.
-      GATEWAY_HOST_IP: "host.docker.internal"
-      
+    # ROUTING: Sends radio traffic to the LOCAL gateway container
     entrypoint: >
       bash -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y socat iproute2; \
       (while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000 2>/dev/null; sleep 1; done) & \
-      socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:$${GATEWAY_HOST_IP}:5683 &
+      socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:gateway:5683 &
       (until ot-ctl state 2>/dev/null; do sleep 1; done; \
        if ot-ctl state | grep -q disabled; then \
          ot-ctl dataset init new && \
@@ -58,9 +51,45 @@ services:
       exec /init"
     restart: unless-stopped
     networks:
-      - ssns-otbr-network
+      - ssns-fog-network
+
+  # ── Local Fog Gateway (The Parser) ───────────────────────
+  gateway:
+    build:
+      context: ../../platform/gateway
+      dockerfile: Dockerfile
+    container_name: ssns-gateway-mac-fog
+    environment:
+      GATEWAY_MODE: coap
+      # CHANGE THIS: Point to your Mac's Tailscale IP (The Central Core)
+      # Since this runs on the same machine as the Core, you can also use 'host.docker.internal'
+      BACKEND_URL: http://host.docker.internal:8080/api/sensor-data
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: INFO
+    depends_on:
+      - redis
+    networks:
+      - ssns-fog-network
+
+  # ── Local Redis (Edge Buffer) ─────────────────────────────
+  redis:
+    image: redis:alpine
+    container_name: ssns-redis-mac-fog
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_mac_fog_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ssns-fog-network
 
 networks:
-  ssns-otbr-network:
-    name: ssns-otbr-network
+  ssns-fog-network:
+    name: ssns-fog-network
     driver: bridge
+
+volumes:
+  redis_mac_fog_data:

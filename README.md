@@ -45,18 +45,25 @@ make start-platform
 
 ### 2. Distributed Fog Nodes (Windows/Pi)
 To set up an autonomous edge node on a different machine (e.g., Windows), see the detailed guide:
-👉 **[Windows Fog Node Setup Guide](edge-nodes/windows-otbr/WINDOWS_FOG_SETUP.md)**
+👉 **[Windows Fog Node Setup Guide](edge-nodes/windows-fog-node/WINDOWS_FOG_SETUP.md)**
 
 ## 🚧 Cross-Platform Implementation Notes
 *   **macOS Kernel Compatibility:** To overcome the absence of `CONFIG_IP_MROUTE` in the Docker Desktop for Mac kernel, we utilize a **custom-compiled OTBR image** with specialized build-flags to ensure stability.
 *   **Hardware Abstraction:** Due to macOS hardware mapping limitations, we implemented a **Socket-to-Serial bridge** to securely connect the physical nRF52840 radio to the containerized environment.
+
+## 📦 Monorepo Architecture & Shared Components
+This project utilizes a **Single Source of Truth** pattern for its code distribution:
+*   **Shared Gateway logic:** The core Python logic for CoAP parsing and Redis-backed queuing resides in `platform/gateway`. 
+*   **Modular Deployment:** Each distributed Fog Node (Mac or Windows) builds its local container directly from this shared source folder. This ensures that any logic update or bug fix is automatically propagated to all edge nodes across the entire heterogeneous infrastructure.
 
 ## 🛠️ Repository Organization
 
 ```text
 ssns-project/
 ├── platform/                 ← Platform Tier (Central Core): API, Dashboard, ML, Redis, MongoDB
-├── edge-nodes/               ← Fog Tier: OTBR and Gateway configurations (Mac/Windows)
+├── edge-nodes/               ← Fog Tier: Distributed Fog Node configurations (Mac/Windows)
+│   ├── mac-fog-node/         ← Mac/Linux autonomous edge receiver
+│   └── windows-fog-node/     ← Windows/WSL2 autonomous edge receiver
 ├── firmware/                 ← Edge Tier: Zephyr C codebase & Hex files
 ├── docs/                     ← Architectural diagrams and setup guides
 └── Makefile                  ← Cross-tier orchestration shortcuts
