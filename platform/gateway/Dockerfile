@@ -1,5 +1,5 @@
 # ============================================================
-# Dockerfile — BLE Smart Monitoring Gateway
+# Dockerfile — Smart Monitoring Gateway
 # ============================================================
 
 FROM python:3.12-slim
@@ -7,6 +7,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Install dependencies first (layer caching)
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ccze && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

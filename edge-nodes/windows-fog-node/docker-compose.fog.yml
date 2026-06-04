@@ -1,99 +1,149 @@
 # ============================================================
 # SSNS Smart Monitoring System — Windows/WSL2 Edge Node
 #
-# Runs natively on AMD64 WSL2 with direct USB passthrough.
-# Connects physical nRF52840 to the Thread mesh and forwards 
-# telemetry over Wi-Fi back to the Mac Gateway.
+# DEFINITIVE INDUSTRIAL STABLE CONFIGURATION
+# ------------------------------------------------------------
+# 1. Direct Hardware Passthrough via /dev/dev volume mapping
+# 2. Automated Radio Stack Recovery
+# 3. Native Linux Docker Engine compatibility
 # ============================================================
 
 services:
 
   otbr:
-    # Build a native image with bridging dependencies preinstalled
     build:
       context: .
       dockerfile: Dockerfile.otbr-windows
     container_name: ssns-otbr-windows
     privileged: true
-    ports:
-      - "8081:8080"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-    sysctls:
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv4.conf.all.forwarding=1
-      - net.ipv6.conf.all.forwarding=1
+    # Maps the entire host device tree for real-time hotplugging
+    volumes:
+      - "/dev:/dev"
+      - "/lib/modules:/lib/modules:ro"
+    network_mode: "host"
     
     environment:
-      RADIO_URL: "spinel+hdlc+uart:///dev/ttyACM0"
-      BACKBONE_INTERFACE: "eth0"
+      OT_RCP_DEVICE: "spinel+hdlc+uart:///dev/ttyACM0"
       NAT64: "0"
+      DNS64: "0"
       FIREWALL: "0"
-      
-    # =========================================================================
-    # CUSTOM ENTRYPOINT EXPLANATION
-    # -------------------------------------------------------------------------
-    # Now routes incoming IPv6 CoAP traffic from the Thread mesh to the 
-    # LOCAL gateway container instead of across the network.
-    # =========================================================================
-    entrypoint: >
-      bash -c "(while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000 2>/dev/null; sleep 1; done) & \
-      socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:gateway:5683 & \
-      (until ot-ctl state 2>/dev/null; do sleep 1; done; \
-       if ot-ctl state | grep -q disabled; then \
-         ot-ctl dataset init new && \
-         ot-ctl dataset networkname WSN01 && \
-         ot-ctl dataset panid 0x1235 && \
-         ot-ctl dataset extpanid 1111111122222222 && \
-         ot-ctl dataset networkkey 112233445566778899aabbccddeeff00 && \
-         ot-ctl dataset channel 15 && \
-         ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12:: && \
-         ot-ctl dataset commit active && \
-         ot-ctl ifconfig up && \
-         ot-ctl thread start; \
-       fi; \
-       sleep 5; \
-       ot-ctl netdata register; \
-       ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0) & \
-      until [ -e /dev/ttyACM0 ]; do echo 'Waiting for serial bridge...'; sleep 1; done; \
-      sleep 2; \
-      exec /app/etc/docker/test/docker_entrypoint.sh"
-    restart: unless-stopped
-    networks:
-      - ssns-windows-network
+      WEB_GUI: "1"
+    
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        # ============================================================
+        # SSNS OTBR — Self-Healing Supervisor for Windows/WSL2
+        # Survives dongle unplug/replug without container restart.
+        # ============================================================
 
-  # ── Fog Gateway (Local Processing) ───────────────────────
+        # ── One-time system initialization ──────────────────────
+        rm -f /var/run/dbus/pid
+        service dbus start
+        service rsyslog start
+        sleep 1 && tail -f /var/log/syslog | ccze -A &
+        # (socat bridge is started after mesh IPv6 address is ready — see identity subshell below)
+
+        CYCLE=0
+
+        # ── Supervisor loop ─────────────────────────────────────
+        while true; do
+          CYCLE=$$((CYCLE + 1))
+          echo ""
+          echo "══════════════════════════════════════════════════════"
+          echo "  SUPERVISOR: Cycle #$${CYCLE} — Scanning for hardware"
+          echo "══════════════════════════════════════════════════════"
+
+          # 1. Wait for dongle to appear
+          until [ -e /dev/ttyACM0 ]; do
+            echo "STATION: Waiting for nRF52840 on /dev/ttyACM0... (Check usbipd)"
+            sleep 2
+          done
+
+          echo "STATION: Hardware detected. Preparing radio..."
+          chmod 666 /dev/ttyACM0
+          sleep 1
+
+          # 2. Clean up stale state from previous cycle
+          if [ $$CYCLE -gt 1 ]; then
+            echo "CLEANUP: Tearing down stale wpan0 from previous session..."
+            ip link set wpan0 down 2>/dev/null || true
+            ip link delete wpan0 2>/dev/null || true
+            sleep 2
+          fi
+
+          # 3. Launch Thread Identity Manager in background
+          (
+            sleep 5
+            until ot-ctl state 2>/dev/null; do echo "SYNC: Waiting for Agent..."; sleep 2; done
+            if ot-ctl state | grep -q disabled; then
+              echo "SYNC: Initializing WSN01 Mesh Identity..."
+              ot-ctl dataset init new
+              ot-ctl dataset activetimestamp 1
+              ot-ctl dataset networkname WSN01
+              ot-ctl dataset panid 0x1235
+              ot-ctl dataset extpanid 1111111122222222
+              ot-ctl dataset networkkey 112233445566778899aabbccddeeff00
+              ot-ctl dataset channel 15
+              ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12::
+              ot-ctl dataset commit active
+              ot-ctl ifconfig up
+              ot-ctl thread start
+              ot-ctl leaderweight 255
+            fi
+            ot-ctl netdata register
+            ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0 2>/dev/null || true
+            echo "SYNC: Mesh online. Ready for sensors."
+            # ── Thread→Gateway IPv6 bridge ──────────────────────────
+            # aiocoap binds to 0.0.0.0 (IPv4 only). Thread sensors send
+            # CoAP to fd5e:a726:ec55:ee12::1:5683 (pure IPv6 on wpan0).
+            # socat bridges the two: listens on the specific Thread IPv6
+            # address (ipv6only=1, no conflict with aiocoap's 0.0.0.0)
+            # and forwards each packet to aiocoap at 127.0.0.1:5683.
+            socat UDP6-LISTEN:5683,bind=[fd5e:a726:ec55:ee12::1],ipv6only=1,reuseaddr,fork UDP4:127.0.0.1:5683 &
+            echo "BRIDGE: CoAP IPv6→IPv4 bridge started (PID $$!)."
+          ) &
+          IDENTITY_PID=$$!
+
+          # 4. Launch otbr-agent (blocks here until it exits/crashes)
+          echo "STATION: Launching OTBR Agent (Cycle #$${CYCLE})..."
+          /usr/sbin/otbr-agent -I wpan0 -B eth0 -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist" || true
+
+          # 5. Agent exited — dongle was unplugged or fatal error
+          echo ""
+          echo "⚠ SUPERVISOR: Agent exited (dongle removed?). Cleaning up..."
+          kill $$IDENTITY_PID 2>/dev/null || true
+          wait $$IDENTITY_PID 2>/dev/null || true
+
+          # Brief cooldown before next cycle
+          echo "SUPERVISOR: Cooldown 3s before next cycle..."
+          sleep 3
+        done
+
+    restart: always
+
   gateway:
     build:
       context: ../../platform/gateway
       dockerfile: Dockerfile
     container_name: ssns-gateway-windows
+    network_mode: "host"
     environment:
-      GATEWAY_MODE: coap
-      # CHANGE THIS to your Mac's Tailscale IP if different
-      BACKEND_URL: http://100.98.119.40:8080/api/sensor-data
-      REDIS_URL: redis://redis:6379/0
-      LOG_LEVEL: INFO
+      GATEWAY_MODE: "coap"
+      BACKEND_URL: "http://100.98.119.40:8080/api/sensor-data"
+      REDIS_URL: "redis://localhost:6379/0"
+      LOG_LEVEL: "INFO"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    command: bash -c "python main.py 2>&1 | ccze -A"
     depends_on:
       - redis
-    restart: unless-stopped
-    networks:
-      - ssns-windows-network
+    restart: always
 
-  # ── Local Redis (Edge Buffer) ─────────────────────────────
   redis:
     image: redis:alpine
     container_name: ssns-redis-windows
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - ssns-windows-network
-
-networks:
-  ssns-windows-network:
-    name: ssns-windows-network
-    driver: bridge
+    network_mode: "host"
+    restart: always

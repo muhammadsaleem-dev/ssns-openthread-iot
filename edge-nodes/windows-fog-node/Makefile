@@ -1,29 +1,44 @@
-.PHONY: start stop logs logs-radio bridge clean
+.PHONY: start stop restart logs logs-radio status shell clean
 
 # Start the complete Fog Node (OTBR + Gateway + Redis)
 start:
-	docker compose -f docker-compose.fog.yml up -d --build --remove-orphans
-	@echo "✓ Windows Fog Node services are booting..."
+	sudo docker compose -f docker-compose.fog.yml up -d --build --remove-orphans
+	@echo "✓ Windows Fog Node (Native) services are booting..."
 
 # Stop the Fog Node
 stop:
-	docker compose -f docker-compose.fog.yml down --remove-orphans
+	sudo docker compose -f docker-compose.fog.yml down --remove-orphans
 
-# View logs for the Gateway (The telemetry processor)
+# Restart with a full rebuild (use after code changes)
+restart:
+	sudo docker compose -f docker-compose.fog.yml down --remove-orphans
+	sudo docker compose -f docker-compose.fog.yml up -d --build --remove-orphans
+	@echo "✓ Restarted. Use 'make logs-radio' to watch supervisor cycles."
+
+# View logs for the Gateway
 logs:
-	docker logs -f ssns-gateway-windows
+	sudo docker logs -f ssns-gateway-windows
 
-# View logs for the Radio (The OTBR driver)
+# View logs for the Radio (shows supervisor cycles)
 logs-radio:
-	docker logs -f ssns-otbr-windows
+	sudo docker logs -f ssns-otbr-windows
 
-# Start the Socket-to-Serial bridge (Required for Windows physical USB)
-# Note: On Windows, run this in a dedicated Terminal window.
-bridge:
-	@echo "🌁 Starting Windows Serial Bridge..."
-	@chmod +x start_otbr_bridge_windows.sh
-	./start_otbr_bridge_windows.sh
+# Quick health check — shows supervisor cycle, Thread state, and last 5 log lines
+status:
+	@echo "── OTBR Supervisor Status ──────────────────────────"
+	@sudo docker exec ssns-otbr-windows sh -c \
+		'echo "Thread State: $$(ot-ctl state 2>/dev/null || echo NOT_RUNNING)"; \
+		 echo "wpan0 exists:  $$(ip link show wpan0 >/dev/null 2>&1 && echo YES || echo NO)"; \
+		 echo "Device file:   $$(ls -la /dev/ttyACM0 2>/dev/null || echo MISSING)"' 2>/dev/null || \
+		echo "Container is not running."
+	@echo "────────────────────────────────────────────────────"
+	@echo "Recent logs:"
+	@sudo docker logs --tail 8 ssns-otbr-windows 2>/dev/null || true
 
-# Clean up Docker resources for this node
+# Shell into the OTBR container for debugging
+shell:
+	sudo docker exec -it ssns-otbr-windows bash
+
+# Clean up Docker resources
 clean:
-	docker compose -f docker-compose.fog.yml down -v --remove-orphans
+	sudo docker compose -f docker-compose.fog.yml down -v --remove-orphans
