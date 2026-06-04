@@ -18,6 +18,8 @@ int main(void)
 
     k_sleep(K_SECONDS(5));
 
+    int consecutive_failures = 0;
+
     while (1) {
         int rc;
         
@@ -32,9 +34,16 @@ int main(void)
         /* 1. Send live telemetry */
         rc = network_send_coap(&sensors);
         if (rc < 0) {
-            LOG_WRN("Network transmission failed. Saving to NVS queue...");
+            consecutive_failures++;
+            LOG_WRN("Network transmission failed (%d/3). Saving to NVS queue...", consecutive_failures);
             storage_save_packet(network_get_last_payload(), network_get_last_payload_len());
+
+            if (consecutive_failures >= 3) {
+                network_reset_stack();
+                consecutive_failures = 0;
+            }
         } else if (rc == 0) {
+            consecutive_failures = 0;
             /* 2. Network is online! Try to drain the NVS queue */
             uint8_t buf[384];
             size_t out_len;

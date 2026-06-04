@@ -28,6 +28,11 @@ int network_send_coap(struct sensor_state *sensors);
 int network_send_raw_payload(const uint8_t *payload, size_t len);
 
 /**
+ * @brief Force-reboot the Thread radio stack to trigger a new Parent Search.
+ */
+void network_reset_stack(void);
+
+/**
  * @brief Get the last generated CBOR payload (used for NVS saving).
  * @return Pointer to the payload binary.
  */

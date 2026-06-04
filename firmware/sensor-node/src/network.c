@@ -99,6 +99,9 @@ static void force_thread_dataset(void)
     otIp6SetEnabled(instance, true);
     otThreadSetEnabled(instance, true);
 
+    /* Task 2.2: Shorten child timeout to 60s for faster failover detection */
+    otThreadSetChildTimeout(instance, 60);
+
     openthread_api_mutex_unlock(openthread_get_default_context());
 }
 
@@ -130,6 +133,18 @@ const uint8_t* network_get_last_payload(void)
 size_t network_get_last_payload_len(void)
 {
     return last_payload_len;
+}
+
+void network_reset_stack(void)
+{
+    otInstance *instance = openthread_get_default_instance();
+    if (!instance) return;
+
+    LOG_WRN("Forcing Thread stack reset for re-attachment...");
+    openthread_api_mutex_lock(openthread_get_default_context());
+    otThreadSetEnabled(instance, false);
+    otThreadSetEnabled(instance, true);
+    openthread_api_mutex_unlock(openthread_get_default_context());
 }
 
 static int wait_for_coap_ack(uint16_t expected_msg_id)
