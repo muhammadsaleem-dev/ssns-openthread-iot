@@ -32,12 +32,30 @@ class RedisQueueManager:
     def enqueue(self, node_id: str, seq_num: int, payload_json: str):
         """
         Insert a new packet into the Redis List.
-        The packet is stamped with its exact arrival time (gateway_timestamp)
-        before being serialized into the queue payload.
+        If the packet is from the past (backlog), we reconstruct its original 
+        timestamp based on the uptimeMs offset.
         """
         data = json.loads(payload_json)
-        data['timestamp'] = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
         
+        # --- Task 3.2: Time Reconstruction ---
+        # We track the 'latest' known uptime for each node in Redis
+        latest_uptime_key = f"uptime:{node_id}"
+        current_uptime = data.get('uptimeMs', 0)
+        max_known_uptime = self.r.get(latest_uptime_key)
+        
+        if max_known_uptime and current_uptime < int(max_known_uptime):
+            # This is a backlog packet! 
+            # Offset = (Max Known Uptime - This Packet Uptime)
+            offset_ms = int(max_known_uptime) - current_uptime
+            packet_time = now - timedelta(milliseconds=offset_ms)
+            data['timestamp'] = packet_time.isoformat()
+            logger.info("Reconstructed historical timestamp for %s: -%dms", node_id, offset_ms)
+        else:
+            # This is a live packet (or the first one we've seen)
+            data['timestamp'] = now.isoformat()
+            self.r.set(latest_uptime_key, current_uptime)
+
         # We store the payload and retry_count together in a dictionary
         queue_item = {
             "payload": data,
