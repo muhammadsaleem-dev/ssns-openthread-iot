@@ -1,68 +1,121 @@
-# SSNS Windows Fog Node — Industrial Native Guide
+# SSNS Windows Fog Node — Setup & Operation Guide
 
-This guide explains how to set up your Windows machine as a **Native Fog Node** using standalone Docker Engine inside WSL2. This configuration provides the highest possible stability for Thread hardware.
+This guide explains how to set up your Windows machine as an autonomous **Fog Node** within the SSNS distributed architecture. 
+
+In this configuration, the Windows machine handles the physical radio link (OTBR), local data processing (Gateway), and local buffering (Redis), before pushing telemetry to the Central Core (Mac) via Tailscale.
 
 ---
 
 ## 1. Prerequisites
 
-### Standalone Docker (No Docker Desktop)
-To ensure stable hardware access, you **must disable WSL Integration** in Docker Desktop settings for this distro and install the native Docker engine:
-
-```bash
-# Run inside your WSL Ubuntu terminal
-sudo apt-get update
-sudo apt-get install -y docker.io docker-compose
-sudo usermod -aG docker $USER
-sudo service docker start
-```
+### Software Requirements
+*   **Windows 10/11** with WSL2 enabled.
+*   **Ubuntu (WSL2):** Installed from the Microsoft Store.
+*   **Docker Engine (Native):** Installed directly inside your WSL Ubuntu terminal (do *not* use Docker Desktop for Windows as it restricts raw hardware access).
+*   **Tailscale:** Installed and logged in on both the Windows and Mac machines.
+*   **USBIPD-WIN:** Required for USB passthrough to WSL2. [Download here](https://github.com/dorssel/usbipd-win/releases).
 
 ---
 
-## 2. Hardware Passthrough (Windows Host)
+## 2. Hardware Setup (Windows Host)
 
-WSL2 cannot see the nRF Dongle directly. You must "attach" it from the Windows side.
+Before WSL can see the nRF52840 Dongle, you must "bind" and "attach" it using PowerShell.
 
 1.  **Open PowerShell as Administrator.**
-2.  **Bind and Attach:**
+2.  **Bind the device (First time only):**
     ```powershell
     usbipd list
-    # Find the BUSID for "nRF52840" (e.g., 2-1)
-    usbipd attach --wsl --busid <BUSID> --auto-attach
+    # Find the BUSID for "nRF52840" or "USB Serial Device" (e.g., 2-1)
+    usbipd bind --busid <BUSID>
     ```
-    *Note: Keep this window open. The `--auto-attach` flag ensures the dongle is handed back to Linux instantly if it is unplugged and replugged.*
+3.  **Attach to WSL:**
+    ```powershell
+    usbipd attach --wsl --busid <BUSID>
+    ```
+
+### ⚡ Self-Healing USB (Highly Recommended)
+To prevent the OTBR from crashing if the dongle is bumped or power-flickers, keep this command running in a dedicated **PowerShell** window:
+
+```powershell
+# Automatically re-attaches the dongle whenever it is detected
+# Replace '1-2' with your actual BUSID if it changes
+usbipd attach --wsl --busid 1-2 --auto-attach
+```
+Using `--auto-attach` ensures that your Fog Node is self-healing at the physical hardware layer. Once running, you can unplug and replug the dongle, and Windows will instantly hand it back to WSL.
 
 ---
 
-## 3. Launching the Fog Node
+## 3. Folder Structure (WSL Ubuntu)
 
-### Step 1: Start the Stack
-In your **WSL Ubuntu Terminal**:
-```bash
-cd ~/ssns-project/edge-nodes/windows-fog-node
-make start
+For the Docker build to work, the Windows machine must mirror the project structure of the Mac. The easiest way is to clone the full repository into your WSL home directory.
+
+**Target Structure:**
+```text
+~/ssns-project/
+├── platform/
+│   └── gateway/             # (Source code for the Gateway)
+└── edge-nodes/
+    └── windows-fog-node/    # (Where you are now)
 ```
 
-### Step 2: Verification
-Check that the container can see the physical radio and is cycling through the supervisor loop:
+---
+
+## 4. Launching the Fog Node
+
+Follow these steps in your **WSL Ubuntu Terminal**:
+
+### Step 1: Start the Fog Stack
+Because we have integrated a self-healing hardware supervisor directly into the Docker Compose file, starting the node is incredibly simple. You no longer need to run any external serial bridge scripts!
+
+```bash
+cd ~/ssns-project/edge-nodes/windows-fog-node
+make restart
+```
+This single command spins up the OTBR Radio, the persistent Redis cache, and the CoAP Gateway.
+
+---
+
+## 5. Verification & Testing
+
+### 1. Verify Radio Connectivity
+Check the OTBR logs to ensure the mesh is active and the USB dongle was detected:
 ```bash
 make logs-radio
 ```
-You should see: `SUPERVISOR: Cycle #1 — Scanning for hardware` followed by `STATION: Hardware detected. Preparing radio...`
+Look for: `STATION: Hardware detected. Preparing radio...` and `SYNC: Mesh online. Ready for sensors.`
 
----
-
-## 4. Why this is superior:
-*   **Zero Virtual Networking:** Uses `network_mode: host` for native CoAP speed and easier service discovery.
-*   **Hotplug Resilience:** Uses `/dev:/dev` volume mapping and a custom Supervisor loop. If the dongle is unplugged, the container stays alive and simply waits for `usbipd` to re-attach it.
-*   **Integrated CoAP Bridge:** Includes an automated `socat` bridge that translates Thread IPv6 packets to local IPv4 for the Python Gateway, ensuring 100% compatibility.
-*   **Self-Healing Identity:** Automatically reinjects the `WSN01` Thread dataset if the radio loses its configuration.
-
----
-## 5. Troubleshooting
-
-**"Permission Denied" on /dev/ttyACM0:**
-If the logs show a permission error, run this inside WSL:
+### 2. Verify Local Processing
+Check the Gateway logs to see packets being received and pushed to the cloud:
 ```bash
-sudo chmod 666 /dev/ttyACM0
+make logs
 ```
+Look for beautifully colorized logs like:
+`✓ Forwarded [node-xxxx] temp=24.5°C ... → 201 (X total OK)`
+
+*If you unplug the dongle, the system will automatically pause. Once you plug it back in, it will instantly self-heal and reconnect without needing a restart!*
+
+---
+
+## 6. Troubleshooting & Stable Reset
+
+Because the architecture now uses direct `/dev/ttyACM0` hardware passthrough and a built-in supervisor loop, manual restarts are rarely needed.
+
+If the radio completely hangs or you need to wipe the Docker state, follow this sequence:
+
+1.  **Stop Docker Containers & Wipe Ephemeral State:**
+    ```bash
+    make stop
+    ```
+2.  **Physical Reset:** Unplug the USB dongle and plug it back in (ensure `usbipd` re-attaches).
+3.  **Restart Docker:** 
+    ```bash
+    make restart
+    ```
+*Note: Any unsent packets stored in the persistent Redis cache will instantly be forwarded when the Gateway boots back up.*
+
+---
+
+## 7. Architecture Benefits (The "Why")
+*   **Autonomous Edge:** If your internet/VPN goes down, the Windows node will safely store sensor data in its local Redis queue and flush it automatically once the connection returns.
+*   **Distributed Range:** By using Windows as a Fog Node, you extend the physical radio coverage of your sensor network beyond the range of a single machine.
+*   **Platform Independent:** Proves the SSNS Gateway tier can run on any OS that supports Docker and WSL2.
