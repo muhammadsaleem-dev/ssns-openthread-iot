@@ -20,6 +20,7 @@ services:
       - mongo_data:/data/db
     environment:
       MONGO_INITDB_DATABASE: ssns_monitoring
+      TZ: "Europe/Berlin"
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -39,6 +40,7 @@ services:
       MONGODB_URI: mongodb://mongodb:27017/ssns_monitoring
       MONGODB_DATABASE: ssns_monitoring
       SERVER_PORT: 8080
+      TZ: "Europe/Berlin"
     depends_on:
       mongodb:
         condition: service_healthy
@@ -56,6 +58,7 @@ services:
       MONGODB_URI: mongodb://mongodb:27017/ssns_monitoring
       MONGODB_DATABASE: ssns_monitoring
       SERVER_PORT: 8080
+      TZ: "Europe/Berlin"
     depends_on:
       mongodb:
         condition: service_healthy
@@ -95,6 +98,7 @@ services:
       BACKEND_URL: http://dashboard
       POLL_INTERVAL_SECONDS: 15
       BASELINE_WINDOW_SIZE: 15
+      TZ: "Europe/Berlin"
     depends_on:
       - dashboard
     restart: unless-stopped

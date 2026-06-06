@@ -24,6 +24,7 @@ services:
       OT_RCP_DEVICE: "spinel+hdlc+uart:///dev/ttyACM0"
       OT_INFRA_IF: "eth0"
       OT_WEB_LISTEN_ADDR: "0.0.0.0"
+      TZ: "Europe/Berlin"
       
     # ROUTING: Sends radio traffic to the LOCAL gateway container
     entrypoint: >
@@ -32,17 +33,17 @@ services:
       socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:gateway:5683 &
       (until ot-ctl state 2>/dev/null; do sleep 1; done; \
        if ot-ctl state | grep -q disabled; then \
-         ot-ctl dataset init new >/dev/null && echo "  [OK] Initialized new dataset" && \
-         ot-ctl dataset activetimestamp 1 >/dev/null && echo "  [OK] Set Active Timestamp" && \
-         ot-ctl dataset networkname WSN01 >/dev/null && echo "  [OK] Set Network Name (WSN01)" && \
-         ot-ctl dataset panid 0x1235 >/dev/null && echo "  [OK] Set PAN ID (0x1235)" && \
-         ot-ctl dataset extpanid 1111111122222222 >/dev/null && echo "  [OK] Set Extended PAN ID" && \
-         ot-ctl dataset networkkey 112233445566778899aabbccddeeff00 >/dev/null && echo "  [OK] Set Network Key" && \
-         ot-ctl dataset channel 15 >/dev/null && echo "  [OK] Set Channel (15)" && \
-         ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12:: >/dev/null && echo "  [OK] Set Mesh Local Prefix" && \
-         ot-ctl dataset commit active >/dev/null && echo "  [OK] Committed dataset" && \
-         ot-ctl ifconfig up >/dev/null && echo "  [OK] Interface wpan0 UP" && \
-         ot-ctl thread start >/dev/null && echo "  [OK] Thread protocol STARTED"; \
+         ot-ctl dataset init new >/dev/null && echo '  [OK] Initialized new dataset' && \
+         ot-ctl dataset activetimestamp 1 >/dev/null && echo '  [OK] Set Active Timestamp' && \
+         ot-ctl dataset networkname WSN01 >/dev/null && echo '  [OK] Set Network Name (WSN01)' && \
+         ot-ctl dataset panid 0x1235 >/dev/null && echo '  [OK] Set PAN ID (0x1235)' && \
+         ot-ctl dataset extpanid 1111111122222222 >/dev/null && echo '  [OK] Set Extended PAN ID' && \
+         ot-ctl dataset networkkey 112233445566778899aabbccddeeff00 >/dev/null && echo '  [OK] Set Network Key' && \
+         ot-ctl dataset channel 15 >/dev/null && echo '  [OK] Set Channel (15)' && \
+         ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12:: >/dev/null && echo '  [OK] Set Mesh Local Prefix' && \
+         ot-ctl dataset commit active >/dev/null && echo '  [OK] Committed dataset' && \
+         ot-ctl ifconfig up >/dev/null && echo '  [OK] Interface wpan0 UP' && \
+         ot-ctl thread start >/dev/null && echo '  [OK] Thread protocol STARTED'; \
        fi; \
        sleep 5; \
        ot-ctl netdata register >/dev/null; \
@@ -70,6 +71,7 @@ services:
       BACKEND_URL: http://host.docker.internal:8080/api/sensor-data
       REDIS_URL: redis://redis:6379/0
       LOG_LEVEL: INFO
+      TZ: "Europe/Berlin"
     command: bash -c "python main.py 2>&1 | ccze -A"
     depends_on:
       - redis
