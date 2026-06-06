@@ -46,7 +46,9 @@ services:
        fi; \
        sleep 5; \
        ot-ctl netdata register; \
-       ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0) &
+       sysctl -w net.ipv6.conf.wpan0.accept_dad=0 2>/dev/null || true && \
+       sysctl -w net.ipv6.conf.wpan0.dad_transmits=0 2>/dev/null || true && \
+       ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0 nodad) &
       until [ -e /dev/ttyACM0 ]; do echo 'Waiting for serial bridge...'; sleep 1; done; \
       sleep 2; \
       (sleep 3 && tail -f /var/log/syslog 2>/dev/null | ccze -A) & \

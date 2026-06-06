@@ -1,30 +1,30 @@
 .PHONY: start stop restart logs logs-radio status shell clean
 
 # Start the complete Fog Node (OTBR + Gateway + Redis)
-start:
+start-fog-pi:
 	sudo docker compose -f docker-compose.fog.yml up -d --build --remove-orphans
 	@echo "✓ Windows Fog Node (Native) services are booting..."
 
 # Stop the Fog Node
-stop:
+stop-fog-pi:
 	sudo docker compose -f docker-compose.fog.yml down --remove-orphans
 
 # Restart with a full rebuild (use after code changes)
-restart:
+restart-fog-pi:
 	sudo docker compose -f docker-compose.fog.yml down --remove-orphans
 	sudo docker compose -f docker-compose.fog.yml up -d --build --remove-orphans
 	@echo "✓ Restarted. Use 'make logs-radio' to watch supervisor cycles."
 
 # View logs for the Gateway
-logs:
+logs-fog-pi:
 	sudo docker logs -f ssns-gateway-windows
 
 # View logs for the Radio (shows supervisor cycles)
-logs-radio:
+logs-radio-fog-pi:
 	sudo docker logs -f ssns-otbr-windows
 
 # Quick health check — shows supervisor cycle, Thread state, and last 5 log lines
-status:
+status-windows:
 	@echo "── OTBR Supervisor Status ──────────────────────────"
 	@sudo docker exec ssns-otbr-windows sh -c \
 		'echo "Thread State: $$(ot-ctl state 2>/dev/null || echo NOT_RUNNING)"; \
@@ -36,9 +36,9 @@ status:
 	@sudo docker logs --tail 8 ssns-otbr-windows 2>/dev/null || true
 
 # Shell into the OTBR container for debugging
-shell:
+shell-fog-pi:
 	sudo docker exec -it ssns-otbr-windows bash
 
 # Clean up Docker resources
-clean:
+clean-fog-pi:
 	sudo docker compose -f docker-compose.fog.yml down -v --remove-orphans

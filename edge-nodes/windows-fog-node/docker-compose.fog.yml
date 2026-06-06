@@ -42,7 +42,7 @@ services:
         rm -f /var/run/dbus/pid
         service dbus start
         service rsyslog start
-        sleep 1 && tail -f /var/log/syslog | ccze -A &
+        sleep 1 && tail -f /var/log/syslog | grep --line-buffered -v "UtilAcceptVsock" | ccze -A &
         # (socat bridge is started after mesh IPv6 address is ready — see identity subshell below)
 
         CYCLE=0
@@ -93,7 +93,10 @@ services:
               ot-ctl leaderweight 255
             fi
             ot-ctl netdata register
-            ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0 2>/dev/null || true
+            # Disable Duplicate Address Detection (DAD) so both routers can safely share the Anycast IP
+            sysctl -w net.ipv6.conf.wpan0.accept_dad=0 2>/dev/null || true
+            sysctl -w net.ipv6.conf.wpan0.dad_transmits=0 2>/dev/null || true
+            ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0 nodad 2>/dev/null || true
             echo "SYNC: Mesh online. Ready for sensors."
             # ── Thread→Gateway IPv6 bridge ──────────────────────────
             # aiocoap binds to 0.0.0.0 (IPv4 only). Thread sensors send
@@ -108,7 +111,7 @@ services:
 
           # 4. Launch otbr-agent (blocks here until it exits/crashes)
           echo "STATION: Launching OTBR Agent (Cycle #$${CYCLE})..."
-          /usr/sbin/otbr-agent -I wpan0 -B eth0 -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist" || true
+          /usr/sbin/otbr-agent -I wpan0 -B eth0 -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist|failed to update ipsets|cannot get LeaderData while detached|Failed to process request" || true
 
           # 5. Agent exited — dongle was unplugged or fatal error
           echo ""
