@@ -109,7 +109,14 @@ services:
           ) &
           IDENTITY_PID=$$!
 
-          # 4. Launch otbr-agent (blocks here until it exits/crashes)
+          # 4. Virtual Hardware Reset (Fixes usbipd buffer lockups)
+          echo "SUPERVISOR: Sending virtual hardware reset to radio..."
+          stty -F /dev/ttyACM0 0 2>/dev/null || true
+          sleep 1
+          stty -F /dev/ttyACM0 115200 2>/dev/null || true
+          sleep 1
+
+          # 5. Launch otbr-agent (blocks here until it exits/crashes)
           echo "STATION: Launching OTBR Agent (Cycle #$${CYCLE})..."
           /usr/sbin/otbr-agent -I wpan0 -B eth0 -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist|Firewall - failed to update ipsets|cannot get LeaderData|Failed to process request" || true
 
