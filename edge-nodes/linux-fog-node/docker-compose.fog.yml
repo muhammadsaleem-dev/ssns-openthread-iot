@@ -77,7 +77,7 @@ services:
           (
             sleep 5
             until ot-ctl state 2>/dev/null; do echo "SYNC: Waiting for Agent..."; sleep 2; done
-            if ot-ctl state | grep -q disabled; then
+            if [ "$$(ot-ctl state 2>/dev/null)" = "disabled" ]; then
               echo "SYNC: Initializing WSN01 Mesh Identity..."
               ot-ctl dataset init new >/dev/null && echo "  [OK] Initialized new dataset"
               ot-ctl dataset activetimestamp 1 >/dev/null && echo "  [OK] Set Active Timestamp"
@@ -109,12 +109,19 @@ services:
           ) &
           IDENTITY_PID=$$!
 
-          # 4. (Native Linux handles /dev/ttyACM0 gracefully without stty resets)
-          
+          # 4. Detect Backbone Interface dynamically
+          BACKBONE_IFACE=$$(ip route | grep default | awk '{print $$5}' | head -n1)
+          if [ -z "$$BACKBONE_IFACE" ]; then
+            BACKBONE_IFACE=$$(ip link show | grep -E "state UP|state UNKNOWN" | awk -F': ' '{print $$2}' | grep -v -E "lo|docker0|wpan0" | head -n1)
+          fi
+          if [ -z "$$BACKBONE_IFACE" ]; then
+            BACKBONE_IFACE="wlo1"
+          fi
+          echo "STATION: Backbone interface detected as: $$BACKBONE_IFACE"
 
           # 5. Launch otbr-agent (blocks here until it exits/crashes)
           echo "STATION: Launching OTBR Agent (Cycle #$${CYCLE})..."
-          /usr/sbin/otbr-agent -I wpan0 -B eth0 -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist|Firewall - failed to update ipsets|cannot get LeaderData|Failed to process request" || true
+          /usr/sbin/otbr-agent -I wpan0 -B "$$BACKBONE_IFACE" -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist|Firewall - failed to update ipsets|cannot get LeaderData|Failed to process request" || true
 
           # 5. Agent exited — dongle was unplugged or fatal error
           echo ""

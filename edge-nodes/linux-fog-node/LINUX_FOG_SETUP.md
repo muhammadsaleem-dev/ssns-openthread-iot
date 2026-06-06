@@ -31,7 +31,7 @@ Clone the full repository into your Linux home directory.
 
 **Target Structure:**
 ```text
-~/Projects/ssns-project/
+~/Documents/Projects/ssns-openthread-iot/
 ├── platform/
 │   └── gateway/             # (Source code for the Gateway)
 └── edge-nodes/
@@ -45,13 +45,20 @@ Clone the full repository into your Linux home directory.
 Follow these steps in your Linux Terminal:
 
 ### Step 1: Start the Fog Stack
-Because we have integrated a self-healing hardware supervisor directly into the Docker Compose file, starting the node is incredibly simple. 
+Because we have integrated a self-healing hardware supervisor directly into the Docker Compose file, starting the node is incredibly simple. You can manage it either from the repository root or directly inside the node directory.
 
+**Option A: From the repository root (recommended)**
 ```bash
-cd ~/Projects/ssns-project/edge-nodes/linux-fog-node
+cd ~/Documents/Projects/ssns-openthread-iot
 sudo make start-linux-fog
 ```
-This single command spins up the OTBR Radio, the persistent Redis cache, and the CoAP Gateway.
+
+**Option B: From the `linux-fog-node` directory**
+```bash
+cd ~/Documents/Projects/ssns-openthread-iot/edge-nodes/linux-fog-node
+sudo make start-fog-linux
+```
+This spins up the OTBR Radio, the persistent Redis cache, and the CoAP Gateway.
 
 ---
 
@@ -59,8 +66,15 @@ This single command spins up the OTBR Radio, the persistent Redis cache, and the
 
 ### 1. Verify Radio Connectivity
 Check the OTBR logs to ensure the mesh is active and the USB dongle was detected:
+
+**From the repository root:**
 ```bash
 sudo make logs-linux-fog
+```
+
+**From the `linux-fog-node` directory:**
+```bash
+sudo make logs-radio-fog-linux
 ```
 Look for: `STATION: Hardware detected. Preparing radio...` and `SYNC: Mesh online. Ready for sensors.`
 
@@ -82,15 +96,13 @@ Because the architecture uses direct `/dev/ttyACM0` hardware passthrough and a b
 
 If the radio completely hangs or you need to wipe the Docker state, follow this sequence:
 
-1.  **Stop Docker Containers:**
-    ```bash
-    sudo make stop-linux-fog
-    ```
-2.  **Physical Reset:** Unplug the USB dongle and plug it back in.
-3.  **Restart Docker:** 
-    ```bash
-    sudo make start-linux-fog
-    ```
+1. **Stop Docker Containers:**
+   * **From root:** `sudo make stop-linux-fog`
+   * **From local folder:** `sudo make stop-fog-linux`
+2. **Physical Reset:** Unplug the USB dongle and plug it back in.
+3. **Restart Docker:** 
+   * **From root:** `sudo make start-linux-fog`
+   * **From local folder:** `sudo make start-fog-linux`
 *Note: Any unsent packets stored in the persistent Redis cache will instantly be forwarded when the Gateway boots back up.*
 
 ---

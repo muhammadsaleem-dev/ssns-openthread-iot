@@ -37,9 +37,9 @@ The sensor nodes are hardcoded to send their CoAP packets to the Gateway's speci
 *   **File:** `firmware/sensor-node/src/network.c`
 *   **Code:** `#define GATEWAY_IPV6_ADDR "fd5e:a726:ec55:ee12::1"`
 
-**2. Windows Fog Node (Docker Setup)**
-The Windows Border Router is forced to build the mesh using this prefix so that it matches the sensors.
-*   **File:** `edge-nodes/windows-fog-node/docker-compose.fog.yml`
+**2. Linux Fog Node (Docker Setup)**
+The Linux Border Router is forced to build the mesh using this prefix so that it matches the sensors.
+*   **File:** `edge-nodes/linux-fog-node/docker-compose.fog.yml`
 *   **Code:** `ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12::`
 
 **3. Mac Fog Node (Docker Setup)**
@@ -52,7 +52,7 @@ The Mac node uses the exact same prefix so it can seamlessly take over the netwo
 
 **The "Anycast via DAD Override" Strategy:**
 To achieve seamless High Availability without rewriting the sensor firmware to support complex Service Discovery (DNS-SD), we utilize a hardware-level "Anycast" strategy. 
-*   **Duplicate IPs:** Every Fog Node (Windows, Mac, and any future nodes) is hardcoded to share the exact same IP address (`fd5e:a726:ec55:ee12::1`).
+*   **Duplicate IPs:** Every Fog Node (Linux, Mac, and any future nodes) is hardcoded to share the exact same IP address (`fd5e:a726:ec55:ee12::1`).
 *   **Linux DAD Bypass:** Normally, Linux disables the network interface if it detects an IP collision (Duplicate Address Detection). We bypass this safety feature by injecting deep kernel flags (`sysctl -w net.ipv6.conf.wpan0.accept_dad=0`) into the Docker containers, forcing the Linux kernel to allow multiple identical IPs on the same Thread mesh.
 
 **Failover & Scalability Benefits:**
