@@ -42,7 +42,7 @@ services:
         rm -f /var/run/dbus/pid
         service dbus start
         service rsyslog start
-        sleep 1 && tail -f /var/log/syslog | grep --line-buffered -v "UtilAcceptVsock" | ccze -A &
+        sleep 1 && tail -f /var/log/syslog | grep --line-buffered -v -E "UtilAcceptVsock|ipset v6.34|The set with the given name does not exist|Firewall - failed to update ipsets|cannot get LeaderData|Failed to process" | ccze -A &
         # (socat bridge is started after mesh IPv6 address is ready — see identity subshell below)
 
         CYCLE=0
@@ -79,20 +79,20 @@ services:
             until ot-ctl state 2>/dev/null; do echo "SYNC: Waiting for Agent..."; sleep 2; done
             if ot-ctl state | grep -q disabled; then
               echo "SYNC: Initializing WSN01 Mesh Identity..."
-              ot-ctl dataset init new
-              ot-ctl dataset activetimestamp 1
-              ot-ctl dataset networkname WSN01
-              ot-ctl dataset panid 0x1235
-              ot-ctl dataset extpanid 1111111122222222
-              ot-ctl dataset networkkey 112233445566778899aabbccddeeff00
-              ot-ctl dataset channel 15
-              ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12::
-              ot-ctl dataset commit active
-              ot-ctl ifconfig up
-              ot-ctl thread start
-              ot-ctl leaderweight 255
+              ot-ctl dataset init new >/dev/null && echo "  [OK] Initialized new dataset"
+              ot-ctl dataset activetimestamp 1 >/dev/null && echo "  [OK] Set Active Timestamp"
+              ot-ctl dataset networkname WSN01 >/dev/null && echo "  [OK] Set Network Name (WSN01)"
+              ot-ctl dataset panid 0x1235 >/dev/null && echo "  [OK] Set PAN ID (0x1235)"
+              ot-ctl dataset extpanid 1111111122222222 >/dev/null && echo "  [OK] Set Extended PAN ID"
+              ot-ctl dataset networkkey 112233445566778899aabbccddeeff00 >/dev/null && echo "  [OK] Set Network Key"
+              ot-ctl dataset channel 15 >/dev/null && echo "  [OK] Set Channel (15)"
+              ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12:: >/dev/null && echo "  [OK] Set Mesh Local Prefix"
+              ot-ctl dataset commit active >/dev/null && echo "  [OK] Committed dataset"
+              ot-ctl ifconfig up >/dev/null && echo "  [OK] Interface wpan0 UP"
+              ot-ctl thread start >/dev/null && echo "  [OK] Thread protocol STARTED"
+              ot-ctl leaderweight 255 >/dev/null && echo "  [OK] Leader weight set"
             fi
-            ot-ctl netdata register
+            ot-ctl netdata register >/dev/null
             # Disable Duplicate Address Detection (DAD) so both routers can safely share the Anycast IP
             sysctl -w net.ipv6.conf.wpan0.accept_dad=0 2>/dev/null || true
             sysctl -w net.ipv6.conf.wpan0.dad_transmits=0 2>/dev/null || true
@@ -111,7 +111,7 @@ services:
 
           # 4. Launch otbr-agent (blocks here until it exits/crashes)
           echo "STATION: Launching OTBR Agent (Cycle #$${CYCLE})..."
-          /usr/sbin/otbr-agent -I wpan0 -B eth0 -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist|failed to update ipsets|cannot get LeaderData while detached|Failed to process request" || true
+          /usr/sbin/otbr-agent -I wpan0 -B eth0 -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist|Firewall - failed to update ipsets|cannot get LeaderData|Failed to process request" || true
 
           # 5. Agent exited — dongle was unplugged or fatal error
           echo ""

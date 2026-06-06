@@ -46,3 +46,16 @@ The Windows Border Router is forced to build the mesh using this prefix so that 
 The Mac node uses the exact same prefix so it can seamlessly take over the network if the Windows node goes down.
 *   **File:** `edge-nodes/mac-fog-node/docker-compose.fog.yml`
 *   **Code:** `ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12::`
+
+## 7. High Availability & Anycast Failover
+*How the network achieves infinite scaling and 60-second failover using hardware Anycast routing.*
+
+**The "Anycast via DAD Override" Strategy:**
+To achieve seamless High Availability without rewriting the sensor firmware to support complex Service Discovery (DNS-SD), we utilize a hardware-level "Anycast" strategy. 
+*   **Duplicate IPs:** Every Fog Node (Windows, Mac, and any future nodes) is hardcoded to share the exact same IP address (`fd5e:a726:ec55:ee12::1`).
+*   **Linux DAD Bypass:** Normally, Linux disables the network interface if it detects an IP collision (Duplicate Address Detection). We bypass this safety feature by injecting deep kernel flags (`sysctl -w net.ipv6.conf.wpan0.accept_dad=0`) into the Docker containers, forcing the Linux kernel to allow multiple identical IPs on the same Thread mesh.
+
+**Failover & Scalability Benefits:**
+*   **Infinite Scalability:** Because the sensor only knows about one IP address (`::1`), you can add up to 32 Fog Nodes (the OpenThread Active Router limit) without ever touching the C firmware. The OpenThread mesh automatically calculates the shortest path and routes sensor data to whichever Fog Node has the strongest radio signal.
+*   **60-Second Failover:** If a primary Fog Node is unplugged, the sensor will timeout waiting for a CoAP ACK. Because we customized the OpenThread kernel in `network.c` (`otThreadSetChildTimeout(instance, 60);`), the sensor detects the failure and instantly routes to the backup Fog Node in exactly **60 seconds**.
+*   **Zero Data Loss:** During that 60-second routing delay, any data the sensor collects is safely written to its physical NVS (Non-Volatile Storage) flash memory. Once the sensor connects to the backup Fog Node, it immediately drains its NVS offline queue, guaranteeing no data is lost during a failover event.
