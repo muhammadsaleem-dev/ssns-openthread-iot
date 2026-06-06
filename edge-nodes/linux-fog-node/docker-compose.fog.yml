@@ -1,11 +1,11 @@
 # ============================================================
-# SSNS Smart Monitoring System — Windows/WSL2 Edge Node
+# SSNS Smart Monitoring System — Native Linux Edge Node
 #
 # DEFINITIVE INDUSTRIAL STABLE CONFIGURATION
 # ------------------------------------------------------------
 # 1. Direct Hardware Passthrough via /dev/dev volume mapping
 # 2. Automated Radio Stack Recovery
-# 3. Native Linux Docker Engine compatibility
+# 3. Bare-Metal Docker Engine performance
 # ============================================================
 
 services:
@@ -13,8 +13,8 @@ services:
   otbr:
     build:
       context: .
-      dockerfile: Dockerfile.otbr-windows
-    container_name: ssns-otbr-windows
+      dockerfile: Dockerfile.otbr-linux
+    container_name: ssns-otbr-linux
     privileged: true
     # Maps the entire host device tree for real-time hotplugging
     volumes:
@@ -34,7 +34,7 @@ services:
       - -c
       - |
         # ============================================================
-        # SSNS OTBR — Self-Healing Supervisor for Windows/WSL2
+        # SSNS OTBR — Self-Healing Supervisor for Native Linux
         # Survives dongle unplug/replug without container restart.
         # ============================================================
 
@@ -57,7 +57,7 @@ services:
 
           # 1. Wait for dongle to appear
           until [ -e /dev/ttyACM0 ]; do
-            echo "STATION: Waiting for nRF52840 on /dev/ttyACM0... (Check usbipd)"
+            echo "STATION: Waiting for nRF52840 on /dev/ttyACM0... (Plug in the dongle)"
             sleep 2
           done
 
@@ -109,12 +109,8 @@ services:
           ) &
           IDENTITY_PID=$$!
 
-          # 4. Virtual Hardware Reset (Fixes usbipd buffer lockups)
-          echo "SUPERVISOR: Sending virtual hardware reset to radio..."
-          stty -F /dev/ttyACM0 0 2>/dev/null || true
-          sleep 1
-          stty -F /dev/ttyACM0 115200 2>/dev/null || true
-          sleep 1
+          # 4. (Native Linux handles /dev/ttyACM0 gracefully without stty resets)
+          
 
           # 5. Launch otbr-agent (blocks here until it exits/crashes)
           echo "STATION: Launching OTBR Agent (Cycle #$${CYCLE})..."
@@ -137,7 +133,7 @@ services:
     build:
       context: ../../platform/gateway
       dockerfile: Dockerfile
-    container_name: ssns-gateway-windows
+    container_name: ssns-gateway-linux
     network_mode: "host"
     environment:
       GATEWAY_MODE: "coap"
@@ -154,7 +150,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: ssns-redis-windows
+    container_name: ssns-redis-linux
     network_mode: "host"
     volumes:
       - redis_data:/data

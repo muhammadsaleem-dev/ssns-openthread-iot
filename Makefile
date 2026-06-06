@@ -21,12 +21,21 @@ stop-platform:
 	cd platform && docker-compose -f docker-compose.ha.yml down --remove-orphans
 
 # Start just the local Mac Fog Node (OTBR, Gateway, Redis)
-start-fog: bridge
+start-mac-fog: bridge
 	cd edge-nodes/mac-fog-node && docker-compose -f docker-compose.fog.yml up -d --build --remove-orphans
 
 # Stop just the local Mac Fog Node
-stop-fog:
+stop-mac-fog:
 	cd edge-nodes/mac-fog-node && docker-compose -f docker-compose.fog.yml down --remove-orphans
+
+# Start just the local Native Linux Fog Node (OTBR, Gateway, Redis)
+start-linux-fog:
+	cd edge-nodes/linux-fog-node && docker-compose -f docker-compose.fog.yml up -d --build --remove-orphans
+
+# Stop just the local Native Linux Fog Node
+stop-linux-fog:
+	cd edge-nodes/linux-fog-node && docker-compose -f docker-compose.fog.yml down --remove-orphans
+
 
 # View logs for the Mac Fog Gateway
 logs:
@@ -54,8 +63,12 @@ stop-bridge:
 	@echo "✓ Bridge stopped."
 
 # View logs for the Mac OTBR (Radio Driver)
-logs-fog:
-	docker logs -f ssns-otbr
+logs-mac-fog:
+	docker logs -f ssns-otbr-mac
+
+# View logs for the Linux OTBR (Radio Driver)
+logs-linux-fog:
+	docker logs -f ssns-otbr-linux
 
 # Build the Sensor Node firmware (Requires nRF Connect SDK v2.9.2)
 build-sensor:
