@@ -5,6 +5,7 @@ Thumbs.db
 # Environment
 .env
 *.env.local
+.env.deploy
 
 # IDE
 .idea/
@@ -51,3 +52,9 @@ target/
 .docker/
 *.tar
 *.tar.gz
+
+# Untracked project files
+PROJECT_KNOWLEDGE.md
+bridge.log
+reset_docker_native.sh
+system_temp.png
