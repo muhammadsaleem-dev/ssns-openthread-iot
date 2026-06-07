@@ -57,9 +57,11 @@ public class SensorDataController {
     @ApiResponse(responseCode = "200", description = "List of telemetry records")
     public ResponseEntity<List<SensorDataResponse>> getAll(
             @Parameter(description = "Filter by sensor node ID", example = "node-01")
-            @RequestParam(required = false) String nodeId) {
-        log.info("GET /api/sensor-data — nodeId={}", nodeId);
-        return ResponseEntity.ok(sensorDataService.findAll(nodeId));
+            @RequestParam(required = false) String nodeId,
+            @Parameter(description = "Hours of history to fetch", example = "24")
+            @RequestParam(defaultValue = "1") int hours) {
+        log.info("GET /api/sensor-data — nodeId={}, hours={}", nodeId, hours);
+        return ResponseEntity.ok(sensorDataService.findAll(nodeId, hours));
     }
 
     @GetMapping("/page")
