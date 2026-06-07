@@ -110,11 +110,12 @@ public class AlertService {
     }
 
     /**
-     * Mark all currently unresolved alerts as resolved, optionally filtered by types.
+     * Mark all currently unresolved alerts as resolved, optionally filtered by category.
      * @return the number of alerts resolved.
      */
-    public int resolveAllUnresolved(List<Alert.AlertType> types) {
+    public int resolveAllUnresolved(String category) {
         List<Alert> unresolved;
+        List<Alert.AlertType> types = getTypesForCategory(category);
         if (types == null || types.isEmpty()) {
             unresolved = alertRepository.findByResolvedFalse();
         } else {
@@ -141,29 +142,89 @@ public class AlertService {
         }).orElse(false);
     }
 
-    /**
-     * Return paginated alerts, optionally filtered by unresolved status and category types.
-     */
-    public Page<AlertResponse> getPaginatedAlerts(boolean unresolvedOnly, List<Alert.AlertType> types, int page, int size) {
-        PageRequest pageRequest = PageRequest.of(page, size);
+    private static final List<Alert.AlertType> OPERATIONAL_TYPES = List.of(
+            Alert.AlertType.TEMPERATURE_HIGH, Alert.AlertType.TEMPERATURE_LOW,
+            Alert.AlertType.HIGH_CO2, Alert.AlertType.HIGH_PARTICULATES, Alert.AlertType.HIGH_VOC,
+            Alert.AlertType.AIR_QUALITY_POOR, Alert.AlertType.LIGHT_INTENSITY_HIGH,
+            Alert.AlertType.HARDWARE_FAULT
+    );
+    private static final List<Alert.AlertType> AI_TYPES = List.of(
+            Alert.AlertType.ML_ANOMALY, Alert.AlertType.FORECAST_WARNING
+    );
+    private static final List<Alert.AlertType> INFRA_TYPES = List.of(
+            Alert.AlertType.NODE_OFFLINE
+    );
 
-        if (types != null && !types.isEmpty()) {
+    private List<Alert.AlertType> getTypesForCategory(String category) {
+        if (category == null) return null;
+        return switch (category.toLowerCase()) {
+            case "operational" -> OPERATIONAL_TYPES;
+            case "ai" -> AI_TYPES;
+            case "infra" -> INFRA_TYPES;
+            default -> null;
+        };
+    }
+
+    /**
+     * Return paginated alerts, optionally filtered by unresolved status, category, and nodeId.
+     */
+    public Page<AlertResponse> getPaginatedAlerts(boolean unresolvedOnly, String category, String nodeId, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, size);
+        Page<Alert> alertPage;
+
+        List<Alert.AlertType> typeFilter = getTypesForCategory(category);
+
+        if (typeFilter != null) {
             if (unresolvedOnly) {
-                return alertRepository.findByTypeInAndResolvedFalseOrderByCreatedAtDesc(types, pageRequest)
-                        .map(this::toResponse);
+                alertPage = alertRepository.findByTypeInAndResolvedFalseOrderByCreatedAtDesc(typeFilter, pageRequest);
             } else {
-                return alertRepository.findByTypeInOrderByCreatedAtDesc(types, pageRequest)
-                        .map(this::toResponse);
+                alertPage = alertRepository.findByTypeInOrderByCreatedAtDesc(typeFilter, pageRequest);
+            }
+        } else if (nodeId != null && !nodeId.isBlank()) {
+            if (unresolvedOnly) {
+                alertPage = alertRepository.findByNodeIdAndResolvedFalseOrderByCreatedAtDesc(nodeId, pageRequest);
+            } else {
+                alertPage = alertRepository.findByNodeIdOrderByCreatedAtDesc(nodeId, pageRequest);
             }
         } else {
             if (unresolvedOnly) {
-                return alertRepository.findByResolvedFalseOrderByCreatedAtDesc(pageRequest)
-                        .map(this::toResponse);
+                alertPage = alertRepository.findByResolvedFalseOrderByCreatedAtDesc(pageRequest);
             } else {
-                return alertRepository.findAllByOrderByCreatedAtDesc(pageRequest)
-                        .map(this::toResponse);
+                alertPage = alertRepository.findAllByOrderByCreatedAtDesc(pageRequest);
             }
         }
+
+        return alertPage.map(this::toResponse);
+    }
+
+    /**
+     * Return unresolved alert counts for each category.
+     */
+    public java.util.Map<String, Long> getAlertCounts(String nodeId) {
+        long allCount;
+        long operationalCount;
+        long aiCount;
+        long infraCount;
+
+        if (nodeId != null && !nodeId.isBlank()) {
+            List<Alert> nodeAlerts = alertRepository.findByNodeIdAndResolvedFalse(nodeId);
+            allCount = nodeAlerts.size();
+            operationalCount = nodeAlerts.stream().filter(a -> OPERATIONAL_TYPES.contains(a.getType())).count();
+            aiCount = nodeAlerts.stream().filter(a -> AI_TYPES.contains(a.getType())).count();
+            infraCount = nodeAlerts.stream().filter(a -> INFRA_TYPES.contains(a.getType())).count();
+        } else {
+            allCount = alertRepository.countByResolvedFalse();
+            operationalCount = alertRepository.countByTypeInAndResolvedFalse(OPERATIONAL_TYPES);
+            aiCount = alertRepository.countByTypeInAndResolvedFalse(AI_TYPES);
+            infraCount = alertRepository.countByTypeInAndResolvedFalse(INFRA_TYPES);
+        }
+
+        return java.util.Map.of(
+                "all", allCount,
+                "operational", operationalCount,
+                "ai", aiCount,
+                "infra", infraCount
+        );
     }
 
     /**
@@ -212,6 +273,13 @@ public class AlertService {
                              Alert.AlertSeverity severity, String message,
                              String recommendedAction,
                              Double triggerValue, Double thresholdValue) {
+        
+        // Deduplication: Prevent database spam if the sensor continuously reports the same error.
+        java.util.Optional<Alert> existing = alertRepository.findFirstByNodeIdAndTypeAndResolvedFalse(nodeId, type);
+        if (existing.isPresent()) {
+            return; // An unresolved alert of this exact type is already active.
+        }
+
         Alert alert = Alert.builder()
                 .nodeId(nodeId)
                 .type(type)

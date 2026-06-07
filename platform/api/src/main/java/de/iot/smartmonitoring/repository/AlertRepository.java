@@ -20,6 +20,8 @@ public interface AlertRepository extends MongoRepository<Alert, String> {
 
     List<Alert> findByNodeIdAndResolvedFalse(String nodeId);
 
+    java.util.Optional<Alert> findFirstByNodeIdAndTypeAndResolvedFalse(String nodeId, Alert.AlertType type);
+
     List<Alert> findByType(Alert.AlertType type);
 
     List<Alert> findBySeverity(Alert.AlertSeverity severity);
@@ -30,9 +32,17 @@ public interface AlertRepository extends MongoRepository<Alert, String> {
 
     Page<Alert> findByResolvedFalseOrderByCreatedAtDesc(Pageable pageable);
 
+    Page<Alert> findByNodeIdOrderByCreatedAtDesc(String nodeId, Pageable pageable);
+
+    Page<Alert> findByNodeIdAndResolvedFalseOrderByCreatedAtDesc(String nodeId, Pageable pageable);
+
     Page<Alert> findByTypeInOrderByCreatedAtDesc(List<Alert.AlertType> types, Pageable pageable);
 
     Page<Alert> findByTypeInAndResolvedFalseOrderByCreatedAtDesc(List<Alert.AlertType> types, Pageable pageable);
 
     List<Alert> findByTypeInAndResolvedFalse(List<Alert.AlertType> types);
+
+    long countByTypeInAndResolvedFalse(List<Alert.AlertType> types);
+
+    long countByResolvedFalse();
 }

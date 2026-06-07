@@ -51,19 +51,32 @@ public class AlertController {
         return ResponseEntity.ok(alertService.findUnresolved());
     }
 
+    @GetMapping("/summary")
+    @Operation(
+            summary = "Get alert counts",
+            description = "Returns unresolved alert counts categorized by all, operational, ai, and infra."
+    )
+    @ApiResponse(responseCode = "200", description = "Map of category to count")
+    public ResponseEntity<java.util.Map<String, Long>> getSummary(
+            @RequestParam(required = false) String nodeId) {
+        log.info("GET /api/alerts/summary - nodeId={}", nodeId);
+        return ResponseEntity.ok(alertService.getAlertCounts(nodeId));
+    }
+
     @GetMapping("/page")
     @Operation(
             summary = "Retrieve alerts (Paginated)",
-            description = "Returns paginated alerts. Optionally filter by unresolved status and category types."
+            description = "Returns paginated alerts. Optionally filter by unresolved status and category."
     )
     @ApiResponse(responseCode = "200", description = "Page of alerts")
     public ResponseEntity<Page<AlertResponse>> getPaginated(
             @RequestParam(defaultValue = "false") boolean unresolvedOnly,
-            @RequestParam(required = false) List<AlertType> types,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String nodeId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        log.info("GET /api/alerts/page — unresolvedOnly={}, types={}, page={}, size={}", unresolvedOnly, types, page, size);
-        return ResponseEntity.ok(alertService.getPaginatedAlerts(unresolvedOnly, types, page, size));
+        log.info("GET /api/alerts/page — unresolvedOnly={}, category={}, nodeId={}, page={}, size={}", unresolvedOnly, category, nodeId, page, size);
+        return ResponseEntity.ok(alertService.getPaginatedAlerts(unresolvedOnly, category, nodeId, page, size));
     }
 
     @org.springframework.web.bind.annotation.PostMapping
@@ -85,9 +98,9 @@ public class AlertController {
     )
     @ApiResponse(responseCode = "200", description = "Number of alerts resolved")
     public ResponseEntity<Integer> resolveAll(
-            @org.springframework.web.bind.annotation.RequestParam(required = false) List<AlertType> types) {
-        log.info("PUT /api/alerts/resolve-all - types={}", types);
-        return ResponseEntity.ok(alertService.resolveAllUnresolved(types));
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String category) {
+        log.info("PUT /api/alerts/resolve-all - category={}", category);
+        return ResponseEntity.ok(alertService.resolveAllUnresolved(category));
     }
 
     @org.springframework.web.bind.annotation.PutMapping("/{id}/resolve")
