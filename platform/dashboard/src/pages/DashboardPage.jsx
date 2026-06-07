@@ -20,7 +20,7 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import ErrorBanner from '../components/ErrorBanner';
 import TelemetryChart from '../charts/TelemetryChart';
 import usePolling from '../hooks/usePolling';
-import { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, updateNodeLocation } from '../services/api';
+import { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlertsPage, fetchAlertCounts, updateNodeLocation } from '../services/api';
 import { formatTimestamp, average, computeAqi } from '../utils/format';
 import CustomPagination from '../components/CustomPagination';
 import API from '../config/api';
@@ -36,9 +36,14 @@ export default function DashboardPage() {
   const fetchSensorDataFn = useCallback(() => fetchSensorData(null, timeRange), [timeRange]);
   const { data: sensorData, loading: loadingSensor, error: errorSensor } = usePolling(fetchSensorDataFn, API.POLL_INTERVAL);
   const { data: nodes, loading: loadingNodes, refetch: refetchNodes } = usePolling(fetchNodes, API.POLL_INTERVAL);
-  const { data: alerts, loading: loadingAlerts } = usePolling(fetchAlerts, API.POLL_INTERVAL);
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+
+  const fetchRecentAlertsFn = useCallback(() => fetchAlertsPage(false, 'all', 0, 5, selectedNodeId), [selectedNodeId]);
+  const fetchCountsFn = useCallback(() => fetchAlertCounts(selectedNodeId), [selectedNodeId]);
+
+  const { data: recentAlertsPage, loading: loadingAlerts } = usePolling(fetchRecentAlertsFn, API.POLL_INTERVAL);
+  const { data: alertCounts } = usePolling(fetchCountsFn, API.POLL_INTERVAL);
   
   // State for renaming a node
   const [isEditingName, setIsEditingName] = useState(false);
@@ -102,12 +107,6 @@ export default function DashboardPage() {
     return sensorData.filter(d => d.nodeId === selectedNodeId);
   }, [sensorData, selectedNodeId]);
 
-  const filteredAlerts = useMemo(() => {
-    if (!alerts) return [];
-    if (!selectedNodeId) return alerts;
-    return alerts.filter(a => a.nodeId === selectedNodeId);
-  }, [alerts, selectedNodeId]);
-
   // Sort telemetry chronologically for charts (up to last 50 records)
   // Maps data to support multi-line rendering
   const chartData = useMemo(() => {
@@ -160,9 +159,9 @@ export default function DashboardPage() {
 
   // Recent alerts (latest 5)
   const recentAlerts = useMemo(() => {
-    if (!filteredAlerts) return [];
-    return filteredAlerts.slice(0, 5);
-  }, [filteredAlerts]);
+    if (!recentAlertsPage || !recentAlertsPage.content) return [];
+    return recentAlertsPage.content;
+  }, [recentAlertsPage]);
 
   // Smart KPI Stats (Max for global, Exact for specific room)
   const stats = useMemo(() => {
@@ -209,9 +208,9 @@ export default function DashboardPage() {
       aqi: aqiMax.val != null ? Math.round(aqiMax.val) : '--',
       aqiTrend: formatTrend(aqiMax.nodeId),
       nodeCount: nodes ? nodes.filter(n => n.status === 'ONLINE').length : 0,
-      alertCount: filteredAlerts ? filteredAlerts.filter(a => !a.resolved).length : 0,
+      alertCount: alertCounts ? alertCounts.all : 0,
     };
-  }, [latestTelemetryByNode, nodes, filteredAlerts, selectedNodeId, selectedLocationName]);
+  }, [latestTelemetryByNode, nodes, alertCounts, selectedNodeId, selectedLocationName]);
 
   if (loadingSensor && !sensorData) return <LoadingOverlay message="Connecting to backend..." />;
 

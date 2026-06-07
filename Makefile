@@ -14,7 +14,7 @@ stop: stop-fog-mac stop-platform
 
 # Start just the platform core (API, Dashboard, Mongo, ML)
 start-platform:
-	cd platform && docker-compose -f docker-compose.ha.yml up -d --build --remove-orphans
+	cd platform && docker-compose -f docker-compose.ha.yml build --no-cache && docker-compose -f docker-compose.ha.yml up -d --remove-orphans
 
 # Stop just the platform core
 stop-platform:
@@ -22,7 +22,7 @@ stop-platform:
 
 # Start just the local Mac Fog Node (OTBR, Gateway, Redis)
 start-fog-mac: bridge
-	cd edge-nodes/mac-fog-node && docker-compose -f docker-compose.fog.yml up -d --build --remove-orphans
+	cd edge-nodes/mac-fog-node && docker-compose -f docker-compose.fog.yml build --no-cache && docker-compose -f docker-compose.fog.yml up -d --remove-orphans
 
 # Stop just the local Mac Fog Node
 stop-fog-mac:
@@ -30,7 +30,7 @@ stop-fog-mac:
 
 # Start just the local Native Linux Fog Node (OTBR, Gateway, Redis)
 start-fog-linux:
-	cd edge-nodes/linux-fog-node && docker-compose -f docker-compose.fog.yml up -d --build --remove-orphans
+	cd edge-nodes/linux-fog-node && docker-compose -f docker-compose.fog.yml build --no-cache && docker-compose -f docker-compose.fog.yml up -d --remove-orphans
 
 # Stop just the local Native Linux Fog Node
 stop-fog-linux:
@@ -88,6 +88,6 @@ deploy-cloud:
 	@if [ -z "$(VPS_IP)" ]; then echo "❌ ERROR: VPS_IP is not set. Create a .env.deploy file with VPS_IP=your_ip"; exit 1; fi
 	@echo "🚀 Pushing platform code to Cloud VPS ($(VPS_IP))..."
 	@rsync -avz --delete --exclude 'node_modules' --exclude '.git' --exclude 'target' --exclude 'archive' platform/ root@$(VPS_IP):/root/ssns-project/platform/
-	@echo "☁️ Rebuilding and restarting Cloud containers..."
-	@ssh root@$(VPS_IP) "cd /root/ssns-project/platform && docker compose -f docker-compose.ha.yml up -d --build"
+	@echo "☁️ Rebuilding and restarting Cloud containers without cache..."
+	@ssh root@$(VPS_IP) "cd /root/ssns-project/platform && docker compose -f docker-compose.ha.yml build --no-cache && docker compose -f docker-compose.ha.yml up -d"
 	@echo "✅ Cloud deployment complete!"

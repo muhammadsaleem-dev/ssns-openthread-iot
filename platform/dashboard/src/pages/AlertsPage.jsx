@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Box, Typography, Card, Tabs, Tab, Button, Switch, FormControlLabel, TableContainer, alpha, useTheme, useMediaQuery } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
@@ -6,7 +6,7 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import ErrorBanner from '../components/ErrorBanner';
 import CustomPagination from '../components/CustomPagination';
 import usePolling from '../hooks/usePolling';
-import { fetchAlerts, fetchAlertsPage, fetchNodes, resolveAllAlerts, resolveAlert } from '../services/api';
+import { fetchAlertCounts, fetchAlertsPage, fetchNodes, resolveAllAlerts, resolveAlert } from '../services/api';
 import API from '../config/api';
 
 import { TABS, OPERATIONAL_TYPES, AI_TYPES, INFRA_TYPES, CATEGORY_FILTER } from '../components/alerts/alertConstants';
@@ -24,26 +24,15 @@ export default function AlertsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [hideResolved, setHideResolved] = useState(true);
 
-  const { data: alerts, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = usePolling(fetchAlerts, API.POLL_INTERVAL);
+  const { data: countsData, loading: countsLoading, error: countsError, refetch: refetchCounts } = usePolling(fetchAlertCounts, API.POLL_INTERVAL);
 
-  const activeTypes = useMemo(() => {
-    if (activeTab === 'operational') return Array.from(OPERATIONAL_TYPES);
-    if (activeTab === 'ai') return Array.from(AI_TYPES);
-    if (activeTab === 'infra') return Array.from(INFRA_TYPES);
-    return null;
-  }, [activeTab]);
+  const fetchPaginatedAlerts = useCallback(() => {
+    return fetchAlertsPage(hideResolved, activeTab, page, rowsPerPage);
+  }, [hideResolved, activeTab, page, rowsPerPage]);
 
-  const fetchPageParams = useMemo(() => [
-    page, 
-    rowsPerPage, 
-    activeTypes, 
-    hideResolved
-  ], [page, rowsPerPage, activeTypes, hideResolved]);
-
-  const { data: pageData, loading: pageLoading, refetch: refetchPage } = usePolling(
-    fetchAlertsPage, 
-    API.POLL_INTERVAL, 
-    fetchPageParams
+  const { data: pageData, loading: pageLoading, refetch: refetchPage, error: pageError } = usePolling(
+    fetchPaginatedAlerts, 
+    API.POLL_INTERVAL
   );
 
   const nodeMap = useMemo(() => {
@@ -57,33 +46,24 @@ export default function AlertsPage() {
   }, [nodes]);
 
   const counts = useMemo(() => {
-    if (!alerts) return { all: 0, operational: 0, ai: 0, infra: 0 };
-    return {
-      all:         alerts.length,
-      operational: alerts.filter(CATEGORY_FILTER.operational).length,
-      ai:          alerts.filter(CATEGORY_FILTER.ai).length,
-      infra:       alerts.filter(CATEGORY_FILTER.infra).length,
-    };
-  }, [alerts]);
+    if (!countsData) return { all: 0, operational: 0, ai: 0, infra: 0 };
+    return countsData;
+  }, [countsData]);
 
   const paginatedAlerts = useMemo(() => {
     if (!pageData || !pageData.content) return [];
     return pageData.content;
   }, [pageData]);
 
-  const unresolvedCount = alerts ? alerts.filter((a) => !a.resolved).length : 0;
+  const unresolvedCount = counts.all || 0;
 
   const [resolving, setResolving] = useState(false);
   const handleResolveAll = async () => {
     setResolving(true);
     try {
-      let typesToResolve = [];
-      if (activeTab === 'operational') typesToResolve = [...OPERATIONAL_TYPES];
-      if (activeTab === 'ai') typesToResolve = Array.from(AI_TYPES);
-      if (activeTab === 'infra') typesToResolve = Array.from(INFRA_TYPES);
-      await resolveAllAlerts(typesToResolve);
-      refetchAlerts();
-      refetchPage();
+      await resolveAllAlerts(activeTab);
+      await refetchPage();
+      await refetchCounts();
     } catch (e) {
       console.error(e);
     } finally {
@@ -94,8 +74,8 @@ export default function AlertsPage() {
   const handleResolveOne = async (id) => {
     try {
       await resolveAlert(id);
-      refetchAlerts();
-      refetchPage();
+      await refetchCounts();
+      await refetchPage();
     } catch (e) {
       console.error(e);
     }
@@ -104,8 +84,9 @@ export default function AlertsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const loading = alertsLoading || nodesLoading || pageLoading;
-  if (loading && !pageData) return <LoadingOverlay message="Loading alerts..." />;
+  const loading = countsLoading || nodesLoading || pageLoading;
+  if (loading) return <LoadingOverlay />;
+  if (countsError) return <ErrorBanner message="Failed to load alerts or node telemetry." />;
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -134,7 +115,7 @@ export default function AlertsPage() {
         </Box>
       </Box>
 
-      {alertsError && <ErrorBanner />}
+      {pageError && <ErrorBanner message="Failed to load paginated alerts." />}
 
       <Card sx={{ mb: 2.5 }}>
 

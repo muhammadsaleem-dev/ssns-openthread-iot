@@ -21,7 +21,16 @@ export default function AiInsightsTable({ rows, nodeMap, onResolve }) {
               <SeverityChip severity={a.severity} />
               <TD>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', w: 24, h: 24, borderRadius: 1, bgcolor: alpha(meta.color === 'text.secondary' ? '#888' : meta.color, 0.1) }}>
+                  <Box sx={{ 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                    width: 24, height: 24, borderRadius: 1, 
+                    bgcolor: (theme) => {
+                      let hex = '#888888';
+                      if (meta.color === 'warning.main') hex = theme.palette.warning.main;
+                      else if (meta.color === 'info.main') hex = theme.palette.info.main;
+                      return alpha(hex, 0.1);
+                    } 
+                  }}>
                     <Icon sx={{ fontSize: 16, color: meta.color }} />
                   </Box>
                   <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{meta.label}</Typography>

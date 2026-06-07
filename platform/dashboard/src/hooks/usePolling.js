@@ -11,18 +11,16 @@ export default function usePolling(fetchFn, interval = 10000) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const mountedRef = useRef(true);
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (isMounted) => {
     try {
       const result = await fetchFn();
-      if (mountedRef.current) {
+      if (isMounted()) {
         setData(result);
         setError(null);
         setLoading(false);
       }
     } catch (err) {
-      if (mountedRef.current) {
+      if (isMounted()) {
         setError(err);
         setLoading(false);
       }
@@ -30,17 +28,20 @@ export default function usePolling(fetchFn, interval = 10000) {
   }, [fetchFn]);
 
   useEffect(() => {
-    mountedRef.current = true;
-    load();
+    let isCurrent = true;
+    const isMounted = () => isCurrent;
+    
+    load(isMounted);
+    
     let id;
     if (interval !== null) {
-      id = setInterval(load, interval);
+      id = setInterval(() => load(isMounted), interval);
     }
     return () => {
-      mountedRef.current = false;
+      isCurrent = false;
       if (id) clearInterval(id);
     };
   }, [load, interval]);
 
-  return { data, loading, error, refetch: load };
+  return { data, loading, error, refetch: () => load(() => true) };
 }

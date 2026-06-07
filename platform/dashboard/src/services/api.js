@@ -39,24 +39,31 @@ export const fetchAlerts = async () => {
   return data;
 };
 
-/** Fetch paginated alerts with optional filters. */
-export const fetchAlertsPage = async (unresolvedOnly = false, types = [], page = 0, size = 10) => {
-  const params = new URLSearchParams();
-  params.append('unresolvedOnly', unresolvedOnly);
-  params.append('page', page);
-  params.append('size', size);
-  if (types && types.length > 0) {
-    types.forEach(type => params.append('types', type));
+/** Fetch paginated alerts with optional category filter and nodeId. */
+export const fetchAlertsPage = async (unresolvedOnly = false, category = 'all', page = 0, size = 10, nodeId = null) => {
+  const params = { unresolvedOnly, page, size };
+  if (category && category !== 'all') {
+    params.category = category;
+  }
+  if (nodeId) {
+    params.nodeId = nodeId;
   }
   const { data } = await client.get('/api/alerts/page', { params });
   return data;
 };
 
-/** Mark all unresolved alerts as resolved, optionally filtered by types. */
-export const resolveAllAlerts = async (types = []) => {
-  const params = new URLSearchParams();
-  if (types && types.length > 0) {
-    types.forEach(type => params.append('types', type));
+/** Fetch summary counts of alerts by category, optionally filtered by nodeId. */
+export const fetchAlertCounts = async (nodeId = null) => {
+  const params = {};
+  if (nodeId) params.nodeId = nodeId;
+  const { data } = await client.get('/api/alerts/summary', { params });
+  return data;
+};
+
+export const resolveAllAlerts = async (category = 'all') => {
+  const params = {};
+  if (category && category !== 'all') {
+    params.category = category;
   }
   const { data } = await client.put('/api/alerts/resolve-all', null, { params });
   return data;
@@ -74,4 +81,4 @@ export const updateNodeLocation = async (nodeId, location) => {
   return data;
 };
 
-export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation };
+export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertCounts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation };
