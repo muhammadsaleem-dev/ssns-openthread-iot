@@ -12,8 +12,9 @@ const client = axios.create({
 });
 
 /** Fetch all sensor telemetry (optionally filtered by nodeId). */
-export const fetchSensorData = async (nodeId) => {
-  const params = nodeId ? { nodeId } : {};
+export const fetchSensorData = async (nodeId, hours = 1) => {
+  const params = { hours };
+  if (nodeId) params.nodeId = nodeId;
   const { data } = await client.get('/api/sensor-data', { params });
   return data;
 };

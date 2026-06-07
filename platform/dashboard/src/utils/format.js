@@ -9,15 +9,22 @@
 export function formatTimestamp(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  const absolute = d.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
+  const now = new Date();
+
+  const isToday = d.getDate() === now.getDate() && 
+                  d.getMonth() === now.getMonth() && 
+                  d.getFullYear() === now.getFullYear();
+
+  const timeString = d.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   });
 
-  const now = new Date();
+  const absolute = isToday 
+    ? timeString 
+    : `${d.toLocaleString('en-GB', { day: '2-digit', month: 'short' })}, ${timeString}`;
+
   const diffInSeconds = Math.floor((now - d) / 1000);
   
   let relative = '';
