@@ -4,7 +4,7 @@
  * Provides the persistent navigation frame that wraps all pages.
  */
 
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import {
   AppBar,
   Box,
@@ -19,12 +19,16 @@ import {
   Divider,
   Chip,
   useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import BluetoothIcon from '@mui/icons-material/Bluetooth';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import { ThemeModeContext } from '../App';
 
 const DRAWER_WIDTH = 240;
 
@@ -36,21 +40,28 @@ const navItems = [
 
 export default function DashboardLayout({ children, activePage, onNavigate }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isMobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const colorMode = useContext(ThemeModeContext);
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Brand header */}
-      <Box sx={{ px: 2.5, py: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <BluetoothIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-        <Box>
-          <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 700, lineHeight: 1.2 }}>
-            BLE Monitor
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
-            Environmental IoT
-          </Typography>
+      <Box sx={{ px: 2.5, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <BluetoothIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+          <Box>
+            <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 700, lineHeight: 1.2 }}>
+              BLE Monitor
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
+              Environmental IoT
+            </Typography>
+          </Box>
         </Box>
+        <IconButton onClick={colorMode.toggleColorMode} color="inherit" size="small">
+          {theme.palette.mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+        </IconButton>
       </Box>
 
       <Divider sx={{ borderColor: 'divider' }} />
@@ -117,9 +128,12 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
             <MenuIcon />
           </IconButton>
           <BluetoothIcon sx={{ mr: 1, color: 'primary.main' }} />
-          <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+          <Typography variant="h6" noWrap sx={{ fontWeight: 700, flexGrow: 1 }}>
             BLE Monitor
           </Typography>
+          <IconButton onClick={colorMode.toggleColorMode} color="inherit">
+            {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
         </Toolbar>
       </AppBar>
 
@@ -157,9 +171,10 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
         component="main"
         sx={{
           flexGrow: 1,
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          width: { xs: '100%', md: `calc(100% - ${DRAWER_WIDTH}px)` },
           pt: { xs: 8, md: 0 },
           minHeight: '100vh',
+          overflowX: 'hidden',
         }}
       >
         {children}

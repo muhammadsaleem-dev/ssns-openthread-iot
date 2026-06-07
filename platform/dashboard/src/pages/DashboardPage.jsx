@@ -5,8 +5,8 @@
  * a recent telemetry feed, and a live alerts panel.
  */
 
-import { useMemo, useState, useCallback } from 'react';
-import { Box, Grid, Card, CardContent, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, alpha, Select, MenuItem, FormControl, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, TablePagination } from '@mui/material';
+import { useMemo, useState, useCallback, useEffect } from 'react';
+import { Box, Grid, Card, CardContent, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, alpha, Select, MenuItem, FormControl, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, TablePagination, ToggleButtonGroup, ToggleButton, useTheme } from '@mui/material';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import AirIcon from '@mui/icons-material/Air';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
@@ -22,6 +22,7 @@ import TelemetryChart from '../charts/TelemetryChart';
 import usePolling from '../hooks/usePolling';
 import { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, updateNodeLocation } from '../services/api';
 import { formatTimestamp, average, computeAqi } from '../utils/format';
+import CustomPagination from '../components/CustomPagination';
 import API from '../config/api';
 
 const SEVERITY_COLOR = {
@@ -31,7 +32,9 @@ const SEVERITY_COLOR = {
 };
 
 export default function DashboardPage() {
-  const { data: sensorData, loading: loadingSensor, error: errorSensor } = usePolling(fetchSensorData, API.POLL_INTERVAL);
+  const [timeRange, setTimeRange] = useState(1);
+  const fetchSensorDataFn = useCallback(() => fetchSensorData(null, timeRange), [timeRange]);
+  const { data: sensorData, loading: loadingSensor, error: errorSensor } = usePolling(fetchSensorDataFn, API.POLL_INTERVAL);
   const { data: nodes, loading: loadingNodes, refetch: refetchNodes } = usePolling(fetchNodes, API.POLL_INTERVAL);
   const { data: alerts, loading: loadingAlerts } = usePolling(fetchAlerts, API.POLL_INTERVAL);
 
@@ -112,7 +115,9 @@ export default function DashboardPage() {
     
     // Group telemetry into 10-second buckets so Recharts combines them in the same tooltip
     const grouped = {};
-    const sortedData = [...filteredSensorData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    
+    const sortedData = [...filteredSensorData]
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     
     sortedData.forEach(d => {
       const date = new Date(d.timestamp);
@@ -124,20 +129,18 @@ export default function DashboardPage() {
         grouped[key] = { timestamp: roundedDate.getTime() };
       }
       
-      // Node-specific keys for multi-line LineCharts
-      grouped[key][`${d.nodeId}_temperature`] = d.temperature;
-      grouped[key][`${d.nodeId}_co2`] = d.co2;
-      grouped[key][`${d.nodeId}_pm2_5`] = d.pm2_5;
+      // Node-specific keys for multi-line LineCharts (excluding hardware faults <= -900)
+      if (d.temperature > -900) grouped[key][`${d.nodeId}_temperature`] = d.temperature;
+      if (d.co2 > -900) grouped[key][`${d.nodeId}_co2`] = d.co2;
+      if (d.pm2_5 > -900) grouped[key][`${d.nodeId}_pm2_5`] = d.pm2_5;
       
       // Fallback generic keys for single-node AreaCharts
-      grouped[key]['temperature'] = d.temperature;
-      grouped[key]['co2'] = d.co2;
-      grouped[key]['pm2_5'] = d.pm2_5;
+      if (d.temperature > -900) grouped[key]['temperature'] = d.temperature;
+      if (d.co2 > -900) grouped[key]['co2'] = d.co2;
+      if (d.pm2_5 > -900) grouped[key]['pm2_5'] = d.pm2_5;
     });
 
-    return Object.values(grouped)
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .slice(-360);
+    return Object.values(grouped).sort((a, b) => a.timestamp - b.timestamp);
   }, [filteredSensorData]);
 
   const buildSeries = (dataKey) => {
@@ -213,19 +216,19 @@ export default function DashboardPage() {
   if (loadingSensor && !sensorData) return <LoadingOverlay message="Connecting to backend..." />;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
+    <Box sx={{ p: { xs: 3, md: 4 } }}>
       {/* Page header */}
-      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, fontSize: { xs: '1.75rem', md: '2.125rem' } }}>
             Environmental Monitoring
           </Typography>
           <Typography variant="subtitle1">
             Real-time BLE sensor telemetry overview
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <FormControl sx={{ minWidth: 200 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', md: 'auto' } }}>
+          <FormControl sx={{ flexGrow: 1, minWidth: { md: 200 } }}>
             <Select 
               size="small"
               value={selectedNodeId || ''} 
@@ -255,10 +258,9 @@ export default function DashboardPage() {
       </Box>
 
       {errorSensor && <ErrorBanner message="Unable to reach backend API. Retrying..." />}
-
       {/* ─── KPI Summary Cards ─── */}
       <Grid container spacing={2.5} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <StatCard
             title={selectedNodeId ? "Temperature" : "Highest Temp"}
             value={stats.temp}
@@ -268,7 +270,7 @@ export default function DashboardPage() {
             trend={stats.tempTrend}
           />
         </Grid>
-        <Grid size={{ xs: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <StatCard
             title={selectedNodeId ? "CO2 Level" : "Highest CO2"}
             value={stats.co2}
@@ -278,7 +280,7 @@ export default function DashboardPage() {
             trend={stats.co2Trend}
           />
         </Grid>
-        <Grid size={{ xs: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <StatCard
             title={selectedNodeId ? "PM2.5" : "Highest PM2.5"}
             value={stats.pm25}
@@ -288,7 +290,7 @@ export default function DashboardPage() {
             trend={stats.pm25Trend}
           />
         </Grid>
-        <Grid size={{ xs: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <StatCard
             title={selectedNodeId ? "AQI" : "Highest AQI"}
             value={stats.aqi}
@@ -298,7 +300,7 @@ export default function DashboardPage() {
             trend={stats.aqiTrend}
           />
         </Grid>
-        <Grid size={{ xs: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <StatCard
             title="Active Nodes"
             value={selectedNodeId ? (selectedNode?.status === 'ONLINE' ? 1 : 0) : stats.nodeCount}
@@ -307,7 +309,7 @@ export default function DashboardPage() {
             trend={selectedNodeId ? (selectedNode?.status === 'ONLINE' ? 'Online' : 'Offline') : `${nodes ? nodes.length : 0} registered`}
           />
         </Grid>
-        <Grid size={{ xs: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <StatCard
             title="Active Alerts"
             value={stats.alertCount}
@@ -319,10 +321,24 @@ export default function DashboardPage() {
       </Grid>
 
       {/* ─── Telemetry Charts ─── */}
-      <SectionHeader 
-        title={selectedLocationName ? `Telemetry Trends: ${selectedLocationName}` : "Telemetry Trends"} 
-        subtitle={selectedLocationName ? "Real-time historical trends" : "Last 1 hour across all nodes"} 
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 2 }}>
+        <SectionHeader 
+          title={selectedLocationName ? `Telemetry Trends: ${selectedLocationName}` : "Telemetry Trends"} 
+          subtitle={selectedLocationName ? "Real-time historical trends" : "Recent telemetry across all nodes"} 
+        />
+        <ToggleButtonGroup
+          color="primary"
+          value={timeRange}
+          exclusive
+          onChange={(e, newRange) => { if (newRange !== null) setTimeRange(newRange); }}
+          size="small"
+        >
+          <ToggleButton value={1}>1H</ToggleButton>
+          <ToggleButton value={6}>6H</ToggleButton>
+          <ToggleButton value={12}>12H</ToggleButton>
+          <ToggleButton value={24}>24H</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, lg: 4 }}>
           <TelemetryChart
@@ -331,6 +347,9 @@ export default function DashboardPage() {
             dataKey="temperature"
             series={buildSeries('temperature')}
             color="#3B82F6"
+            threshold={35}
+            minThreshold={10}
+            unit="°C"
           />
         </Grid>
         <Grid size={{ xs: 12, lg: 4 }}>
@@ -340,6 +359,8 @@ export default function DashboardPage() {
             dataKey="co2"
             series={buildSeries('co2')}
             color="#10B981"
+            threshold={1500}
+            unit="ppm"
           />
         </Grid>
         <Grid size={{ xs: 12, lg: 4 }}>
@@ -349,6 +370,8 @@ export default function DashboardPage() {
             dataKey="pm2_5"
             series={buildSeries('pm2_5')}
             color="#F59E0B"
+            threshold={35}
+            unit="µg/m³"
           />
         </Grid>
       </Grid>
@@ -370,13 +393,13 @@ export default function DashboardPage() {
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>Temp</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>Hum</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>CO2</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>TVOC</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>eCO2</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>PM1.0</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', md: 'table-cell' } }}>TVOC</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', md: 'table-cell' } }}>eCO2</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', sm: 'table-cell' } }}>PM1.0</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>PM2.5</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>PM4.0</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>PM10</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>Light</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', md: 'table-cell' } }}>PM4.0</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', sm: 'table-cell' } }}>PM10</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', lg: 'table-cell' } }}>Light</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>Time</TableCell>
                   </TableRow>
                 </TableHead>
@@ -396,13 +419,13 @@ export default function DashboardPage() {
                         <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.temperature)}</TableCell>
                         <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.humidity)}</TableCell>
                         <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.co2, 0)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.tvoc, 0)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.eco2, 0)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm1_0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', md: 'table-cell' } }}>{formatVal(row.tvoc, 0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', md: 'table-cell' } }}>{formatVal(row.eco2, 0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', sm: 'table-cell' } }}>{formatVal(row.pm1_0)}</TableCell>
                         <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm2_5)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm4_0)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm10)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.lightIntensity, 0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', md: 'table-cell' } }}>{formatVal(row.pm4_0)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', sm: 'table-cell' } }}>{formatVal(row.pm10)}</TableCell>
+                        <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', lg: 'table-cell' } }}>{formatVal(row.lightIntensity, 0)}</TableCell>
                         <TableCell sx={{ color: 'text.secondary', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
                           {formatTimestamp(row.timestamp)}
                         </TableCell>
@@ -419,8 +442,7 @@ export default function DashboardPage() {
                 </TableBody>
               </Table>
             </TableContainer>
-            <TablePagination
-              component="div"
+            <CustomPagination
               count={pageData ? pageData.totalElements : 0}
               page={tablePage}
               onPageChange={(e, newPage) => setTablePage(newPage)}
@@ -429,7 +451,6 @@ export default function DashboardPage() {
                 setTableRowsPerPage(parseInt(e.target.value, 10));
                 setTablePage(0);
               }}
-              rowsPerPageOptions={[5, 10, 25, 50]}
             />
           </Card>
         </Grid>
