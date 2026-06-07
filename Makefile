@@ -1,13 +1,13 @@
 .PHONY: start stop start-platform stop-platform start-fog stop-fog logs logs-fog bridge start-bridge logs-bridge stop-bridge
 
 # Start everything on the Mac (Platform + Fog Node)
-start: start-platform start-fog
+start: start-platform start-mac-fog
 	@echo "=================================================="
 	@echo "✅ All services and Fog Node are now running in the background!"
 	@echo "=================================================="
 
 # Stop everything on the Mac
-stop: stop-fog stop-platform
+stop: stop-mac-fog stop-platform
 	@echo "=================================================="
 	@echo "🛑 All services and Fog Node have been stopped."
 	@echo "=================================================="

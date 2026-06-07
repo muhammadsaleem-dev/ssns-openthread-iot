@@ -15,6 +15,8 @@ services:
       context: .
       dockerfile: Dockerfile.otbr-linux
     container_name: ssns-otbr-linux
+    env_file:
+      - .env
     privileged: true
     # Maps the entire host device tree for real-time hotplugging
     volumes:
@@ -42,7 +44,7 @@ services:
         rm -f /var/run/dbus/pid
         service dbus start
         service rsyslog start
-        sleep 1 && tail -f /var/log/syslog | grep --line-buffered -v -E "UtilAcceptVsock|ipset v6.34|The set with the given name does not exist|Firewall - failed to update ipsets|cannot get LeaderData|Failed to process" | ccze -A &
+        (sleep 2 && tail -f /var/log/syslog | ccze -A) &
         # (socat bridge is started after mesh IPv6 address is ready — see identity subshell below)
 
         CYCLE=0
@@ -77,27 +79,26 @@ services:
           (
             sleep 5
             until ot-ctl state 2>/dev/null; do echo "SYNC: Waiting for Agent..."; sleep 2; done
-            if [ "$$(ot-ctl state 2>/dev/null)" = "disabled" ]; then
+            if ot-ctl state 2>/dev/null | grep -q disabled; then
               echo "SYNC: Initializing WSN01 Mesh Identity..."
               ot-ctl dataset init new >/dev/null && echo "  [OK] Initialized new dataset"
-              ot-ctl dataset activetimestamp 1 >/dev/null && echo "  [OK] Set Active Timestamp"
-              ot-ctl dataset networkname WSN01 >/dev/null && echo "  [OK] Set Network Name (WSN01)"
-              ot-ctl dataset panid 0x1235 >/dev/null && echo "  [OK] Set PAN ID (0x1235)"
-              ot-ctl dataset extpanid 1111111122222222 >/dev/null && echo "  [OK] Set Extended PAN ID"
-              ot-ctl dataset networkkey 112233445566778899aabbccddeeff00 >/dev/null && echo "  [OK] Set Network Key"
-              ot-ctl dataset channel 15 >/dev/null && echo "  [OK] Set Channel (15)"
-              ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12:: >/dev/null && echo "  [OK] Set Mesh Local Prefix"
+              ot-ctl dataset activetimestamp $${OT_ACTIVE_TIMESTAMP} >/dev/null && echo "  [OK] Set Active Timestamp ($${OT_ACTIVE_TIMESTAMP})"
+              ot-ctl dataset networkname $${OT_NETWORK_NAME} >/dev/null && echo "  [OK] Set Network Name ($${OT_NETWORK_NAME})"
+              ot-ctl dataset panid $${OT_PANID} >/dev/null && echo "  [OK] Set PAN ID ($${OT_PANID})"
+              ot-ctl dataset extpanid $${OT_EXTPANID} >/dev/null && echo "  [OK] Set Extended PAN ID"
+              ot-ctl dataset networkkey $${OT_NETWORK_KEY} >/dev/null && echo "  [OK] Set Network Key"
+              ot-ctl dataset channel $${OT_CHANNEL} >/dev/null && echo "  [OK] Set Channel ($${OT_CHANNEL})"
+              ot-ctl dataset meshlocalprefix $${OT_MESH_LOCAL_PREFIX} >/dev/null && echo "  [OK] Set Mesh Local Prefix"
               ot-ctl dataset commit active >/dev/null && echo "  [OK] Committed dataset"
               ot-ctl ifconfig up >/dev/null && echo "  [OK] Interface wpan0 UP"
               ot-ctl thread start >/dev/null && echo "  [OK] Thread protocol STARTED"
-              ot-ctl leaderweight 255 >/dev/null && echo "  [OK] Leader weight set"
             fi
             ot-ctl netdata register >/dev/null
             # Disable Duplicate Address Detection (DAD) so both routers can safely share the Anycast IP
             sysctl -w net.ipv6.conf.wpan0.accept_dad=0 2>/dev/null || true
             sysctl -w net.ipv6.conf.wpan0.dad_transmits=0 2>/dev/null || true
             ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0 nodad 2>/dev/null || true
-            echo "SYNC: Mesh online. Ready for sensors."
+            echo "SYNC: Mesh online. State: $$(ot-ctl state 2>/dev/null). Ready for sensors."
             # ── Thread→Gateway IPv6 bridge ──────────────────────────
             # aiocoap binds to 0.0.0.0 (IPv4 only). Thread sensors send
             # CoAP to fd5e:a726:ec55:ee12::1:5683 (pure IPv6 on wpan0).
@@ -121,7 +122,7 @@ services:
 
           # 5. Launch otbr-agent (blocks here until it exits/crashes)
           echo "STATION: Launching OTBR Agent (Cycle #$${CYCLE})..."
-          /usr/sbin/otbr-agent -I wpan0 -B "$$BACKBONE_IFACE" -d4 "spinel+hdlc+uart:///dev/ttyACM0" 2>&1 | grep --line-buffered -v -E "ipset v6.34|The set with the given name does not exist|Firewall - failed to update ipsets|cannot get LeaderData|Failed to process request" || true
+          /usr/sbin/otbr-agent -I wpan0 -B "$$BACKBONE_IFACE" -d7 "spinel+hdlc+uart:///dev/ttyACM0" || true
 
           # 5. Agent exited — dongle was unplugged or fatal error
           echo ""
@@ -141,10 +142,12 @@ services:
       context: ../../platform/gateway
       dockerfile: Dockerfile
     container_name: ssns-gateway-linux
+    env_file:
+      - .env
     network_mode: "host"
     environment:
       GATEWAY_MODE: "coap"
-      BACKEND_URL: "http://100.98.119.40:8080/api/sensor-data"
+      BACKEND_URL: "${GATEWAY_BACKEND_URL}"
       REDIS_URL: "redis://localhost:6379/0"
       LOG_LEVEL: "INFO"
     volumes:

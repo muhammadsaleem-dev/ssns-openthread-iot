@@ -60,7 +60,8 @@ static void force_thread_dataset(void)
     otOperationalDataset dataset;
     memset(&dataset, 0, sizeof(otOperationalDataset));
 
-    dataset.mActiveTimestamp.mSeconds       = 1;
+    /* Bump timestamp to year 2033 to force OpenThread to accept this dataset over any old flash data */
+    dataset.mActiveTimestamp.mSeconds       = 2000000000;
     dataset.mActiveTimestamp.mTicks         = 0;
     dataset.mActiveTimestamp.mAuthoritative = true;
     dataset.mComponents.mIsActiveTimestampPresent = true;

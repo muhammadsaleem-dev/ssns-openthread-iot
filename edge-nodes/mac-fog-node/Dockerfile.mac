@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     sudo \
     ca-certificates \
+    lsb-release \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -20,6 +21,7 @@ RUN ./script/bootstrap
 # -DOTBR_BORDER_ROUTING=OFF: Disables standard border routing
 # -DOTBR_BACKBONE_ROUTER=OFF: Disables the Multicast Socket (prevents Mac kernel panic)
 # -DOTBR_NAT64=OFF: Disables NAT64 routing
+ENV DOCKER=1
 RUN ./script/setup -DOTBR_BORDER_ROUTING=OFF -DOTBR_BACKBONE_ROUTER=OFF -DOTBR_NAT64=OFF
 
 # Set the standard test entrypoint

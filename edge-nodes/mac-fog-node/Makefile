@@ -37,7 +37,7 @@ stop-bridge:
 # Load the pre-built Custom OTBR image (Required for guest machines)
 load-image:
 	@echo "🐳 Loading custom OTBR image into Docker..."
-	@docker load -i ../../platform/gateway/otbr-custom.tar
+	@docker load -i ./otbr-custom.tar
 	@echo "✓ Image loaded."
 
 # Clean up Docker resources for this node

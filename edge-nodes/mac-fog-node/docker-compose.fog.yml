@@ -11,6 +11,8 @@ services:
   otbr:
     image: openthread/otbr:custom
     container_name: ssns-otbr
+    env_file:
+      - .env
     privileged: true
     ports:
       - "8081:8080"
@@ -28,19 +30,20 @@ services:
       
     # ROUTING: Sends radio traffic to the LOCAL gateway container
     entrypoint: >
-      bash -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y socat iproute2 ccze; \
-      (while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000 2>/dev/null; sleep 1; done) & \
+      bash -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y socat iproute2; \
+      service dbus start || true; \
+      (while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000,nodelay 2>/dev/null; sleep 1; done) & \
       socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:gateway:5683 &
       (until ot-ctl state 2>/dev/null; do sleep 1; done; \
        if ot-ctl state | grep -q disabled; then \
          ot-ctl dataset init new >/dev/null && echo '  [OK] Initialized new dataset' && \
-         ot-ctl dataset activetimestamp 1 >/dev/null && echo '  [OK] Set Active Timestamp' && \
-         ot-ctl dataset networkname WSN01 >/dev/null && echo '  [OK] Set Network Name (WSN01)' && \
-         ot-ctl dataset panid 0x1235 >/dev/null && echo '  [OK] Set PAN ID (0x1235)' && \
-         ot-ctl dataset extpanid 1111111122222222 >/dev/null && echo '  [OK] Set Extended PAN ID' && \
-         ot-ctl dataset networkkey 112233445566778899aabbccddeeff00 >/dev/null && echo '  [OK] Set Network Key' && \
-         ot-ctl dataset channel 15 >/dev/null && echo '  [OK] Set Channel (15)' && \
-         ot-ctl dataset meshlocalprefix fd5e:a726:ec55:ee12:: >/dev/null && echo '  [OK] Set Mesh Local Prefix' && \
+         ot-ctl dataset activetimestamp $${OT_ACTIVE_TIMESTAMP} >/dev/null && echo \"  [OK] Set Active Timestamp ($${OT_ACTIVE_TIMESTAMP})\" && \
+         ot-ctl dataset networkname $${OT_NETWORK_NAME} >/dev/null && echo \"  [OK] Set Network Name ($${OT_NETWORK_NAME})\" && \
+         ot-ctl dataset panid $${OT_PANID} >/dev/null && echo \"  [OK] Set PAN ID ($${OT_PANID})\" && \
+         ot-ctl dataset extpanid $${OT_EXTPANID} >/dev/null && echo \"  [OK] Set Extended PAN ID\" && \
+         ot-ctl dataset networkkey $${OT_NETWORK_KEY} >/dev/null && echo \"  [OK] Set Network Key\" && \
+         ot-ctl dataset channel $${OT_CHANNEL} >/dev/null && echo \"  [OK] Set Channel ($${OT_CHANNEL})\" && \
+         ot-ctl dataset meshlocalprefix $${OT_MESH_LOCAL_PREFIX} >/dev/null && echo \"  [OK] Set Mesh Local Prefix\" && \
          ot-ctl dataset commit active >/dev/null && echo '  [OK] Committed dataset' && \
          ot-ctl ifconfig up >/dev/null && echo '  [OK] Interface wpan0 UP' && \
          ot-ctl thread start >/dev/null && echo '  [OK] Thread protocol STARTED'; \
@@ -52,7 +55,6 @@ services:
        ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0 nodad) &
       until [ -e /dev/ttyACM0 ]; do echo 'Waiting for serial bridge...'; sleep 1; done; \
       sleep 2; \
-      (sleep 3 && tail -f /var/log/syslog 2>/dev/null | ccze -A) & \
       exec /init"
     restart: unless-stopped
     networks:
@@ -64,11 +66,11 @@ services:
       context: ../../platform/gateway
       dockerfile: Dockerfile
     container_name: ssns-gateway-mac-fog
+    env_file:
+      - .env
     environment:
       GATEWAY_MODE: coap
-      # CHANGE THIS: Point to your Mac's Tailscale IP (The Central Core)
-      # Since this runs on the same machine as the Core, you can also use 'host.docker.internal'
-      BACKEND_URL: http://host.docker.internal:8080/api/sensor-data
+      BACKEND_URL: ${GATEWAY_BACKEND_URL}
       REDIS_URL: redis://redis:6379/0
       LOG_LEVEL: INFO
       TZ: "Europe/Berlin"
