@@ -44,15 +44,26 @@ class RedisQueueManager:
         current_uptime = data.get('uptimeMs', 0)
         max_known_uptime = self.r.get(latest_uptime_key)
         
-        if max_known_uptime and current_uptime < int(max_known_uptime):
-            # This is a backlog packet! 
-            # Offset = (Max Known Uptime - This Packet Uptime)
+        if max_known_uptime:
             offset_ms = int(max_known_uptime) - current_uptime
-            packet_time = now - timedelta(milliseconds=offset_ms)
-            data['timestamp'] = packet_time.isoformat()
-            logger.info("Reconstructed historical timestamp for %s: -%dms", node_id, offset_ms)
+            
+            # Reboot Detection: If the node's uptime drops to a very low value (e.g. < 5 minutes) 
+            # while our max known uptime was large, the sensor physical board was rebooted!
+            if current_uptime < 300000 and offset_ms > 300000:
+                logger.info("Sensor reboot detected for %s. Resetting uptime sync.", node_id)
+                data['timestamp'] = now.isoformat()
+                self.r.set(latest_uptime_key, current_uptime)
+            elif current_uptime < int(max_known_uptime):
+                # This is a backlog packet! 
+                packet_time = now - timedelta(milliseconds=offset_ms)
+                data['timestamp'] = packet_time.isoformat()
+                logger.info("Reconstructed historical timestamp for %s: -%dms", node_id, offset_ms)
+            else:
+                # Live packet with a greater uptime than we've seen
+                data['timestamp'] = now.isoformat()
+                self.r.set(latest_uptime_key, current_uptime)
         else:
-            # This is a live packet (or the first one we've seen)
+            # First time seeing this node
             data['timestamp'] = now.isoformat()
             self.r.set(latest_uptime_key, current_uptime)
 
