@@ -22,6 +22,7 @@ services:
     volumes:
       - "/dev:/dev"
       - "/lib/modules:/lib/modules:ro"
+      - "./topology_monitor.sh:/usr/local/bin/topology_monitor.sh:ro"
     network_mode: "host"
     
     environment:
@@ -30,6 +31,7 @@ services:
       DNS64: "0"
       FIREWALL: "0"
       WEB_GUI: "1"
+      GATEWAY_BACKEND_URL: "${GATEWAY_BACKEND_URL}"
     
     entrypoint:
       - /bin/bash
@@ -107,6 +109,10 @@ services:
             # and forwards each packet to aiocoap at 127.0.0.1:5683.
             socat UDP6-LISTEN:5683,bind=[fd5e:a726:ec55:ee12::1],ipv6only=1,reuseaddr,fork UDP4:127.0.0.1:5683 &
             echo "BRIDGE: CoAP IPv6→IPv4 bridge started (PID $$!)."
+
+            # ── Topology Monitor ────────────────────────────────────
+            echo "MONITOR: Starting Thread Topology Monitor script..."
+            /usr/local/bin/topology_monitor.sh &
           ) &
           IDENTITY_PID=$$!
 

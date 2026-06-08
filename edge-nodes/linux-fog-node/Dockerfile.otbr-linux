@@ -10,7 +10,7 @@ FROM openthread/otbr:latest
 # =========================================================================
 
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends socat iproute2 ccze && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends socat iproute2 ccze curl jq && \
     rm -rf /var/lib/apt/lists/*
 
 # The default ENTRYPOINT from openthread/otbr:latest remains untouched here.
