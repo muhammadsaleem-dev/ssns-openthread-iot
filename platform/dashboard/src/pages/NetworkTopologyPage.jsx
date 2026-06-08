@@ -17,6 +17,13 @@ import SectionHeader from '../components/SectionHeader';
 import StatCard from '../components/StatCard';
 import API from '../config/api';
 
+// Helper to format EUI-64 address with colons (e.g. AA:BB:CC...)
+const formatExtAddr = (addr) => {
+  if (!addr) return 'Unknown';
+  const clean = addr.replace(/:/g, '').toUpperCase();
+  return clean.match(/.{1,2}/g)?.join(':') || clean;
+};
+
 // Custom Node for Thread Routers (Blue Hexagon-ish)
 const RouterNode = ({ data }) => {
   const isLeader = data.role?.toLowerCase() === 'leader' || data.parentRloc16 === '0xffff';
@@ -59,8 +66,8 @@ const RouterNode = ({ data }) => {
       
       {/* Secondary: Technical Mesh IDs */}
       <Box sx={{ mt: 0.5, pt: 0.5, borderTop: `1px solid ${alpha('#fff', 0.1)}` }}>
-        <Typography variant="caption" sx={{ color: '#aaa', display: 'block', fontSize: '0.65rem' }}>
-          Mesh ID: {data.nodeId}
+        <Typography variant="caption" sx={{ color: '#aaa', display: 'block', fontSize: '0.55rem', fontFamily: 'monospace' }}>
+          {formatExtAddr(data.extAddr)}
         </Typography>
         <Typography variant="caption" sx={{ color: roleColor, fontWeight: 600, fontSize: '0.7rem' }}>
           {data.rloc16}
@@ -109,8 +116,8 @@ const EndDeviceNode = ({ data }) => (
     
     {/* Secondary: Technical Mesh IDs */}
     <Box sx={{ mt: 0.5, pt: 0.5, borderTop: `1px solid ${alpha('#fff', 0.1)}` }}>
-      <Typography variant="caption" sx={{ color: '#aaa', display: 'block', fontSize: '0.6rem' }}>
-        Mesh ID: {data.nodeId}
+      <Typography variant="caption" sx={{ color: '#aaa', display: 'block', fontSize: '0.55rem', fontFamily: 'monospace' }}>
+        {formatExtAddr(data.extAddr)}
       </Typography>
       <Typography variant="caption" sx={{ color: '#10B981', fontWeight: 600, fontSize: '0.65rem' }}>
         {data.rloc16}
@@ -155,6 +162,9 @@ export default function NetworkTopologyPage() {
     let childX = 50;
 
     topologyList.forEach((topology) => {
+      // If the Border Router is offline, we still show its card, but we do NOT draw its old nodes on the map.
+      if (topology.gatewayHealth?.status === 'offline') return;
+
       if (!topology.nodes) return;
 
       topology.nodes.forEach((node) => {
@@ -282,100 +292,115 @@ export default function NetworkTopologyPage() {
       </Grid>
 
       {/* Multi-Gateway Health Overview */}
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Active Border Routers</Typography>
+      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Border Routers</Typography>
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {topologyList && topologyList.length > 0 ? (
-          topologyList.map((topology) => (
-            <Grid item xs={12} md={6} lg={4} key={topology.gatewayId || topology.id}>
-              <Card sx={{ 
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-                background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 1)} 0%, ${alpha(theme.palette.primary.dark, 0.05)} 100%)`,
-                boxShadow: `0 4px 20px 0 ${alpha(theme.palette.common.black, 0.2)}`,
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                {/* Decorative Top Accent */}
-                <Box sx={{ height: '4px', bgcolor: 'primary.main', width: '100%', position: 'absolute', top: 0, left: 0 }} />
-                
-                <CardContent sx={{ p: 3 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                    <Box display="flex" alignItems="center" gap={1.5}>
-                      <Box sx={{ 
-                        bgcolor: alpha(theme.palette.primary.main, 0.15), 
-                        p: 1, 
-                        borderRadius: 2,
-                        display: 'flex'
-                      }}>
-                        <HubIcon sx={{ color: 'primary.main' }} />
+          topologyList.map((topology) => {
+            const isOffline = topology.gatewayHealth?.status === 'offline';
+            return (
+              <Grid item xs={12} md={6} lg={4} key={topology.gatewayId || topology.id}>
+                <Card sx={{ 
+                  border: `1px solid ${isOffline ? alpha(theme.palette.text.disabled, 0.3) : alpha(theme.palette.primary.main, 0.3)}`,
+                  background: isOffline 
+                    ? alpha(theme.palette.background.paper, 0.8)
+                    : `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 1)} 0%, ${alpha(theme.palette.primary.dark, 0.05)} 100%)`,
+                  boxShadow: isOffline ? 'none' : `0 4px 20px 0 ${alpha(theme.palette.common.black, 0.2)}`,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  opacity: isOffline ? 0.7 : 1,
+                  filter: isOffline ? 'grayscale(80%)' : 'none',
+                  transition: 'all 0.3s ease'
+                }}>
+                  {/* Decorative Top Accent */}
+                  <Box sx={{ height: '4px', bgcolor: isOffline ? 'text.disabled' : 'primary.main', width: '100%', position: 'absolute', top: 0, left: 0 }} />
+                  
+                  <CardContent sx={{ p: 3 }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Box sx={{ 
+                          bgcolor: isOffline ? alpha(theme.palette.text.disabled, 0.15) : alpha(theme.palette.primary.main, 0.15), 
+                          p: 1, 
+                          borderRadius: 2,
+                          display: 'flex'
+                        }}>
+                          <HubIcon sx={{ color: isOffline ? 'text.disabled' : 'primary.main' }} />
+                        </Box>
+                        <Box>
+                          <Typography variant="h6" fontWeight="bold" lineHeight={1.2} color={isOffline ? 'text.disabled' : 'text.primary'}>
+                            {topology.gatewayHealth?.networkName || 'Border Router'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                            EUI-64: {topology.gatewayId?.substring(topology.gatewayId.length - 8).toUpperCase() || 'UNKNOWN'}
+                          </Typography>
+                        </Box>
                       </Box>
-                      <Box>
-                        <Typography variant="h6" fontWeight="bold" lineHeight={1.2}>
-                          {topology.gatewayHealth?.networkName || 'Border Router'}
+                      <Chip 
+                        label={isOffline ? 'OFFLINE' : (topology.gatewayHealth?.status?.toUpperCase() || 'ACTIVE')} 
+                        color={isOffline ? 'default' : (topology.gatewayHealth?.status === 'active' ? "success" : "error")} 
+                        size="small" 
+                        sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
+                      />
+                    </Box>
+
+                    <Divider sx={{ my: 2, borderColor: alpha(theme.palette.divider, 0.5) }} />
+
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" display="block">EXTENDED ADDRESS (EUI-64)</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ fontFamily: 'monospace', color: isOffline ? 'text.disabled' : 'primary.light', fontSize: '0.75rem' }}>
+                        {formatExtAddr(topology.gatewayId)}
+                      </Typography>
+                    </Box>
+
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary" display="block">PAN ID</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ fontFamily: 'monospace', color: isOffline ? 'text.disabled' : '#fff' }}>
+                          {topology.gatewayHealth?.panId}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-                          MAC: {topology.gatewayId?.substring(topology.gatewayId.length - 8) || 'Unknown'}
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary" display="block">Channel</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ color: isOffline ? 'text.disabled' : '#fff' }}>
+                          {topology.gatewayHealth?.channel}
                         </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary" display="block">Uptime</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ color: isOffline ? 'text.disabled' : '#fff' }}>
+                          {isOffline ? 'N/A' : (topology.gatewayHealth?.uptime || '0h')}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary" display="block">Mesh Role</Typography>
+                        <Typography variant="body2" fontWeight="bold" color={isOffline ? 'text.disabled' : 'warning.main'}>
+                          👑 Leader
+                        </Typography>
+                      </Grid>
+                    </Grid>
+
+                    <Box sx={{ 
+                      mt: 3, 
+                      p: 1.5, 
+                      bgcolor: alpha(theme.palette.background.default, 0.5), 
+                      borderRadius: 2,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>Directly Connected</Typography>
+                      <Box display="flex" alignItems="baseline" gap={0.5}>
+                        <Typography variant="h6" fontWeight="bold" color={isOffline ? 'text.disabled' : 'primary.main'} lineHeight={1}>
+                          {isOffline ? 0 : (topology.nodes ? topology.nodes.length : 0)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">nodes</Typography>
                       </Box>
                     </Box>
-                    <Chip 
-                      label={topology.gatewayHealth?.status?.toUpperCase() || 'ACTIVE'} 
-                      color={topology.gatewayHealth?.status === 'active' ? "success" : "error"} 
-                      size="small" 
-                      sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
-                    />
-                  </Box>
 
-                  <Divider sx={{ my: 2, borderColor: alpha(theme.palette.divider, 0.5) }} />
-
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" display="block">PAN ID</Typography>
-                      <Typography variant="body2" fontWeight="bold" sx={{ fontFamily: 'monospace', color: '#fff' }}>
-                        {topology.gatewayHealth?.panId}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" display="block">Channel</Typography>
-                      <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>
-                        {topology.gatewayHealth?.channel}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" display="block">Uptime</Typography>
-                      <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>
-                        {topology.gatewayHealth?.uptime || '0h'}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="caption" color="text.secondary" display="block">Mesh Role</Typography>
-                      <Typography variant="body2" fontWeight="bold" color="warning.main">
-                        👑 Leader
-                      </Typography>
-                    </Grid>
-                  </Grid>
-
-                  <Box sx={{ 
-                    mt: 3, 
-                    p: 1.5, 
-                    bgcolor: alpha(theme.palette.background.default, 0.5), 
-                    borderRadius: 2,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <Typography variant="body2" color="text.secondary" fontWeight={500}>Directly Connected</Typography>
-                    <Box display="flex" alignItems="baseline" gap={0.5}>
-                      <Typography variant="h6" fontWeight="bold" color="primary.main" lineHeight={1}>
-                        {topology.nodes ? topology.nodes.length : 0}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">nodes</Typography>
-                    </Box>
-                  </Box>
-
-                </CardContent>
-              </Card>
-            </Grid>
-          ))
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })
         ) : (
           <Grid item xs={12}>
             <Card sx={{ bgcolor: alpha(theme.palette.error.main, 0.1), border: `1px solid ${theme.palette.error.main}` }}>
@@ -539,7 +564,7 @@ export default function NetworkTopologyPage() {
               </ListItem>
               <Divider component="li" />
               <ListItem sx={{ py: 1, px: 0 }}>
-                <ListItemText primary="Mesh ID (ExtAddr)" secondary={selectedNode.data.nodeId} />
+                <ListItemText primary="Extended Address (EUI-64)" secondary={<span style={{ fontFamily: 'monospace' }}>{formatExtAddr(selectedNode.data.extAddr)}</span>} />
               </ListItem>
               <Divider component="li" />
               <ListItem sx={{ py: 1, px: 0 }}>

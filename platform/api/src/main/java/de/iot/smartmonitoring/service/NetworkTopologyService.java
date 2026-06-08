@@ -20,16 +20,23 @@ public class NetworkTopologyService {
     private final NetworkTopologyRepository topologyRepository;
 
     /**
-     * Gets all active network topology snapshots (updated in the last 2 minutes).
-     * This self-healing filter ensures that "Ghost" Border Routers (unplugged or stale)
-     * automatically disappear from the dashboard to maintain a live hardware view.
+     * Gets all known network topology snapshots.
+     * If a snapshot hasn't been updated in the last 2 minutes, its status is forced to "offline".
      */
     public List<NetworkTopology> getAllTopologies() {
         Instant cutoff = Instant.now().minus(Duration.ofMinutes(2));
         
         return topologyRepository.findAll().stream()
                 .filter(t -> t.getGatewayId() != null)
-                .filter(t -> t.getLastUpdatedAt() != null && t.getLastUpdatedAt().isAfter(cutoff))
+                .map(t -> {
+                    // If the gateway hasn't reported recently, mark it as offline
+                    if (t.getLastUpdatedAt() == null || t.getLastUpdatedAt().isBefore(cutoff)) {
+                        if (t.getGatewayHealth() != null) {
+                            t.getGatewayHealth().setStatus("offline");
+                        }
+                    }
+                    return t;
+                })
                 .collect(Collectors.toList());
     }
 
