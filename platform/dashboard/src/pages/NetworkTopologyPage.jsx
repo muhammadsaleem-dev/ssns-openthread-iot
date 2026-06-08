@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Box, Card, CardContent, Typography, Grid, CircularProgress, Chip, alpha, useTheme } from '@mui/material';
+import { 
+  Box, Card, CardContent, Typography, Grid, CircularProgress, Chip, alpha, useTheme,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
+} from '@mui/material';
 import { ReactFlow, Background, Controls, MiniMap, applyNodeChanges, applyEdgeChanges, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import usePolling from '../hooks/usePolling';
@@ -10,40 +13,53 @@ import API from '../config/api';
 // Custom Node for Thread Routers (Blue Hexagon-ish)
 const RouterNode = ({ data }) => {
   const isLeader = data.role?.toLowerCase() === 'leader' || data.parentRloc16 === '0xffff';
+  const roleLabel = isLeader ? 'LEADER' : 'ROUTER';
+  const roleColor = isLeader ? '#F59E0B' : '#3B82F6';
   
   return (
     <Box sx={{
-      background: isLeader ? alpha('#F59E0B', 0.1) : alpha('#3B82F6', 0.1),
-      border: isLeader ? '2px solid #F59E0B' : '2px solid #3B82F6',
+      background: alpha(roleColor, 0.1),
+      border: `2px solid ${roleColor}`,
       borderRadius: '8px',
       padding: '10px 20px',
       color: '#fff',
-      minWidth: '140px',
+      minWidth: '160px',
       textAlign: 'center',
-      boxShadow: isLeader ? '0 0 20px rgba(245, 158, 11, 0.5)' : '0 0 15px rgba(59, 130, 246, 0.3)',
+      boxShadow: `0 0 15px ${alpha(roleColor, 0.4)}`,
       position: 'relative'
     }}>
-      {isLeader && (
-        <Chip 
-          label="LEADER" 
-          size="small" 
-          sx={{ 
-            position: 'absolute', 
-            top: -12, 
-            left: '50%', 
-            transform: 'translateX(-50%)',
-            height: '20px',
-            fontSize: '0.6rem',
-            fontWeight: 800,
-            bgcolor: '#F59E0B',
-            color: '#000'
-          }} 
-        />
-      )}
+      <Chip 
+        label={roleLabel} 
+        size="small" 
+        sx={{ 
+          position: 'absolute', 
+          top: -12, 
+          left: '50%', 
+          transform: 'translateX(-50%)',
+          height: '20px',
+          fontSize: '0.6rem',
+          fontWeight: 800,
+          bgcolor: roleColor,
+          color: '#000'
+        }} 
+      />
       <Handle type="target" position={Position.Top} />
-      <Typography variant="body2" sx={{ color: '#aaa', fontSize: '0.7rem' }}>{data.nodeId}</Typography>
-      <Typography variant="body1" fontWeight="bold">{isLeader ? '👑 ' : ''}{data.label}</Typography>
-      <Typography variant="caption" sx={{ color: isLeader ? '#F59E0B' : '#3B82F6', fontWeight: 600 }}>{data.rloc16}</Typography>
+      
+      {/* Primary: Hardware ID / Name */}
+      <Typography variant="body1" fontWeight="bold" sx={{ mt: 1 }}>
+        {isLeader ? '👑 ' : '📡 '}{data.label}
+      </Typography>
+      
+      {/* Secondary: Technical Mesh IDs */}
+      <Box sx={{ mt: 0.5, pt: 0.5, borderTop: `1px solid ${alpha('#fff', 0.1)}` }}>
+        <Typography variant="caption" sx={{ color: '#aaa', display: 'block', fontSize: '0.65rem' }}>
+          Mesh ID: {data.nodeId}
+        </Typography>
+        <Typography variant="caption" sx={{ color: roleColor, fontWeight: 600, fontSize: '0.7rem' }}>
+          {data.rloc16}
+        </Typography>
+      </Box>
+
       <Handle type="source" position={Position.Bottom} />
     </Box>
   );
@@ -54,18 +70,45 @@ const EndDeviceNode = ({ data }) => (
   <Box sx={{
     background: alpha('#10B981', 0.1),
     border: '2px solid #10B981',
-    borderRadius: '20px',
+    borderRadius: '16px',
     padding: '8px 15px',
     color: '#fff',
-    minWidth: '120px',
+    minWidth: '140px',
     textAlign: 'center',
-    boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)'
+    boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)',
+    position: 'relative'
   }}>
+    <Chip 
+      label="END DEVICE" 
+      size="small" 
+      sx={{ 
+        position: 'absolute', 
+        top: -12, 
+        left: '50%', 
+        transform: 'translateX(-50%)',
+        height: '18px',
+        fontSize: '0.55rem',
+        fontWeight: 700,
+        bgcolor: '#10B981',
+        color: '#000'
+      }} 
+    />
     <Handle type="target" position={Position.Top} />
-    <Typography variant="body2" sx={{ color: '#aaa', fontSize: '0.65rem' }}>{data.nodeId}</Typography>
-    <Typography variant="body2" fontWeight="bold">{data.label}</Typography>
-    <Typography variant="caption" sx={{ color: '#10B981', fontWeight: 600 }}>{data.rloc16}</Typography>
-    <Handle type="source" position={Position.Bottom} />
+    
+    {/* Primary: Hardware ID / Name */}
+    <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+      🍃 {data.label}
+    </Typography>
+    
+    {/* Secondary: Technical Mesh IDs */}
+    <Box sx={{ mt: 0.5, pt: 0.5, borderTop: `1px solid ${alpha('#fff', 0.1)}` }}>
+      <Typography variant="caption" sx={{ color: '#aaa', display: 'block', fontSize: '0.6rem' }}>
+        Mesh ID: {data.nodeId}
+      </Typography>
+      <Typography variant="caption" sx={{ color: '#10B981', fontWeight: 600, fontSize: '0.65rem' }}>
+        {data.rloc16}
+      </Typography>
+    </Box>
   </Box>
 );
 
@@ -112,8 +155,14 @@ export default function NetworkTopologyPage() {
         const last4 = cleanExtAddr.substring(cleanExtAddr.length - 4);
         const calculatedNodeId = `node-${last4}`;
 
-        const matchedNode = registeredNodes?.find(n => n.nodeId === calculatedNodeId);
+        // Try to find the registered node using the Mesh ID. 
+        // If not found (e.g. legacy data), fallback to trying to match the calculated ID.
+        const matchedNode = registeredNodes?.find(n => n.meshId === calculatedNodeId || n.nodeId === calculatedNodeId);
         
+        // Primary label: User Location -> Hardware ID -> Fallback to Mesh ID
+        const primaryLabel = matchedNode?.location || matchedNode?.nodeId || calculatedNodeId;
+        const hardwareId = matchedNode?.nodeId || 'Unknown';
+
         // Aggregation: De-duplicate nodes seen by multiple gateways.
         // If a node is seen by two BRs, we draw it once but maintain all technical data.
         if (!newNodesMap.has(node.rloc16)) {
@@ -123,7 +172,8 @@ export default function NetworkTopologyPage() {
             position: { x: isRouter ? routerX : childX, y: isRouter ? 100 : 250 },
             data: { 
               nodeId: calculatedNodeId,
-              label: matchedNode?.location || calculatedNodeId, 
+              hardwareId: hardwareId,
+              label: primaryLabel, 
               rloc16: node.rloc16,
               role: node.role,
               parentRloc16: node.parentRloc16
@@ -134,8 +184,8 @@ export default function NetworkTopologyPage() {
           if (!isRouter) childX += 150;
         }
 
-        // Draw edge if parent exists
-        if (node.parentRloc16 && node.parentRloc16 !== '0xffff') {
+        // Draw edge if parent exists and is not the node itself (avoid self-loops)
+        if (node.parentRloc16 && node.parentRloc16 !== '0xffff' && node.parentRloc16 !== node.rloc16) {
           const edgeId = `e-${node.rloc16}-${node.parentRloc16}`;
           if (!newEdgesMap.has(edgeId)) {
             newEdgesMap.set(edgeId, {
@@ -233,6 +283,80 @@ export default function NetworkTopologyPage() {
           <MiniMap nodeStrokeColor="#fff" nodeColor="#222" />
         </ReactFlow>
       </Card>
+
+      {/* Industry Terminology Reference */}
+      <Box sx={{ mt: 4, mb: 4 }}>
+        <SectionHeader title="Thread Network Terminology" subtitle="Industry-standard roles and definitions" />
+        <TableContainer component={Paper} sx={{ bgcolor: alpha(theme.palette.background.paper, 0.5), backgroundImage: 'none' }}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1) }}>
+                <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Network Role</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Technical ID</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Industry Definition & Responsibility</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Identity Types</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Hardware</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Typography fontSize="1.2rem">👑</Typography>
+                    <Typography fontWeight="bold" color="#F59E0B">Leader</Typography>
+                  </Box>
+                </TableCell>
+                <TableCell><Chip label="RLOC16: 0x0000" size="small" variant="outlined" sx={{ borderColor: '#F59E0B', color: '#F59E0B' }} /></TableCell>
+                <TableCell>
+                  The central authority of the Thread partition. Responsible for managing Router IDs 
+                  and maintaining mesh consistency. One per partition.
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" display="block"><strong>Hardware ID:</strong> n/a (BR Identity)</Typography>
+                  <Typography variant="caption" display="block"><strong>Mesh ID:</strong> Static (Root)</Typography>
+                </TableCell>
+                <TableCell>Border Router</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Typography fontSize="1.2rem">📡</Typography>
+                    <Typography fontWeight="bold" color="#3B82F6">Router</Typography>
+                  </Box>
+                </TableCell>
+                <TableCell><Chip label="FTD (Full)" size="small" variant="outlined" sx={{ borderColor: '#3B82F6', color: '#3B82F6' }} /></TableCell>
+                <TableCell>
+                  A Full Thread Device (FTD) that maintains a routing table and forwards packets. 
+                  Extends range and acts as a parent for End Devices.
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" display="block"><strong>Hardware ID:</strong> Factory EUI-64 (Permanent)</Typography>
+                  <Typography variant="caption" display="block"><strong>Mesh ID:</strong> Extended Addr (Volatile)</Typography>
+                </TableCell>
+                <TableCell>nRF52840 DK</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Typography fontSize="1.2rem">🍃</Typography>
+                    <Typography fontWeight="bold" color="#10B981">End Device</Typography>
+                  </Box>
+                </TableCell>
+                <TableCell><Chip label="MTD (Minimal)" size="small" variant="outlined" sx={{ borderColor: '#10B981', color: '#10B981' }} /></TableCell>
+                <TableCell>
+                  A node that communicates only through its parent. Does not forward traffic. 
+                  Can be a Sleepy End Device (SED) for battery optimization.
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" display="block"><strong>Hardware ID:</strong> Factory EUI-64 (Permanent)</Typography>
+                  <Typography variant="caption" display="block"><strong>Mesh ID:</strong> Extended Addr (Volatile)</Typography>
+                </TableCell>
+                <TableCell>Sensor Node</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
     </Box>
   );
 }
