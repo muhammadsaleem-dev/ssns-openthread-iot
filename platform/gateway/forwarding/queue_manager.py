@@ -41,16 +41,22 @@ class RedisQueueManager:
         # --- Task 3.2: Time Reconstruction ---
         # We track the 'latest' known uptime for each node in Redis
         latest_uptime_key = f"uptime:{node_id}"
-        current_uptime = data.get('uptimeMs', 0)
+        
+        raw_uptime = data.get('uptimeMs')
+        if raw_uptime is None:
+            raw_uptime = 0
+        current_uptime = int(raw_uptime)
+        
         max_known_uptime = self.r.get(latest_uptime_key)
         
         if max_known_uptime:
             offset_ms = int(max_known_uptime) - current_uptime
             
-            # Reboot Detection: If the node's uptime drops to a very low value (e.g. < 5 minutes) 
-            # while our max known uptime was large, the sensor physical board was rebooted!
-            if current_uptime < 300000 and offset_ms > 300000:
-                logger.info("Sensor reboot detected for %s. Resetting uptime sync.", node_id)
+            # Reboot Detection: If the node's uptime drops significantly 
+            # (e.g. by more than 10 minutes) while our max known uptime was large, 
+            # the sensor physical board was rebooted or rolled over!
+            if offset_ms > 600000:
+                logger.info("Sensor reboot/rollover detected for %s (offset %dms). Resetting uptime sync.", node_id, offset_ms)
                 data['timestamp'] = now.isoformat()
                 self.r.set(latest_uptime_key, current_uptime)
             elif current_uptime < int(max_known_uptime):

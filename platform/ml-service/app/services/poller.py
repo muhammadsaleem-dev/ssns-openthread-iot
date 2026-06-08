@@ -47,6 +47,10 @@ async def start_polling_loop():
                     node_id = node.get("nodeId")
                     if not node_id:
                         continue
+                        
+                    # Skip if ML is disabled for this node
+                    if node.get("mlEnabled") is False:
+                        continue
 
                     # 2. Fetch latest telemetry for each node
                     telemetry_resp = await client.get(f"/api/sensor-data/latest/{node_id}")
@@ -92,8 +96,13 @@ async def start_polling_loop():
                         logger.warning(f"Hardware fault detected for node {node_id}; skipping ML inference.")
                         continue
 
+                    window_size = node.get("baselineWindowSize", 20)
+                    sensitivity = node.get("sensitivity", 5)
+
                     # 3. Run ML inference (Anomaly Detection)
-                    is_anomaly, anomaly_context, anomaly_action = detector_manager.process(node_id, features)
+                    is_anomaly, anomaly_context, anomaly_action = detector_manager.process(
+                        node_id, features, window_size=window_size, sensitivity=sensitivity
+                    )
 
                     if is_anomaly:
                         # Guard 2: cooldown — suppress repeated anomaly alerts
@@ -124,12 +133,15 @@ async def start_polling_loop():
                         ts_str = timestamp.replace("Z", "+00:00")
                         ts_sec = datetime.fromisoformat(ts_str).timestamp()
                         
+                        # Extract forecast horizon from Java backend
+                        horizon_min = node.get("forecastHorizonMin", 30)
+                        
                         proj_co2, proj_pm25, forecast_context, forecast_action = forecaster_manager.process(
                             node_id=node_id,
                             timestamp=ts_sec,
                             co2=latest_reading["co2"],
                             pm2_5=latest_reading["pm2_5"],
-                            horizon_sec=1800.0  # 30 minute horizon
+                            horizon_sec=horizon_min * 60.0
                         )
                         
                         if proj_co2 is not None and proj_pm25 is not None:

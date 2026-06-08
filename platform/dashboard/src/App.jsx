@@ -12,11 +12,13 @@ import DashboardLayout from './layouts/DashboardLayout';
 import DashboardPage from './pages/DashboardPage';
 import NodesPage from './pages/NodesPage';
 import AlertsPage from './pages/AlertsPage';
+import AnomalyDetectionSettingsPage from './pages/AnomalyDetectionSettingsPage';
 
 const PAGES = {
   dashboard: DashboardPage,
   nodes: NodesPage,
   alerts: AlertsPage,
+  ml: AnomalyDetectionSettingsPage,
 };
 
 export const ThemeModeContext = createContext({ toggleColorMode: () => {} });

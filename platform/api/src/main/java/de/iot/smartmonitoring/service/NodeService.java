@@ -51,6 +51,43 @@ public class NodeService {
         return toResponse(savedNode);
     }
 
+    /**
+     * Update the ML configuration of a specific node.
+     * Optionally triggers a reset/recalibration in the ML Service.
+     */
+    public NodeResponse updateMlConfig(String nodeId, de.iot.smartmonitoring.dto.UpdateMlConfigRequest request, boolean forceReset) {
+        SensorNode node = sensorNodeRepository.findByNodeId(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("SensorNode", "nodeId", nodeId));
+        
+        node.setMlEnabled(request.getMlEnabled());
+        node.setBaselineWindowSize(request.getBaselineWindowSize());
+        node.setSensitivity(request.getSensitivity());
+        
+        if (request.getForecastHorizonMin() != null) {
+            node.setForecastHorizonMin(request.getForecastHorizonMin());
+        }
+        
+        node = sensorNodeRepository.save(node);
+
+        log.info("Updated ML config for node {}: enabled={}, window={}, sensitivity={}, forecast={}", 
+                nodeId, request.getMlEnabled(), request.getBaselineWindowSize(), request.getSensitivity(), request.getForecastHorizonMin());
+        
+        if (forceReset && request.getMlEnabled()) {
+            try {
+                org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+                String mlServiceUrl = "http://ml-service:8000/reset/" + nodeId + 
+                        "?window_size=" + request.getBaselineWindowSize() + 
+                        "&sensitivity=" + request.getSensitivity();
+                restTemplate.postForEntity(mlServiceUrl, null, String.class);
+                log.info("Successfully triggered ML recalibration for node {} at {}", nodeId, mlServiceUrl);
+            } catch (Exception e) {
+                log.error("Failed to trigger ML recalibration for node {}: {}", nodeId, e.getMessage());
+            }
+        }
+        
+        return toResponse(node);
+    }
+
     // ---- Internal helpers ----
 
     private NodeResponse toResponse(SensorNode node) {
@@ -61,6 +98,10 @@ public class NodeService {
                 .status(node.getStatus())
                 .lastSeenAt(node.getLastSeenAt())
                 .registeredAt(node.getRegisteredAt())
+                .mlEnabled(node.getMlEnabled())
+                .baselineWindowSize(node.getBaselineWindowSize())
+                .forecastHorizonMin(node.getForecastHorizonMin())
+                .sensitivity(node.getSensitivity())
                 .build();
     }
 }

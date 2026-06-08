@@ -28,6 +28,7 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import BluetoothIcon from '@mui/icons-material/Bluetooth';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 import { ThemeModeContext } from '../App';
 
 const DRAWER_WIDTH = 240;
@@ -36,6 +37,7 @@ const navItems = [
   { label: 'Dashboard', icon: <DashboardIcon />, id: 'dashboard' },
   { label: 'Nodes', icon: <SensorsIcon />, id: 'nodes' },
   { label: 'Alerts', icon: <NotificationsActiveIcon />, id: 'alerts' },
+  { label: 'ML Settings', icon: <PsychologyIcon />, id: 'ml' },
 ];
 
 export default function DashboardLayout({ children, activePage, onNavigate }) {

@@ -78,6 +78,16 @@ async def model_status():
     return {"nodes": status, "baseline_window_size": settings.baseline_window_size}
 
 
+@app.post("/reset/{node_id}", tags=["Operations"])
+async def reset_node_baseline(node_id: str, window_size: int = 20, sensitivity: int = 5):
+    """
+    Forces a specific node to forget its ML baseline and retrain.
+    Call this when a sensor is physically moved to a new environment.
+    """
+    success = detector_manager.reset_node(node_id, window_size, sensitivity)
+    return {"status": "success", "message": f"Baseline cleared for {node_id}. It will now begin retraining with window={window_size}, sensitivity={sensitivity}%."}
+
+
 @app.post("/analyze", response_model=AnalyzeResponse, tags=["ML"])
 async def analyze(request: AnalyzeRequest):
     """

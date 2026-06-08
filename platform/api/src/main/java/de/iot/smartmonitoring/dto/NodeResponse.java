@@ -36,4 +36,14 @@ public class NodeResponse {
 
     @Schema(description = "Timestamp when node was first registered")
     private Instant registeredAt;
+
+    @Schema(description = "Whether Machine Learning monitoring is enabled")
+    private Boolean mlEnabled;
+
+    @Schema(description = "Size of the ML baseline window (samples)")
+    private Integer baselineWindowSize;
+    private Integer forecastHorizonMin;
+
+    @Schema(description = "Sensitivity parameter for ML anomaly detection")
+    private Integer sensitivity;
 }

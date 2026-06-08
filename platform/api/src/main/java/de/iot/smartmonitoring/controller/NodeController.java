@@ -60,10 +60,43 @@ public class NodeController {
     @ApiResponse(responseCode = "200", description = "Location updated successfully")
     @ApiResponse(responseCode = "404", description = "Node not found")
     public ResponseEntity<NodeResponse> updateLocation(
-            @Parameter(description = "Sensor node ID", example = "node-01")
-            @PathVariable String nodeId,
+            @Parameter(description = "Sensor node ID", example = "node-01") @PathVariable String nodeId,
             @Valid @RequestBody UpdateNodeLocationRequest request) {
-        log.info("PUT /api/nodes/{}/location - location: {}", nodeId, request.getLocation());
+        log.info("PUT /api/nodes/{}/location", nodeId);
         return ResponseEntity.ok(nodeService.updateLocation(nodeId, request.getLocation()));
+    }
+
+    @PutMapping("/{nodeId}/ml/config")
+    @Operation(
+            summary = "Update ML configuration",
+            description = "Updates the ML parameters (sensitivity, baseline window) and optionally triggers a recalibration."
+    )
+    @ApiResponse(responseCode = "200", description = "ML config updated successfully")
+    @ApiResponse(responseCode = "404", description = "Node not found")
+    public ResponseEntity<NodeResponse> updateMlConfig(
+            @Parameter(description = "Sensor node ID", example = "node-01") @PathVariable String nodeId,
+            @Parameter(description = "Force reset/recalibration in ML service") @RequestParam(defaultValue = "false") boolean forceReset,
+            @Valid @RequestBody de.iot.smartmonitoring.dto.UpdateMlConfigRequest request) {
+        log.info("PUT /api/nodes/{}/ml/config?forceReset={}", nodeId, forceReset);
+        return ResponseEntity.ok(nodeService.updateMlConfig(nodeId, request, forceReset));
+    }
+
+    @GetMapping("/ml/status")
+    @Operation(
+            summary = "Get ML engine status",
+            description = "Proxies the status of the Python ML Service to get current baseline collection progress."
+    )
+    @ApiResponse(responseCode = "200", description = "ML Service status")
+    public ResponseEntity<String> getMlStatus() {
+        try {
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            String response = restTemplate.getForObject("http://ml-service:8000/status", String.class);
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json")
+                    .body(response);
+        } catch (Exception e) {
+            log.error("Failed to fetch ML status: {}", e.getMessage());
+            return ResponseEntity.status(503).body("{\"error\": \"ML Service unavailable\"}");
+        }
     }
 }

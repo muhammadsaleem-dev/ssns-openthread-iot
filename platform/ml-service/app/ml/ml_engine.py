@@ -16,11 +16,15 @@ def _model_path(node_id: str) -> str:
 
 
 class AnomalyDetector:
-    def __init__(self, baseline_window_size: int, node_id: str = ""):
+    def __init__(self, baseline_window_size: int, sensitivity: int = 5, node_id: str = ""):
         self.baseline_window_size = baseline_window_size
+        self.sensitivity = sensitivity
         self.node_id = node_id
         self.baseline_data = []
         self.is_fitted = False
+
+        # Sensitivity 1-100 translates to contamination 0.01-1.0
+        contamination_val = max(0.01, min(1.0, sensitivity / 100.0))
 
         # Attempt to restore a previously persisted model.
         saved_path = _model_path(node_id)
@@ -31,9 +35,9 @@ class AnomalyDetector:
                 logger.info(f"Restored persisted IsolationForest model for node {node_id} from {saved_path}")
             except Exception as exc:
                 logger.warning(f"Could not load saved model for {node_id}: {exc}. Starting fresh.")
-                self.model = IsolationForest(contamination=0.05, random_state=42)
+                self.model = IsolationForest(contamination=contamination_val, random_state=42)
         else:
-            self.model = IsolationForest(contamination=0.05, random_state=42)
+            self.model = IsolationForest(contamination=contamination_val, random_state=42)
 
     def process_telemetry(self, feature_vector: list) -> tuple[bool, str | None, str | None]:
         """
@@ -117,14 +121,42 @@ class AnomalyDetector:
 
 
 class NodeDetectorManager:
-    def __init__(self, baseline_window_size: int):
-        self.baseline_window_size = baseline_window_size
+    def __init__(self, default_baseline_window_size: int):
+        self.default_baseline_window_size = default_baseline_window_size
         self.detectors: dict[str, AnomalyDetector] = {}
 
-    def process(self, node_id: str, feature_vector: list) -> tuple[bool, str | None, str | None]:
+    def process(self, node_id: str, feature_vector: list, window_size: int = None, sensitivity: int = 5) -> tuple[bool, str | None, str | None]:
+        if window_size is None:
+            window_size = self.default_baseline_window_size
+
         if node_id not in self.detectors:
-            self.detectors[node_id] = AnomalyDetector(self.baseline_window_size, node_id=node_id)
+            self.detectors[node_id] = AnomalyDetector(window_size, sensitivity, node_id=node_id)
+            
+        # Optional: check if the parameters changed significantly and force reset? 
+        # But the Java API will hit /reset when the user clicks 'Apply & Recalibrate', 
+        # so we don't need to auto-reset here.
+
         return self.detectors[node_id].process_telemetry(feature_vector)
+        
+    def reset_node(self, node_id: str, window_size: int = None, sensitivity: int = 5) -> bool:
+        """Forces a specific node to forget its baseline and retrain."""
+        if window_size is None:
+            window_size = self.default_baseline_window_size
+
+        if node_id in self.detectors:
+            del self.detectors[node_id]
+        
+        saved_path = _model_path(node_id)
+        if os.path.exists(saved_path):
+            try:
+                os.remove(saved_path)
+                logger.info(f"Deleted persisted model for node {node_id}")
+            except Exception as exc:
+                logger.warning(f"Could not delete persisted model for {node_id}: {exc}")
+        
+        # Instantiate immediately with new config
+        self.detectors[node_id] = AnomalyDetector(window_size, sensitivity, node_id=node_id)
+        return True
 
 
 from app.core.config import settings

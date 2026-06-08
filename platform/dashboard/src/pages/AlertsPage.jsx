@@ -39,7 +39,7 @@ export default function AlertsPage() {
     const map = {};
     if (nodes) {
       nodes.forEach((n) => {
-        map[n.id] = n.location || n.name || n.id;
+        map[n.nodeId] = n.location || n.name || n.nodeId;
       });
     }
     return map;

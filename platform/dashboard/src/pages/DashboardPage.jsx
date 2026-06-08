@@ -20,6 +20,7 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import ErrorBanner from '../components/ErrorBanner';
 import TelemetryChart from '../charts/TelemetryChart';
 import usePolling from '../hooks/usePolling';
+import useTelemetryStream from '../hooks/useTelemetryStream';
 import { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlertsPage, fetchAlertCounts, updateNodeLocation } from '../services/api';
 import { formatTimestamp, average, computeAqi } from '../utils/format';
 import CustomPagination from '../components/CustomPagination';
@@ -34,7 +35,18 @@ const SEVERITY_COLOR = {
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState(1);
   const fetchSensorDataFn = useCallback(() => fetchSensorData(null, timeRange), [timeRange]);
-  const { data: sensorData, loading: loadingSensor, error: errorSensor } = usePolling(fetchSensorDataFn, API.POLL_INTERVAL);
+  
+  // Fetch historical data ONCE on mount or when timeRange changes (interval = null disables polling)
+  const { data: initialSensorData, loading: loadingSensor, error: errorSensor } = usePolling(fetchSensorDataFn, null);
+  const { streamData: sensorData, initStreamData } = useTelemetryStream();
+
+  // Initialize the WebSocket stream with the historical data
+  useEffect(() => {
+    if (initialSensorData) {
+      initStreamData(initialSensorData);
+    }
+  }, [initialSensorData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { data: nodes, loading: loadingNodes, refetch: refetchNodes } = usePolling(fetchNodes, API.POLL_INTERVAL);
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);

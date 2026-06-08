@@ -55,7 +55,7 @@ export default function NodesPage() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <SensorsIcon sx={{ color: node.status === 'ONLINE' ? 'secondary.main' : 'text.secondary', fontSize: 20 }} />
                       <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-                        {node.nodeId}
+                        {node.location || node.name || node.nodeId}
                       </Typography>
                     </Box>
                     <StatusChip status={node.status} />

@@ -46,7 +46,7 @@ public class AlertService {
         // First check for physical hardware faults
         triggerHardwareFault(data.getNodeId(), data.getHealthStatus());
 
-        if (data.getTemperature() != null) {
+        if (data.getTemperature() != null && data.getTemperature() > -900.0) {
             if (data.getTemperature() > temperatureMax) {
                 createAlert(data.getNodeId(), Alert.AlertType.TEMPERATURE_HIGH,
                         Alert.AlertSeverity.WARNING,
@@ -298,6 +298,16 @@ public class AlertService {
      * Create an alert from an external service (like ML anomaly detector).
      */
     public AlertResponse createExternalAlert(de.iot.smartmonitoring.dto.CreateAlertRequest request) {
+        // Deduplication: prevent spamming the same active external alert
+        java.util.Optional<Alert> existingOpt = alertRepository.findFirstByNodeIdAndTypeAndResolvedFalse(
+                request.getNodeId(), request.getType()
+        );
+        if (existingOpt.isPresent()) {
+            Alert existing = existingOpt.get();
+            log.debug("Active external alert of type {} already exists for node {}, skipping.", request.getType(), request.getNodeId());
+            return toResponse(existing);
+        }
+
         Alert alert = Alert.builder()
                 .nodeId(request.getNodeId())
                 .type(request.getType())

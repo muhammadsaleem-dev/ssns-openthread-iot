@@ -6,6 +6,7 @@ import de.iot.smartmonitoring.model.SensorData;
 import de.iot.smartmonitoring.model.SensorNode;
 import de.iot.smartmonitoring.repository.SensorDataRepository;
 import de.iot.smartmonitoring.repository.SensorNodeRepository;
+import de.iot.smartmonitoring.websocket.TelemetryWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class SensorDataService {
     private final SensorDataRepository sensorDataRepository;
     private final SensorNodeRepository sensorNodeRepository;
     private final AlertService alertService;
+    private final TelemetryWebSocketHandler telemetryWebSocketHandler;
 
     /**
      * Ingest a telemetry reading: persist it, update node status, and evaluate alert rules.
@@ -84,7 +86,12 @@ public class SensorDataService {
         // Evaluate alert thresholds
         alertService.evaluate(saved);
 
-        return toResponse(saved);
+        SensorDataResponse response = toResponse(saved);
+        
+        // Broadcast over WebSockets
+        telemetryWebSocketHandler.broadcast(response);
+
+        return response;
     }
 
     private static class CachedData {

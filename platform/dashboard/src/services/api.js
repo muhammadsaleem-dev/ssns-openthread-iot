@@ -81,4 +81,23 @@ export const updateNodeLocation = async (nodeId, location) => {
   return data;
 };
 
-export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertCounts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation };
+/** Update ML configuration for a node. */
+export const updateMlConfig = async (nodeId, mlEnabled, baselineWindowSize, sensitivity, forecastHorizonMin, forceReset = false) => {
+  const { data } = await client.put(`/api/nodes/${nodeId}/ml/config`, {
+    mlEnabled,
+    baselineWindowSize,
+    sensitivity,
+    forecastHorizonMin
+  }, {
+    params: { forceReset }
+  });
+  return data;
+};
+
+/** Fetch ML Service status. */
+export const fetchMlStatus = async () => {
+  const { data } = await client.get('/api/nodes/ml/status');
+  return data;
+};
+
+export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertCounts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation, updateMlConfig, fetchMlStatus };
