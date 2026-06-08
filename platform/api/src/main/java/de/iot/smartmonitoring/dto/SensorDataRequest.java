@@ -24,6 +24,9 @@ public class SensorDataRequest {
     @Schema(description = "Unique identifier of the sensor node", example = "node-01")
     private String nodeId;
 
+    @Schema(description = "Active Mesh Extended Address assigned by OpenThread", example = "node-abcd")
+    private String meshId;
+
     @NotBlank(message = "bootId is required")
     @Schema(description = "Hardware boot identifier for reboot sequencing", example = "7f32ab91")
     private String bootId;

@@ -143,6 +143,7 @@ class RedisQueueManager:
                 pm10=payload_data.get("pm10", payload_data.get("p10", 0.0)),
                 light_intensity=payload_data.get("lightIntensity", payload_data.get("li", 0.0)),
                 health_status=payload_data.get("healthStatus", 255),
+                mesh_id=payload_data.get("meshId"),
                 timestamp=payload_data.get("timestamp")
             )
 

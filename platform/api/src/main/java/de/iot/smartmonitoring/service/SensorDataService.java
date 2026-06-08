@@ -80,8 +80,9 @@ public class SensorDataService {
             return null; // Signals duplicate to the controller
         }
 
-        // Register or update the sensor node
-        updateNodeStatus(request.getNodeId());
+        // Register or update the sensor node, passing the meshId if available
+        // Note: The request DTO needs to be updated to support getMeshId()
+        updateNodeStatus(request.getNodeId(), request.getMeshId());
 
         // Evaluate alert thresholds
         alertService.evaluate(saved);
@@ -221,7 +222,7 @@ public class SensorDataService {
 
     // ---- Internal helpers ----
 
-    private void updateNodeStatus(String nodeId) {
+    private void updateNodeStatus(String nodeId, String meshId) {
         SensorNode node = sensorNodeRepository.findByNodeId(nodeId)
                 .orElse(SensorNode.builder()
                         .nodeId(nodeId)
@@ -229,8 +230,14 @@ public class SensorDataService {
                         .build());
         node.setLastSeenAt(Instant.now());
         node.setStatus(SensorNode.NodeStatus.ONLINE);
+        
+        // Identity Link: Update the meshId if it was provided by the Gateway
+        if (meshId != null && !meshId.isBlank()) {
+            node.setMeshId(meshId);
+        }
+        
         sensorNodeRepository.save(node);
-        log.debug("Updated node status: {} → ONLINE", nodeId);
+        log.debug("Updated node status: {} (Mesh: {}) → ONLINE", nodeId, meshId);
     }
 
     private SensorDataResponse toResponse(SensorData entity) {

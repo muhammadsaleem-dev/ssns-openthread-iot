@@ -204,8 +204,18 @@ int network_send_coap(struct sensor_state *sensors)
     static uint32_t seq_num = 0;
     uint32_t uptime_ms = k_uptime_get_32();
 
-    ZCBOR_STATE_E(zse, 2, last_payload, sizeof(last_payload), 15);
-    bool ok = zcbor_list_start_encode(zse, 15) &&
+    /* Extract current Mesh ID */
+    char mesh_id[16];
+    otInstance *instance = openthread_get_default_instance();
+    if (instance) {
+        const otExtAddress *ext = otLinkGetExtendedAddress(instance);
+        snprintf(mesh_id, sizeof(mesh_id), "node-%02x%02x", ext->m8[6], ext->m8[7]);
+    } else {
+        snprintf(mesh_id, sizeof(mesh_id), "node-0000");
+    }
+
+    ZCBOR_STATE_E(zse, 2, last_payload, sizeof(last_payload), 16);
+    bool ok = zcbor_list_start_encode(zse, 16) &&
               zcbor_tstr_put_term(zse, node_id, sizeof(node_id)) &&
               zcbor_tstr_put_term(zse, boot_id, sizeof(boot_id)) &&
               zcbor_uint32_put(zse, seq_num++) &&
@@ -221,7 +231,8 @@ int network_send_coap(struct sensor_state *sensors)
               zcbor_float32_put(zse, p10) &&
               zcbor_float32_put(zse, li) &&
               zcbor_uint32_put(zse, (uint32_t)sensors->health_mask) &&
-              zcbor_list_end_encode(zse, 15);
+              zcbor_tstr_put_term(zse, mesh_id, sizeof(mesh_id)) &&
+              zcbor_list_end_encode(zse, 16);
 
     if (!ok) {
         LOG_ERR("CBOR encode failed!");

@@ -36,6 +36,12 @@ class StoreDataResource(resource.Resource):
             boot_id = cbor_data[1]
             seq_num = cbor_data[2]
 
+            # Extract healthStatus if present (15th item in the list, index 14)
+            health_status = cbor_data[14] if len(cbor_data) > 14 else None
+            
+            # Extract meshId if present (16th item in the list, index 15)
+            mesh_id = cbor_data[15] if len(cbor_data) > 15 else None
+            
             # Reconstruct the original JSON dictionary for the downstream pipeline
             payload = {
                 "id": node_id,
@@ -49,16 +55,13 @@ class StoreDataResource(resource.Resource):
                 "p4": cbor_data[11],
                 "p10": cbor_data[12],
                 "li": cbor_data[13],
-                "healthStatus": cbor_data[14],
+                "healthStatus": health_status,
                 "nodeId": node_id,
+                "meshId": mesh_id,
                 "bootId": boot_id,
                 "sequenceNumber": seq_num,
                 "uptimeMs": cbor_data[3]
             }
-
-            # Extract healthStatus if present (16th item in the list)
-            if len(cbor_data) >= 15:
-                 payload["healthStatus"] = cbor_data[14]
 
             payload_str = json.dumps(payload)
             

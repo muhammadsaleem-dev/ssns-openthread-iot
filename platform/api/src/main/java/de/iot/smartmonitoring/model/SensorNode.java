@@ -27,6 +27,8 @@ public class SensorNode {
     @Indexed(unique = true)
     private String nodeId;
 
+    private String meshId;
+
     private String location;
 
     @Builder.Default

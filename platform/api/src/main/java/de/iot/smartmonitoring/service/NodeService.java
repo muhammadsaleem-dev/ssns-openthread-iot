@@ -94,6 +94,7 @@ public class NodeService {
         return NodeResponse.builder()
                 .id(node.getId())
                 .nodeId(node.getNodeId())
+                .meshId(node.getMeshId())
                 .location(node.getLocation())
                 .status(node.getStatus())
                 .lastSeenAt(node.getLastSeenAt())

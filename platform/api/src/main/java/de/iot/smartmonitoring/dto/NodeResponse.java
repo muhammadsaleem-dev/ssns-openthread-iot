@@ -25,6 +25,9 @@ public class NodeResponse {
     @Schema(description = "Sensor node identifier", example = "node-01")
     private String nodeId;
 
+    @Schema(description = "Active Mesh Extended Address", example = "node-abcd")
+    private String meshId;
+
     @Schema(description = "Physical location of the node", example = "Room 204")
     private String location;
 
