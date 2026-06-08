@@ -55,14 +55,14 @@ export default function NodesPage() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <SensorsIcon sx={{ color: node.status === 'ONLINE' ? 'secondary.main' : 'text.secondary', fontSize: 20 }} />
                       <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-                        {node.location || node.name || node.nodeId}
+                        {node.nodeId}
                       </Typography>
                     </Box>
                     <StatusChip status={node.status} />
                   </Box>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <InfoRow label="Location" value={node.location || 'Not assigned'} />
+                    <InfoRow label="Location" value={node.location || node.nodeId} />
                     <InfoRow label="Last Seen" value={formatTimestamp(node.lastSeenAt)} />
                     <InfoRow label="Registered" value={formatTimestamp(node.registeredAt)} />
                   </Box>

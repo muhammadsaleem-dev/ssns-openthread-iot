@@ -13,6 +13,7 @@ import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import EditIcon from '@mui/icons-material/Edit';
+import HubIcon from '@mui/icons-material/Hub';
 
 import StatCard from '../components/StatCard';
 import SectionHeader from '../components/SectionHeader';
@@ -21,7 +22,7 @@ import ErrorBanner from '../components/ErrorBanner';
 import TelemetryChart from '../charts/TelemetryChart';
 import usePolling from '../hooks/usePolling';
 import useTelemetryStream from '../hooks/useTelemetryStream';
-import { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlertsPage, fetchAlertCounts, updateNodeLocation } from '../services/api';
+import { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlertsPage, fetchAlertCounts, updateNodeLocation, fetchNetworkTopology } from '../services/api';
 import { formatTimestamp, average, computeAqi } from '../utils/format';
 import CustomPagination from '../components/CustomPagination';
 import API from '../config/api';
@@ -56,6 +57,7 @@ export default function DashboardPage() {
 
   const { data: recentAlertsPage, loading: loadingAlerts } = usePolling(fetchRecentAlertsFn, API.POLL_INTERVAL);
   const { data: alertCounts } = usePolling(fetchCountsFn, API.POLL_INTERVAL);
+  const { data: topologyData } = usePolling(fetchNetworkTopology, API.POLL_INTERVAL);
   
   // State for renaming a node
   const [isEditingName, setIsEditingName] = useState(false);
@@ -239,6 +241,13 @@ export default function DashboardPage() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', md: 'auto' } }}>
+          <StatCard
+            title="Border Router"
+            value={topologyData?.gatewayHealth?.status?.toUpperCase() || 'OFFLINE'}
+            icon={<HubIcon />}
+            trend={topologyData?.gatewayHealth?.channel ? `PAN ID: ${topologyData.gatewayHealth.panId} • Ch ${topologyData.gatewayHealth.channel}` : `PAN ID: ${topologyData?.gatewayHealth?.panId || '---'}`}
+            color={topologyData?.gatewayHealth?.status === 'active' ? '#10B981' : '#EF4444'}
+          />
           <FormControl sx={{ flexGrow: 1, minWidth: { md: 200 } }}>
             <Select 
               size="small"

@@ -100,4 +100,10 @@ export const fetchMlStatus = async () => {
   return data;
 };
 
-export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertCounts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation, updateMlConfig, fetchMlStatus };
+/** Fetch the latest OpenThread Network Topology */
+export const fetchNetworkTopology = async () => {
+  const { data } = await client.get('/api/network/topology');
+  return data;
+};
+
+export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertCounts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation, updateMlConfig, fetchMlStatus, fetchNetworkTopology };

@@ -29,6 +29,7 @@ import BluetoothIcon from '@mui/icons-material/Bluetooth';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import HubIcon from '@mui/icons-material/Hub';
 import { ThemeModeContext } from '../App';
 
 const DRAWER_WIDTH = 240;
@@ -36,6 +37,7 @@ const DRAWER_WIDTH = 240;
 const navItems = [
   { label: 'Dashboard', icon: <DashboardIcon />, id: 'dashboard' },
   { label: 'Nodes', icon: <SensorsIcon />, id: 'nodes' },
+  { label: 'Network', icon: <HubIcon />, id: 'topology' },
   { label: 'Alerts', icon: <NotificationsActiveIcon />, id: 'alerts' },
   { label: 'ML Settings', icon: <PsychologyIcon />, id: 'ml' },
 ];
@@ -104,9 +106,9 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
       {/* Footer */}
       <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
         <Chip
-          label="Simulator Active"
+          label="Fog Node Active"
           size="small"
-          color="secondary"
+          color="success"
           variant="outlined"
           sx={{ width: '100%', fontSize: '0.7rem' }}
         />

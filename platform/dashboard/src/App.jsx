@@ -13,12 +13,14 @@ import DashboardPage from './pages/DashboardPage';
 import NodesPage from './pages/NodesPage';
 import AlertsPage from './pages/AlertsPage';
 import AnomalyDetectionSettingsPage from './pages/AnomalyDetectionSettingsPage';
+import NetworkTopologyPage from './pages/NetworkTopologyPage';
 
 const PAGES = {
   dashboard: DashboardPage,
   nodes: NodesPage,
   alerts: AlertsPage,
   ml: AnomalyDetectionSettingsPage,
+  topology: NetworkTopologyPage,
 };
 
 export const ThemeModeContext = createContext({ toggleColorMode: () => {} });
