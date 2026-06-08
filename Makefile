@@ -105,9 +105,18 @@ deploy-cloud:
 	@if [ -z "$(VPS_IP)" ]; then echo "❌ ERROR: VPS_IP is not set. Create a .env.deploy file with VPS_IP=your_ip"; exit 1; fi
 	@echo "🚀 Pushing platform code to Cloud VPS ($(VPS_IP))..."
 	@rsync -avz --delete --exclude 'node_modules' --exclude '.git' --exclude 'target' --exclude 'archive' platform/ root@$(VPS_IP):/root/ssns-project/platform/
-	@echo "☁️ Rebuilding and restarting Cloud containers without cache..."
-	@ssh root@$(VPS_IP) "cd /root/ssns-project/platform && docker compose -f docker-compose.ha.yml -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.ha.yml -f docker-compose.prod.yml up -d"
+	@echo "☁️ Building and restarting updated Cloud containers..."
+	@ssh root@$(VPS_IP) "cd /root/ssns-project/platform && docker compose -f docker-compose.ha.yml -f docker-compose.prod.yml up -d --build"
 	@echo "✅ Cloud deployment complete!"
+
+# Deploy to Cloud VPS from scratch (ignores Docker cache)
+deploy-cloud-clean:
+	@if [ -z "$(VPS_IP)" ]; then echo "❌ ERROR: VPS_IP is not set. Create a .env.deploy file with VPS_IP=your_ip"; exit 1; fi
+	@echo "🚀 Pushing platform code to Cloud VPS ($(VPS_IP))..."
+	@rsync -avz --delete --exclude 'node_modules' --exclude '.git' --exclude 'target' --exclude 'archive' platform/ root@$(VPS_IP):/root/ssns-project/platform/
+	@echo "☁️ Rebuilding Cloud containers from scratch (NO CACHE)..."
+	@ssh root@$(VPS_IP) "cd /root/ssns-project/platform && docker compose -f docker-compose.ha.yml -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.ha.yml -f docker-compose.prod.yml up -d"
+	@echo "✅ Clean Cloud deployment complete!"
 
 # Reset the LOCAL MongoDB database ONLY (wipes local telemetry and alerts)
 reset-db-local:
