@@ -48,7 +48,9 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
   
   let etaText = '';
   if (remainingSamples > 0) {
-    if (estimatedSeconds < 60) {
+    if (node.status === 'OFFLINE') {
+      etaText = 'Paused (Node Offline)';
+    } else if (estimatedSeconds < 60) {
       etaText = '< 1 min remaining';
     } else {
       etaText = `~${estimatedMinutes} mins remaining`;
@@ -193,7 +195,7 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
         <Box sx={{ mt: 'auto', pt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
           
           <Box sx={{ mb: 2 }}>
-            <Typography id="baseline-slider" variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', mb: 4 }}>
+            <Typography id="baseline-slider" variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', mb: 1 }}>
               Baseline Window (samples)
               <Tooltip enterTouchDelay={0} leaveTouchDelay={4000} title="How long the sensor should 'learn' the room before it starts guarding. A larger window means it learns more variations of normal.">
                 <InfoOutlinedIcon sx={{ fontSize: 14, ml: 0.5, cursor: 'help' }} />
@@ -219,18 +221,13 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
             </Box>
           </Box>
 
-          <Box sx={{ mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
-              <Typography id="sensitivity-slider" variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
-                Sensitivity
-                <Tooltip enterTouchDelay={0} leaveTouchDelay={4000} title="How strict the guard should be. Lower sensitivity means fewer false alarms, but it might miss small changes. Higher sensitivity catches everything but might trigger false alarms.">
-                  <InfoOutlinedIcon sx={{ fontSize: 14, ml: 0.5, cursor: 'help' }} />
-                </Tooltip>
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {sensitivity}%
-              </Typography>
-            </Box>
+          <Box sx={{ mb: 2 }}>
+            <Typography id="sensitivity-slider" variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', mb: 1 }}>
+              Sensitivity
+              <Tooltip enterTouchDelay={0} leaveTouchDelay={4000} title="How strict the guard should be. Lower sensitivity means fewer false alarms, but it might miss small changes. Higher sensitivity catches everything but might trigger false alarms.">
+                <InfoOutlinedIcon sx={{ fontSize: 14, ml: 0.5, cursor: 'help' }} />
+              </Tooltip>
+            </Typography>
             <Box sx={{ px: 1 }}>
               <Slider
                 aria-labelledby="sensitivity-slider"
@@ -239,6 +236,8 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
                 step={1}
                 min={1}
                 max={15}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(val) => `${val}%`}
                 size="small"
                 color="secondary"
                 disabled={isResetting || !isEnabled}
@@ -246,27 +245,28 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
             </Box>
           </Box>
 
-          <Box sx={{ mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
-              <Typography id="forecast-slider" variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
-                Forecast Horizon
-                <Tooltip enterTouchDelay={0} leaveTouchDelay={4000} title="How far into the future the proactive forecaster should predict. A 15-30 minute window provides the most accurate and actionable projections.">
-                  <InfoOutlinedIcon sx={{ fontSize: 14, ml: 0.5, cursor: 'help' }} />
-                </Tooltip>
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {forecastHorizon} mins
-              </Typography>
-            </Box>
+          <Box sx={{ mb: 2 }}>
+            <Typography id="forecast-slider" variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', mb: 1 }}>
+              Forecast Horizon
+              <Tooltip enterTouchDelay={0} leaveTouchDelay={4000} title="How far into the future the proactive forecaster should predict. A 15-30 minute window provides the most accurate and actionable projections.">
+                <InfoOutlinedIcon sx={{ fontSize: 14, ml: 0.5, cursor: 'help' }} />
+              </Tooltip>
+            </Typography>
             <Box sx={{ px: 1 }}>
               <Slider
                 aria-labelledby="forecast-slider"
                 value={forecastHorizon}
                 onChange={(_, newValue) => setForecastHorizon(newValue)}
                 step={5}
-                marks={[{value: 15, label: '15m'}, {value: 30, label: '30m'}, {value: 60, label: '1h'}]}
+                marks={[{value: 15, label: '15m'}, {value: 60, label: '1h'}, {value: 120, label: '2h'}]}
                 min={5}
                 max={120}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(val) => {
+                  if (val < 60) return `${val}m`;
+                  if (val % 60 === 0) return `${val/60}h`;
+                  return `${Math.floor(val/60)}h ${val%60}m`;
+                }}
                 size="small"
                 color="info"
                 disabled={isResetting || !isEnabled}
@@ -348,7 +348,7 @@ export default function AnomalyDetectionSettingsPage() {
       ) : (
         <Grid container spacing={3}>
           {nodes.map(node => (
-            <Grid item xs={12} sm={6} md={4} key={node.nodeId}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={node.nodeId}>
               <MLNodeCard node={node} onReset={handleResetNode} onToggleEnabled={handleToggleNode} />
             </Grid>
           ))}
