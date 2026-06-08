@@ -1,0 +1,22 @@
+services:
+  # ── SSL Proxy (Caddy) ───────────────────────────────────
+  # Automatically handles Let's Encrypt HTTPS certificates in Production
+  caddy:
+    image: caddy:alpine
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - dashboard
+    restart: unless-stopped
+    networks:
+      - ssns-network
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -12,13 +12,30 @@ stop: stop-fog-mac stop-platform
 	@echo "🛑 All services and Fog Node have been stopped."
 	@echo "=================================================="
 
-# Start just the platform core (API, Dashboard, Mongo, ML)
+# Build and start all services (Platform)
 start-platform:
-	cd platform && docker-compose -f docker-compose.ha.yml build --no-cache && docker-compose -f docker-compose.ha.yml up -d --remove-orphans
+	@echo "🚀 Starting Full Platform Orchestration..."
+	@cd platform && docker compose -f docker-compose.ha.yml build --no-cache && docker compose -f docker-compose.ha.yml up -d --remove-orphans
 
-# Stop just the platform core
+# Stop all services
 stop-platform:
-	cd platform && docker-compose -f docker-compose.ha.yml down --remove-orphans
+	@echo "🛑 Stopping Full Platform..."
+	@cd platform && docker compose -f docker-compose.ha.yml down --remove-orphans
+
+# Restart only the Dashboard (useful when UI code changes)
+restart-dashboard:
+	@echo "🔄 Rebuilding and restarting React Dashboard..."
+	@cd platform && docker compose -f docker-compose.ha.yml build --no-cache dashboard && docker compose -f docker-compose.ha.yml up -d --no-deps dashboard
+
+# Restart only the Java Backend APIs (useful when Java code changes)
+restart-api:
+	@echo "🔄 Rebuilding and restarting Java Backend APIs..."
+	@cd platform && docker compose -f docker-compose.ha.yml build --no-cache api-1 api-2 && docker compose -f docker-compose.ha.yml up -d --no-deps api-1 api-2
+
+# Restart only the ML Service (useful when Python code changes)
+restart-ml:
+	@echo "🔄 Rebuilding and restarting ML Service..."
+	@cd platform && docker compose -f docker-compose.ha.yml build --no-cache ml-service && docker compose -f docker-compose.ha.yml up -d --no-deps ml-service
 
 # Start just the local Mac Fog Node (OTBR, Gateway, Redis)
 start-fog-mac: bridge
@@ -89,5 +106,22 @@ deploy-cloud:
 	@echo "🚀 Pushing platform code to Cloud VPS ($(VPS_IP))..."
 	@rsync -avz --delete --exclude 'node_modules' --exclude '.git' --exclude 'target' --exclude 'archive' platform/ root@$(VPS_IP):/root/ssns-project/platform/
 	@echo "☁️ Rebuilding and restarting Cloud containers without cache..."
-	@ssh root@$(VPS_IP) "cd /root/ssns-project/platform && docker compose -f docker-compose.ha.yml build --no-cache && docker compose -f docker-compose.ha.yml up -d"
+	@ssh root@$(VPS_IP) "cd /root/ssns-project/platform && docker compose -f docker-compose.ha.yml -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.ha.yml -f docker-compose.prod.yml up -d"
 	@echo "✅ Cloud deployment complete!"
+
+# Reset the LOCAL MongoDB database ONLY (wipes local telemetry and alerts)
+reset-db-local:
+	@echo "=================================================="
+	@echo "🏠🗑️  Wiping the LOCAL MongoDB database to start fresh..."
+	@echo "=================================================="
+	env -u DOCKER_HOST docker --context default exec ssns-monitoring-mongo mongosh ssns_monitoring --eval "db.dropDatabase()"
+	@echo "✅ LOCAL Database completely cleared!"
+
+# Reset the CLOUD VPS MongoDB database ONLY (wipes cloud telemetry and alerts)
+reset-db-cloud:
+	@if [ -z "$(VPS_IP)" ]; then echo "❌ ERROR: VPS_IP is not set. Create a .env.deploy file with VPS_IP=your_ip"; exit 1; fi
+	@echo "=================================================="
+	@echo "☁️🗑️  Wiping the CLOUD VPS MongoDB database..."
+	@echo "=================================================="
+	ssh root@$(VPS_IP) "docker exec ssns-monitoring-mongo mongosh ssns_monitoring --eval 'db.dropDatabase()'"
+	@echo "✅ CLOUD Database completely cleared!"

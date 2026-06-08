@@ -1,0 +1,3 @@
+ssns-dashboard.ddns.net {
+    reverse_proxy dashboard:80
+}
