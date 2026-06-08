@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Box, Card, CardContent, Typography, Grid, CircularProgress, Chip, alpha, useTheme,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  Drawer, IconButton, Divider, List, ListItem, ListItemText
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import HubIcon from '@mui/icons-material/Hub';
+import RouterIcon from '@mui/icons-material/Router';
+import CellTowerIcon from '@mui/icons-material/CellTower';
+import SensorsIcon from '@mui/icons-material/Sensors';
 import { ReactFlow, Background, Controls, MiniMap, applyNodeChanges, applyEdgeChanges, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import usePolling from '../hooks/usePolling';
 import { fetchNetworkTopology, fetchNodes } from '../services/api';
 import SectionHeader from '../components/SectionHeader';
+import StatCard from '../components/StatCard';
 import API from '../config/api';
 
 // Custom Node for Thread Routers (Blue Hexagon-ish)
@@ -124,9 +131,16 @@ export default function NetworkTopologyPage() {
 
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  const [selectedNode, setSelectedNode] = useState(null);
 
   const onNodesChange = useCallback((changes) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
   const onEdgesChange = useCallback((changes) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
+
+  const handleNodeClick = useCallback((event, node) => {
+    setSelectedNode(node);
+  }, []);
+
+  const closeDrawer = () => setSelectedNode(null);
 
   // Build the graph layout when data arrives.
   // We aggregate data from multiple Border Routers into a single 'Master Map'.
@@ -175,8 +189,13 @@ export default function NetworkTopologyPage() {
               hardwareId: hardwareId,
               label: primaryLabel, 
               rloc16: node.rloc16,
-              role: node.role,
-              parentRloc16: node.parentRloc16
+              role: isLeader ? 'leader' : node.role,
+              parentRloc16: node.parentRloc16,
+              status: matchedNode?.status || 'UNKNOWN',
+              lastSeenAt: matchedNode?.lastSeenAt,
+              extAddr: node.extAddr,
+              linkQualityIn: node.linkQualityIn,
+              linkQualityOut: node.linkQualityOut,
             },
           });
 
@@ -205,6 +224,14 @@ export default function NetworkTopologyPage() {
     setEdges(Array.from(newEdgesMap.values()));
   }, [topologyList, registeredNodes]);
 
+  const totalNodes = nodes.length;
+  const routerNodes = nodes.filter(n => n.type === 'router').length;
+  const onlineNodes = registeredNodes?.filter(n => n.status === 'ONLINE').length || 0;
+  // A simple heuristic for network stability: if > 80% of registered nodes are online
+  const stability = registeredNodes?.length > 0 
+    ? Math.round((onlineNodes / registeredNodes.length) * 100) 
+    : 100;
+
   if (loadingTopo && !topologyList) {
     return (
       <Box display="flex" justifyContent="center" mt={10}>
@@ -217,32 +244,86 @@ export default function NetworkTopologyPage() {
     <Box>
       <SectionHeader title="Network Overview" subtitle="Thread Mesh Topology (Distributed)" />
 
+      {/* Network Health Summary */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Total Nodes in Mesh" 
+            value={totalNodes} 
+            icon={<HubIcon />} 
+            color="#10B981" 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Router Nodes" 
+            value={routerNodes} 
+            icon={<RouterIcon />} 
+            color="#3B82F6" 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Online Sensors" 
+            value={onlineNodes} 
+            icon={<SensorsIcon />} 
+            color="#8B5CF6" 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Network Stability" 
+            value={`${stability}%`} 
+            icon={<CellTowerIcon />} 
+            color={stability >= 80 ? "#10B981" : "#F59E0B"} 
+          />
+        </Grid>
+      </Grid>
+
       {/* Multi-Gateway Health Overview */}
+      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Active Border Routers</Typography>
       <Grid container spacing={3} sx={{ mb: 3 }}>
         {topologyList && topologyList.length > 0 ? (
           topologyList.map((topology) => (
-            <Grid item xs={12} md={4} key={topology.gatewayId || topology.id}>
+            <Grid item xs={12} md={6} lg={4} key={topology.gatewayId || topology.id}>
               <Card sx={{ borderLeft: '4px solid', borderLeftColor: 'primary.main' }}>
                 <CardContent>
-                  <Typography variant="overline" color="text.secondary">
-                    BR: {topology.gatewayId?.substring(topology.gatewayId.length - 4) || 'Unknown'}
-                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="overline" color="text.secondary">
+                      BR MAC: {topology.gatewayId?.substring(topology.gatewayId.length - 4) || 'Unknown'}
+                    </Typography>
+                    <Chip 
+                      label={topology.gatewayHealth?.status?.toUpperCase() || 'ACTIVE'} 
+                      color={topology.gatewayHealth?.status === 'active' ? "success" : "error"} 
+                      size="small" 
+                    />
+                  </Box>
                   <Box mt={1}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Typography variant="h5" fontWeight="bold" color="primary">
-                        {topology.gatewayHealth?.networkName || 'Border Router'}
-                      </Typography>
-                      <Chip 
-                        label={topology.gatewayHealth?.status?.toUpperCase() || 'ACTIVE'} 
-                        color={topology.gatewayHealth?.status === 'active' ? "success" : "error"} 
-                        size="small" 
-                      />
+                    <Typography variant="h5" fontWeight="bold" color="primary">
+                      {topology.gatewayHealth?.networkName || 'Border Router'}
+                    </Typography>
+                    <Box display="flex" flexDirection="column" gap={0.5} mt={2}>
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">Thread Role:</Typography>
+                        <Typography variant="body2" fontWeight="bold">Leader</Typography>
+                      </Box>
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">PAN ID:</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>{topology.gatewayHealth?.panId}</Typography>
+                      </Box>
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">Channel:</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>{topology.gatewayHealth?.channel}</Typography>
+                      </Box>
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">Network Uptime:</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>{topology.gatewayHealth?.uptime || '0h'}</Typography>
+                      </Box>
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">Connected Nodes:</Typography>
+                        <Typography variant="body2" fontWeight="bold" sx={{ color: '#3B82F6' }}>{topology.nodes ? topology.nodes.length : 0}</Typography>
+                      </Box>
                     </Box>
-                    <Box display="flex" justifyContent="space-between" mt={2}>
-                      <Typography variant="body2" color="text.secondary">PAN ID: <strong style={{color:'#fff'}}>{topology.gatewayHealth?.panId}</strong></Typography>
-                      <Typography variant="body2" color="text.secondary">Channel: <strong style={{color:'#fff'}}>{topology.gatewayHealth?.channel}</strong></Typography>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary" mt={1}>Uptime: <strong style={{color:'#fff'}}>{topology.gatewayHealth?.uptime || '0h'}</strong></Typography>
                   </Box>
                 </CardContent>
               </Card>
@@ -253,18 +334,6 @@ export default function NetworkTopologyPage() {
             <Typography variant="body2" color="error">No gateways reporting topology.</Typography>
           </Grid>
         )}
-        
-        <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">Total Mesh Devices</Typography>
-              <Box display="flex" alignItems="baseline" mt={1}>
-                <Typography variant="h3" fontWeight="bold">{nodes.length}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>Aggregated Nodes</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
       </Grid>
 
       {/* Interactive React Flow Canvas */}
@@ -275,6 +344,7 @@ export default function NetworkTopologyPage() {
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
+          onNodeClick={handleNodeClick}
           fitView
           colorMode="dark"
         >
@@ -283,6 +353,20 @@ export default function NetworkTopologyPage() {
           <MiniMap nodeStrokeColor="#fff" nodeColor="#222" />
         </ReactFlow>
       </Card>
+
+      {/* Recent Network Events Placeholder */}
+      <Box sx={{ mt: 4, mb: 2 }}>
+        <SectionHeader title="Recent Network Events" subtitle="Historical Thread mesh transitions and recovery logs" />
+        <Card sx={{ bgcolor: alpha(theme.palette.background.paper, 0.5) }}>
+          <CardContent>
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'center', py: 3 }}>
+              Network event history (Node Joins, Role Changes, Partition Merges) is currently running in-memory.
+              <br/>
+              Backend integration for persistent Thread event logging is planned for Future Work.
+            </Typography>
+          </CardContent>
+        </Card>
+      </Box>
 
       {/* Industry Terminology Reference */}
       <Box sx={{ mt: 4, mb: 4 }}>
@@ -357,6 +441,92 @@ export default function NetworkTopologyPage() {
           </Table>
         </TableContainer>
       </Box>
+
+      {/* Node Details Drawer */}
+      <Drawer
+        anchor="right"
+        open={Boolean(selectedNode)}
+        onClose={closeDrawer}
+        PaperProps={{
+          sx: { width: { xs: '100%', sm: 400 }, p: 3, bgcolor: 'background.default' }
+        }}
+      >
+        {selectedNode && (
+          <Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h5" fontWeight="bold">Node Details</Typography>
+              <IconButton onClick={closeDrawer} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+            
+            <Divider sx={{ mb: 2 }} />
+            
+            <Box display="flex" alignItems="center" gap={2} mb={3}>
+              <Typography fontSize="2rem">
+                {selectedNode.data.role === 'leader' ? '👑' : selectedNode.data.role === 'router' ? '📡' : '🍃'}
+              </Typography>
+              <Box>
+                <Typography variant="h6" fontWeight="bold">{selectedNode.data.label}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+                  {selectedNode.data.role || 'Unknown Role'}
+                </Typography>
+              </Box>
+              <Chip 
+                label={selectedNode.data.status} 
+                color={selectedNode.data.status === 'ONLINE' ? 'success' : selectedNode.data.status === 'OFFLINE' ? 'error' : 'default'}
+                size="small"
+                sx={{ ml: 'auto' }}
+              />
+            </Box>
+
+            <List disablePadding>
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText primary="Hardware ID" secondary={selectedNode.data.hardwareId} />
+              </ListItem>
+              <Divider component="li" />
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText primary="Mesh ID (ExtAddr)" secondary={selectedNode.data.nodeId} />
+              </ListItem>
+              <Divider component="li" />
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText primary="RLOC16 (Short Address)" secondary={<span style={{color: '#3B82F6', fontWeight: 'bold'}}>{selectedNode.data.rloc16}</span>} />
+              </ListItem>
+              <Divider component="li" />
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText primary="Parent RLOC16" secondary={selectedNode.data.parentRloc16 === '0xffff' ? 'None (Is Root)' : selectedNode.data.parentRloc16} />
+              </ListItem>
+              <Divider component="li" />
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText 
+                  primary="Link Quality (In / Out)" 
+                  secondary={
+                    selectedNode.data.parentRloc16 === '0xffff' 
+                    ? 'N/A' 
+                    : `${selectedNode.data.linkQualityIn || 0}% / ${selectedNode.data.linkQualityOut || 0}%`
+                  } 
+                />
+              </ListItem>
+              <Divider component="li" />
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText primary="Last Seen" secondary={selectedNode.data.lastSeenAt ? new Date(selectedNode.data.lastSeenAt).toLocaleString() : 'N/A'} />
+              </ListItem>
+              <Divider component="li" />
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText primary="IPv6 Address" secondary={<span style={{ fontStyle: 'italic' }}>Not exposed in current firmware (Phase 2)</span>} />
+              </ListItem>
+              <Divider component="li" />
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText primary="RSSI" secondary={<span style={{ fontStyle: 'italic' }}>Requires CLI extraction in OTBR (Phase 2)</span>} />
+              </ListItem>
+              <Divider component="li" />
+              <ListItem sx={{ py: 1, px: 0 }}>
+                <ListItemText primary="Firmware Version" secondary={<span style={{ fontStyle: 'italic' }}>Not reported in current CBOR payload</span>} />
+              </ListItem>
+            </List>
+          </Box>
+        )}
+      </Drawer>
     </Box>
   );
 }
