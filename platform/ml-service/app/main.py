@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
         polling_task.cancel()
 
 app = FastAPI(
-    title="BLE Smart Monitoring ML Service",
+    title="SSNS ML Service",
     description="Machine Learning Analytics API augmenting the existing telemetry ingestion pipeline.",
     version="0.1.0",
     lifespan=lifespan

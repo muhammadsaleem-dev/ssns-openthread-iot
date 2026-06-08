@@ -58,3 +58,6 @@ PROJECT_KNOWLEDGE.md
 bridge.log
 reset_docker_native.sh
 system_temp.png
+
+# Architecture Scratchpad
+architecture-viewer/

@@ -235,7 +235,7 @@ export default function DashboardPage() {
             Environmental Monitoring
           </Typography>
           <Typography variant="subtitle1">
-            Real-time BLE sensor telemetry overview
+            Real-time Thread sensor telemetry overview
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', md: 'auto' } }}>

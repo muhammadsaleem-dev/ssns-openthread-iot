@@ -75,7 +75,7 @@ export default function NodesPage() {
             <Card>
               <CardContent sx={{ py: 6, textAlign: 'center' }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  No sensor nodes registered yet. Start the BLE gateway to begin.
+                  No sensor nodes registered yet. Start the Thread gateway to begin.
                 </Typography>
               </CardContent>
             </Card>

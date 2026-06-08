@@ -11,7 +11,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.Instant;
 
 /**
- * Represents a single telemetry reading from a BLE sensor node.
+ * Represents a single telemetry reading from a Thread sensor node.
  */
 @Data
 @Builder

@@ -20,8 +20,8 @@ public class OpenApiConfig {
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("BLE Smart Monitoring API")
-                        .description("REST API for the BLE-Based Smart Indoor Environmental Monitoring System. "
+                        .title("SSNS Smart Monitoring API")
+                        .description("REST API for the Thread-Based Smart Indoor Environmental Monitoring System. "
                                 + "Provides telemetry ingestion, node monitoring, and alert management endpoints.")
                         .version("0.1.0")
                         .contact(new Contact()

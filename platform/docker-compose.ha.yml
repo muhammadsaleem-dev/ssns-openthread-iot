@@ -15,7 +15,7 @@ services:
     image: mongo:7
     container_name: ssns-monitoring-mongo
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo_data:/data/db
     environment:
@@ -92,7 +92,7 @@ services:
       dockerfile: Dockerfile
     container_name: ml-service
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       # Polls the local load balancer
       BACKEND_URL: http://dashboard

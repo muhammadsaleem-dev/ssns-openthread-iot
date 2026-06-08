@@ -54,7 +54,7 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
           <BluetoothIcon sx={{ color: 'primary.main', fontSize: 28 }} />
           <Box>
             <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 700, lineHeight: 1.2 }}>
-              BLE Monitor
+              SSNS Dashboard
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
               Environmental IoT
@@ -131,7 +131,7 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
           </IconButton>
           <BluetoothIcon sx={{ mr: 1, color: 'primary.main' }} />
           <Typography variant="h6" noWrap sx={{ fontWeight: 700, flexGrow: 1 }}>
-            BLE Monitor
+            SSNS Dashboard
           </Typography>
           <IconButton onClick={colorMode.toggleColorMode} color="inherit">
             {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
