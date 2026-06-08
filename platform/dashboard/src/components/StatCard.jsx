@@ -50,16 +50,27 @@ export default function StatCard({ title, value, unit, icon, color = '#3B82F6', 
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1 }}
-          >
-            {value}
-          </Typography>
-          {unit && (
-            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-              {unit}
+          {parseFloat(value) <= -900 ? (
+            <Typography
+              variant="h5"
+              sx={{ fontWeight: 700, color: 'error.main', lineHeight: 1, letterSpacing: 1 }}
+            >
+              FAULT
             </Typography>
+          ) : (
+            <>
+              <Typography
+                variant="h4"
+                sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1 }}
+              >
+                {value}
+              </Typography>
+              {unit && (
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                  {unit}
+                </Typography>
+              )}
+            </>
           )}
         </Box>
 
