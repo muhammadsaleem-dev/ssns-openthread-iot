@@ -76,19 +76,21 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
     setIsResetting(false);
   };
 
-  const baseBorderColor = !isEnabled ? theme.palette.text.disabled : (isFitted ? theme.palette.success.main : theme.palette.warning.main);
-  const baseBgColor = !isEnabled ? 'rgba(0,0,0,0.02)' : (isFitted ? 'rgba(16, 185, 129, 0.03)' : 'rgba(245, 158, 11, 0.03)');
+  const isOffline = node.status === 'OFFLINE';
+  const baseBorderColor = isOffline ? theme.palette.text.disabled : (!isEnabled ? theme.palette.text.disabled : (isFitted ? theme.palette.success.main : theme.palette.warning.main));
+  const baseBgColor = isOffline ? 'rgba(0,0,0,0.04)' : (!isEnabled ? 'rgba(0,0,0,0.02)' : (isFitted ? 'rgba(16, 185, 129, 0.03)' : 'rgba(245, 158, 11, 0.03)'));
 
   return (
     <Card 
       sx={{ 
         height: '100%',
-        border: `1px solid ${baseBorderColor}40`,
+        border: `1px solid ${baseBorderColor}${isOffline ? '30' : '40'}`,
         bgcolor: baseBgColor,
-        transition: 'all 0.2s ease',
-        opacity: isEnabled ? 1 : 0.7,
+        transition: 'all 0.3s ease',
+        opacity: isOffline ? 0.6 : (isEnabled ? 1 : 0.8),
         '&:hover': {
           boxShadow: `0 4px 20px ${baseBorderColor}20`,
+          opacity: isOffline ? 0.85 : 1,
         }
       }}
     >
