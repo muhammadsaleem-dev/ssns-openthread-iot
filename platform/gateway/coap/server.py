@@ -42,6 +42,14 @@ class StoreDataResource(resource.Resource):
             # Extract meshId if present (16th item in the list, index 15)
             mesh_id = cbor_data[15] if len(cbor_data) > 15 else None
             
+            # Extract true IPv6 address if available (Native Linux Fog Node)
+            # If using socat bridge (Mac Fog Node), this will just show 127.0.0.1
+            ipv6_addr = None
+            if hasattr(request.remote, 'sockaddr') and request.remote.sockaddr:
+                addr = request.remote.sockaddr[0]
+                if addr != '127.0.0.1' and addr != '::1':
+                    ipv6_addr = addr
+
             # Reconstruct the original JSON dictionary for the downstream pipeline
             payload = {
                 "id": node_id,
@@ -58,6 +66,7 @@ class StoreDataResource(resource.Resource):
                 "healthStatus": health_status,
                 "nodeId": node_id,
                 "meshId": mesh_id,
+                "ipv6Address": ipv6_addr,
                 "bootId": boot_id,
                 "sequenceNumber": seq_num,
                 "uptimeMs": cbor_data[3]

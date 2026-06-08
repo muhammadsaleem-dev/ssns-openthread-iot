@@ -95,6 +95,7 @@ public class NodeService {
                 .id(node.getId())
                 .nodeId(node.getNodeId())
                 .meshId(node.getMeshId())
+                .ipv6Address(node.getIpv6Address())
                 .location(node.getLocation())
                 .status(node.getStatus())
                 .lastSeenAt(node.getLastSeenAt())

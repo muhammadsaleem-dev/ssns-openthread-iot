@@ -29,6 +29,8 @@ public class SensorNode {
 
     private String meshId;
 
+    private String ipv6Address;
+
     private String location;
 
     @Builder.Default

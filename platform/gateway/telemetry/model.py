@@ -29,6 +29,7 @@ class TelemetryReading:
     light_intensity: float
     health_status: int = 255
     mesh_id: str = None
+    ipv6_address: str = None
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict:
@@ -55,6 +56,7 @@ class TelemetryReading:
             "lightIntensity": round(self.light_intensity, 1),
             "healthStatus": self.health_status,
             "meshId": self.mesh_id,
+            "ipv6Address": self.ipv6_address,
             "timestamp": self.timestamp,
         }
 

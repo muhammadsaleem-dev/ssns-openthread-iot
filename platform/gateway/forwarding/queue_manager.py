@@ -144,6 +144,7 @@ class RedisQueueManager:
                 light_intensity=payload_data.get("lightIntensity", payload_data.get("li", 0.0)),
                 health_status=payload_data.get("healthStatus", 255),
                 mesh_id=payload_data.get("meshId"),
+                ipv6_address=payload_data.get("ipv6Address"),
                 timestamp=payload_data.get("timestamp")
             )
 

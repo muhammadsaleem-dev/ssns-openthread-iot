@@ -80,9 +80,9 @@ public class SensorDataService {
             return null; // Signals duplicate to the controller
         }
 
-        // Register or update the sensor node, passing the meshId if available
+        // Register or update the sensor node, passing the meshId and IPv6 Address if available
         // Note: The request DTO needs to be updated to support getMeshId()
-        updateNodeStatus(request.getNodeId(), request.getMeshId());
+        updateNodeStatus(request.getNodeId(), request.getMeshId(), request.getIpv6Address());
 
         // Evaluate alert thresholds
         alertService.evaluate(saved);
@@ -222,7 +222,7 @@ public class SensorDataService {
 
     // ---- Internal helpers ----
 
-    private void updateNodeStatus(String nodeId, String meshId) {
+    private void updateNodeStatus(String nodeId, String meshId, String ipv6Address) {
         SensorNode node = sensorNodeRepository.findByNodeId(nodeId)
                 .orElse(SensorNode.builder()
                         .nodeId(nodeId)
@@ -235,9 +235,14 @@ public class SensorDataService {
         if (meshId != null && !meshId.isBlank()) {
             node.setMeshId(meshId);
         }
+
+        // Network Layer: Update the IPv6 origin address if provided
+        if (ipv6Address != null && !ipv6Address.isBlank()) {
+            node.setIpv6Address(ipv6Address);
+        }
         
         sensorNodeRepository.save(node);
-        log.debug("Updated node status: {} (Mesh: {}) → ONLINE", nodeId, meshId);
+        log.debug("Updated node status: {} (Mesh: {}, IP: {}) → ONLINE", nodeId, meshId, ipv6Address);
     }
 
     private SensorDataResponse toResponse(SensorData entity) {

@@ -28,6 +28,9 @@ public class NodeResponse {
     @Schema(description = "Active Mesh Extended Address", example = "node-abcd")
     private String meshId;
 
+    @Schema(description = "Native IPv6 origin address", example = "fd5e:a726:ec55:ee12:...")
+    private String ipv6Address;
+
     @Schema(description = "Physical location of the node", example = "Room 204")
     private String location;
 

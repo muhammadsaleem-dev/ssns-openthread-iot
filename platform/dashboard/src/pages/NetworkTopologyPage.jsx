@@ -193,6 +193,7 @@ export default function NetworkTopologyPage() {
               parentRloc16: node.parentRloc16,
               status: matchedNode?.status || 'UNKNOWN',
               lastSeenAt: matchedNode?.lastSeenAt,
+              ipv6Address: matchedNode?.ipv6Address,
               extAddr: node.extAddr,
               linkQualityIn: node.linkQualityIn,
               linkQualityOut: node.linkQualityOut,
@@ -282,56 +283,108 @@ export default function NetworkTopologyPage() {
 
       {/* Multi-Gateway Health Overview */}
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Active Border Routers</Typography>
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
         {topologyList && topologyList.length > 0 ? (
           topologyList.map((topology) => (
             <Grid item xs={12} md={6} lg={4} key={topology.gatewayId || topology.id}>
-              <Card sx={{ borderLeft: '4px solid', borderLeftColor: 'primary.main' }}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="overline" color="text.secondary">
-                      BR MAC: {topology.gatewayId?.substring(topology.gatewayId.length - 4) || 'Unknown'}
-                    </Typography>
+              <Card sx={{ 
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 1)} 0%, ${alpha(theme.palette.primary.dark, 0.05)} 100%)`,
+                boxShadow: `0 4px 20px 0 ${alpha(theme.palette.common.black, 0.2)}`,
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                {/* Decorative Top Accent */}
+                <Box sx={{ height: '4px', bgcolor: 'primary.main', width: '100%', position: 'absolute', top: 0, left: 0 }} />
+                
+                <CardContent sx={{ p: 3 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                    <Box display="flex" alignItems="center" gap={1.5}>
+                      <Box sx={{ 
+                        bgcolor: alpha(theme.palette.primary.main, 0.15), 
+                        p: 1, 
+                        borderRadius: 2,
+                        display: 'flex'
+                      }}>
+                        <HubIcon sx={{ color: 'primary.main' }} />
+                      </Box>
+                      <Box>
+                        <Typography variant="h6" fontWeight="bold" lineHeight={1.2}>
+                          {topology.gatewayHealth?.networkName || 'Border Router'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                          MAC: {topology.gatewayId?.substring(topology.gatewayId.length - 8) || 'Unknown'}
+                        </Typography>
+                      </Box>
+                    </Box>
                     <Chip 
                       label={topology.gatewayHealth?.status?.toUpperCase() || 'ACTIVE'} 
                       color={topology.gatewayHealth?.status === 'active' ? "success" : "error"} 
                       size="small" 
+                      sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}
                     />
                   </Box>
-                  <Box mt={1}>
-                    <Typography variant="h5" fontWeight="bold" color="primary">
-                      {topology.gatewayHealth?.networkName || 'Border Router'}
-                    </Typography>
-                    <Box display="flex" flexDirection="column" gap={0.5} mt={2}>
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">Thread Role:</Typography>
-                        <Typography variant="body2" fontWeight="bold">Leader</Typography>
-                      </Box>
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">PAN ID:</Typography>
-                        <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>{topology.gatewayHealth?.panId}</Typography>
-                      </Box>
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">Channel:</Typography>
-                        <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>{topology.gatewayHealth?.channel}</Typography>
-                      </Box>
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">Network Uptime:</Typography>
-                        <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>{topology.gatewayHealth?.uptime || '0h'}</Typography>
-                      </Box>
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">Connected Nodes:</Typography>
-                        <Typography variant="body2" fontWeight="bold" sx={{ color: '#3B82F6' }}>{topology.nodes ? topology.nodes.length : 0}</Typography>
-                      </Box>
+
+                  <Divider sx={{ my: 2, borderColor: alpha(theme.palette.divider, 0.5) }} />
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">PAN ID</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ fontFamily: 'monospace', color: '#fff' }}>
+                        {topology.gatewayHealth?.panId}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">Channel</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>
+                        {topology.gatewayHealth?.channel}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">Uptime</Typography>
+                      <Typography variant="body2" fontWeight="bold" sx={{ color: '#fff' }}>
+                        {topology.gatewayHealth?.uptime || '0h'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">Mesh Role</Typography>
+                      <Typography variant="body2" fontWeight="bold" color="warning.main">
+                        👑 Leader
+                      </Typography>
+                    </Grid>
+                  </Grid>
+
+                  <Box sx={{ 
+                    mt: 3, 
+                    p: 1.5, 
+                    bgcolor: alpha(theme.palette.background.default, 0.5), 
+                    borderRadius: 2,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <Typography variant="body2" color="text.secondary" fontWeight={500}>Directly Connected</Typography>
+                    <Box display="flex" alignItems="baseline" gap={0.5}>
+                      <Typography variant="h6" fontWeight="bold" color="primary.main" lineHeight={1}>
+                        {topology.nodes ? topology.nodes.length : 0}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">nodes</Typography>
                     </Box>
                   </Box>
+
                 </CardContent>
               </Card>
             </Grid>
           ))
         ) : (
           <Grid item xs={12}>
-            <Typography variant="body2" color="error">No gateways reporting topology.</Typography>
+            <Card sx={{ bgcolor: alpha(theme.palette.error.main, 0.1), border: `1px solid ${theme.palette.error.main}` }}>
+              <CardContent>
+                <Typography variant="body2" color="error" textAlign="center">
+                  No Border Routers currently reporting topology data.
+                </Typography>
+              </CardContent>
+            </Card>
           </Grid>
         )}
       </Grid>
@@ -513,7 +566,14 @@ export default function NetworkTopologyPage() {
               </ListItem>
               <Divider component="li" />
               <ListItem sx={{ py: 1, px: 0 }}>
-                <ListItemText primary="IPv6 Address" secondary={<span style={{ fontStyle: 'italic' }}>Not exposed in current firmware (Phase 2)</span>} />
+                <ListItemText 
+                  primary="IPv6 Address" 
+                  secondary={
+                    selectedNode.data.ipv6Address 
+                    ? <span style={{ color: '#10B981', fontFamily: 'monospace' }}>{selectedNode.data.ipv6Address}</span> 
+                    : <span style={{ fontStyle: 'italic' }}>Hidden by macOS Bridge</span>
+                  } 
+                />
               </ListItem>
               <Divider component="li" />
               <ListItem sx={{ py: 1, px: 0 }}>

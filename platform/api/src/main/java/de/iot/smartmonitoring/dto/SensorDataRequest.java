@@ -27,6 +27,9 @@ public class SensorDataRequest {
     @Schema(description = "Active Mesh Extended Address assigned by OpenThread", example = "node-abcd")
     private String meshId;
 
+    @Schema(description = "Native IPv6 origin address of the node", example = "fd5e:a726:ec55:ee12:...")
+    private String ipv6Address;
+
     @NotBlank(message = "bootId is required")
     @Schema(description = "Hardware boot identifier for reboot sequencing", example = "7f32ab91")
     private String bootId;
