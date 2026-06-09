@@ -1,0 +1,5 @@
+# Auto-detect text files and ensure they have consistent line endings in the repo
+* text=auto
+
+# Explicitly declare shell scripts and make them executable
+*.sh text eol=lf executable
