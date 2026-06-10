@@ -3,3 +3,7 @@
 
 # Explicitly declare shell scripts and make them executable
 *.sh text eol=lf executable
+
+# Ensure YAML files have consistent line endings
+*.yml text eol=lf
+*.yaml text eol=lf
