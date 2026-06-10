@@ -4,6 +4,7 @@ import de.iot.smartmonitoring.model.NetworkTopology;
 import de.iot.smartmonitoring.repository.NetworkTopologyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -18,6 +19,17 @@ import java.util.stream.Collectors;
 public class NetworkTopologyService {
 
     private final NetworkTopologyRepository topologyRepository;
+
+    /**
+     * Scheduled job to prune stale Border Router records that haven't reported in 10 minutes.
+     * Runs every minute.
+     */
+    @Scheduled(fixedRate = 60000)
+    public void pruneStaleTopologies() {
+        Instant cutoff = Instant.now().minus(Duration.ofMinutes(10));
+        log.info("Pruning network topologies older than {}", cutoff);
+        topologyRepository.deleteByLastUpdatedAtBefore(cutoff);
+    }
 
     /**
      * Gets all known network topology snapshots.
