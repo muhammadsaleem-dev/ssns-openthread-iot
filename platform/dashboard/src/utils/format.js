@@ -2,6 +2,12 @@
  * Shared utility functions for the dashboard.
  */
 
+export function formatExtAddr(addr) {
+  if (!addr) return 'Unknown';
+  const clean = addr.replace(/:/g, '').toUpperCase();
+  return clean.match(/.{1,2}/g)?.join(':') || clean;
+}
+
 /**
  * Format an ISO timestamp to a short locale string.
  * Returns "—" for null/undefined.
@@ -27,7 +33,7 @@ export function formatTimestamp(iso) {
 
   const diffInSeconds = Math.floor((now - d) / 1000);
   
-  let relative = '';
+  let relative;
   if (diffInSeconds < 5) {
     relative = 'Just now';
   } else if (diffInSeconds < 60) {
