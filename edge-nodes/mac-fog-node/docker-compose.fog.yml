@@ -29,33 +29,10 @@ services:
       TZ: "Europe/Berlin"
       
     # ROUTING: Sends radio traffic to the LOCAL gateway container
-    entrypoint: >
-      bash -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y socat iproute2; \
-      service dbus start || true; \
-      (while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000,nodelay 2>/dev/null; sleep 1; done) & \
-      socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:gateway:5683 &
-      (until ot-ctl state 2>/dev/null; do sleep 1; done; \
-       if ot-ctl state | grep -q disabled; then \
-         ot-ctl dataset init new >/dev/null && echo '  [OK] Initialized new dataset' && \
-         ot-ctl dataset activetimestamp $${OT_ACTIVE_TIMESTAMP} >/dev/null && echo \"  [OK] Set Active Timestamp ($${OT_ACTIVE_TIMESTAMP})\" && \
-         ot-ctl dataset networkname $${OT_NETWORK_NAME} >/dev/null && echo \"  [OK] Set Network Name ($${OT_NETWORK_NAME})\" && \
-         ot-ctl dataset panid $${OT_PANID} >/dev/null && echo \"  [OK] Set PAN ID ($${OT_PANID})\" && \
-         ot-ctl dataset extpanid $${OT_EXTPANID} >/dev/null && echo \"  [OK] Set Extended PAN ID\" && \
-         ot-ctl dataset networkkey $${OT_NETWORK_KEY} >/dev/null && echo \"  [OK] Set Network Key\" && \
-         ot-ctl dataset channel $${OT_CHANNEL} >/dev/null && echo \"  [OK] Set Channel ($${OT_CHANNEL})\" && \
-         ot-ctl dataset meshlocalprefix $${OT_MESH_LOCAL_PREFIX} >/dev/null && echo \"  [OK] Set Mesh Local Prefix\" && \
-         ot-ctl dataset commit active >/dev/null && echo '  [OK] Committed dataset' && \
-         ot-ctl ifconfig up >/dev/null && echo '  [OK] Interface wpan0 UP' && \
-         ot-ctl thread start >/dev/null && echo '  [OK] Thread protocol STARTED'; \
-       fi; \
-       sleep 5; \
-       ot-ctl netdata register >/dev/null; \
-       sysctl -w net.ipv6.conf.wpan0.accept_dad=0 2>/dev/null || true && \
-       sysctl -w net.ipv6.conf.wpan0.dad_transmits=0 2>/dev/null || true && \
-       ip -6 addr add fd5e:a726:ec55:ee12::1/64 dev wpan0 nodad) &
-      until [ -e /dev/ttyACM0 ]; do echo 'Waiting for serial bridge...'; sleep 1; done; \
-      sleep 2; \
-      exec /init"
+    volumes:
+      - ./topology_monitor.sh:/usr/local/bin/topology_monitor.sh
+      - ./mac_startup.sh:/usr/local/bin/mac_startup.sh
+    entrypoint: /usr/local/bin/mac_startup.sh
     restart: unless-stopped
     networks:
       - ssns-fog-network
