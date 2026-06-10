@@ -25,7 +25,9 @@ public class NetworkTopology {
     private String id;
 
     @Indexed(unique = true)
-    private String gatewayId;
+    private String hardwareId;  // Primary stable identifier (FICR-based USB serial)
+    
+    private String gatewayId;   // Network identifier (OpenThread Extended Address, volatile)
     
     private GatewayHealth gatewayHealth;
     

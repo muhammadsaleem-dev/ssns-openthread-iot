@@ -52,6 +52,21 @@ while true; do
         SOCAT_OPTS="file:$PORT,nonblock,raw,echo=0,ispeed=115200,ospeed=115200"
     fi
 
+    # Extract USB serial number from device path for hardware ID
+    # Format: /dev/cu.usbmodemE60C3F7BD8261 → E60C3F7BD826
+    USB_SERIAL=$(echo "$PORT" | sed -E 's/.*usbmodem([A-F0-9]{12})[0-9]$/\1/')
+    
+    if [ -z "$USB_SERIAL" ] || [ ${#USB_SERIAL} -ne 12 ]; then
+        echo "[$(date '+%H:%M:%S')] WARNING: Could not extract USB serial from $PORT"
+        HARDWARE_ID="unknown"
+    else
+        HARDWARE_ID="nrf52-$USB_SERIAL"
+        echo "[$(date '+%H:%M:%S')] Detected Hardware ID: $HARDWARE_ID"
+    fi
+    
+    # Write hardware ID to file for Docker Compose to read
+    echo "$HARDWARE_ID" > .hardware_id
+    
     echo "[$(date '+%H:%M:%S')] Found $BOARD_TYPE on $PORT. Waiting for Docker OTBR..."
     
     # 5. Start socat. If it fails (e.g. device unplugged), it exits and the loop repeats

@@ -24,6 +24,25 @@ export default function TerminologyTable() {
             <TableRow>
               <TableCell>
                 <Box display="flex" alignItems="center" gap={1}>
+                  <Typography fontSize="1.2rem">🔧</Typography>
+                  <Typography fontWeight="bold" color="#8B5CF6">Border Router</Typography>
+                </Box>
+              </TableCell>
+              <TableCell><Chip label="Hardware ID" size="small" variant="outlined" sx={{ borderColor: '#8B5CF6', color: '#8B5CF6' }} /></TableCell>
+              <TableCell>
+                Physical device identity derived from factory-programmed FICR registers.
+                Permanent and unique per nRF52840 chip. Used as primary database identifier.
+              </TableCell>
+              <TableCell>
+                <Typography variant="caption" display="block"><strong>Hardware ID:</strong> FICR DEVICEID (Permanent)</Typography>
+                <Typography variant="caption" display="block"><strong>Network ID:</strong> Extended Addr (Volatile)</Typography>
+                <Typography variant="caption" display="block"><strong>Format:</strong> <code>nrf52-ED875D5965A1</code></Typography>
+              </TableCell>
+              <TableCell>nRF52840 DK/Dongle</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>
+                <Box display="flex" alignItems="center" gap={1}>
                   <Typography fontSize="1.2rem">👑</Typography>
                   <Typography fontWeight="bold" color="#F59E0B">Leader</Typography>
                 </Box>

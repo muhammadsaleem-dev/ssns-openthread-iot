@@ -63,8 +63,8 @@ bridge: start-bridge
 
 start-bridge:
 	@echo "🌁 Opening Mac Serial Bridge in a new terminal window..."
-	@chmod +x edge-nodes/mac-fog-node/start_otbr_bridge.sh
-	@osascript -e 'tell app "Terminal" to do script "cd $(CURDIR) && ./edge-nodes/mac-fog-node/start_otbr_bridge.sh"'
+	@chmod +x edge-nodes/mac-fog-node/scripts/start_otbr_bridge.sh
+	@osascript -e 'tell app "Terminal" to do script "cd $(CURDIR) && ./edge-nodes/mac-fog-node/scripts/start_otbr_bridge.sh"'
 	@echo "✓ Bridge terminal opened."
 
 # View logs for the Mac Serial Bridge

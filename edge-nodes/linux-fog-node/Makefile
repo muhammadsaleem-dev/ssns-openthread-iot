@@ -2,6 +2,7 @@
 
 # Start the complete Linux Fog Node (OTBR + Gateway + Redis)
 start-fog-linux:
+	@chmod +x scripts/linux_startup.sh scripts/topology_monitor.sh
 	sudo docker compose -f docker-compose.fog.yml up -d --build --remove-orphans
 	@echo "✓ Linux Fog Node services are booting..."
 
@@ -12,6 +13,7 @@ stop-fog-linux:
 # Restart with a full rebuild
 restart-fog-linux:
 	sudo docker compose -f docker-compose.fog.yml down --remove-orphans
+	@chmod +x scripts/linux_startup.sh scripts/topology_monitor.sh
 	sudo docker compose -f docker-compose.fog.yml up -d --build --remove-orphans
 	@echo "✓ Restarted. Use 'make logs-radio-fog-linux' to watch supervisor cycles."
 

@@ -45,6 +45,21 @@ while true; do
   GW_NETNAME=$(ot-ctl networkname 2>/dev/null | grep -v 'Done' | tr -d '\r\n')
   GW_RLOC16=$(ot-ctl rloc16 2>/dev/null | grep -v 'Done' | tr -d '\r\n')
   GW_EXTADDR=$(ot-ctl extaddr 2>/dev/null | grep -v 'Done' | tr -d '\r\n')
+  
+  # Read hardware ID from file (written by host bridge script)
+  if [ -f "/hardware_id" ]; then
+    HARDWARE_ID=$(cat /hardware_id 2>/dev/null | tr -d '\r\n')
+  else
+    HARDWARE_ID=""
+  fi
+  
+  if [ -z "$HARDWARE_ID" ] || [ "$HARDWARE_ID" = "unknown" ]; then
+    echo "WARNING: Hardware ID not available from host, using legacy fallback"
+    HARDWARE_ID="legacy-$GW_EXTADDR"
+  else
+    echo "Hardware ID: $HARDWARE_ID"
+  fi
+  
   UPTIME_SEC=$(awk '{print int($1)}' /proc/uptime)
   UPTIME_HOURS=$((UPTIME_SEC / 3600))
   UPTIME_MINS=$(((UPTIME_SEC % 3600) / 60))
@@ -54,7 +69,8 @@ while true; do
 
   # Start building the payload
   PAYLOAD=""
-  PAYLOAD+=$(printf '{"gatewayId":"%s",' "$GW_EXTADDR")
+  PAYLOAD+=$(printf '{"hardwareId":"%s",' "$HARDWARE_ID")
+  PAYLOAD+=$(printf '"gatewayId":"%s",' "$GW_EXTADDR")
   PAYLOAD+=$(printf '"gatewayHealth":{"panId":"%s","extPanId":"%s","channel":%s,"networkName":"%s","status":"active","uptime":"%s"},' "$GW_PANID" "$GW_EXTPANID" "$GW_CHANNEL" "$GW_NETNAME" "$GW_UPTIME_STR")
   PAYLOAD+=$(printf '"nodes":[')
 

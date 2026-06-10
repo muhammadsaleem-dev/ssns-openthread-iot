@@ -35,6 +35,27 @@ while true; do
   RLOC16=$(ot-ctl rloc16 | grep -v 'Done' | tr -d '\r')
   EXTADDR=$(ot-ctl extaddr | grep -v 'Done' | tr -d '\r')
   
+  # Query stable hardware ID from USB serial number
+  # Extract device path from OT_RCP_DEVICE environment variable
+  DEVICE_PATH=$(echo "${OT_RCP_DEVICE:-spinel+hdlc+uart:///dev/ttyACM0}" | sed 's|.*://||')
+  
+  if command -v udevadm >/dev/null 2>&1; then
+    HARDWARE_ID=$(udevadm info --name="$DEVICE_PATH" 2>/dev/null | \
+                  grep -E '^E: ID_SERIAL_SHORT=' | \
+                  cut -d= -f2)
+    
+    if [ -n "$HARDWARE_ID" ]; then
+      HARDWARE_ID="nrf52-$HARDWARE_ID"
+      echo "Hardware ID: $HARDWARE_ID (from $DEVICE_PATH)"
+    else
+      echo "WARNING: Could not query USB serial from $DEVICE_PATH"
+      HARDWARE_ID="legacy-$EXTADDR"
+    fi
+  else
+    echo "WARNING: udevadm not available, using legacy fallback"
+    HARDWARE_ID="legacy-$EXTADDR"
+  fi
+  
   # Calculate simple uptime of this container process for the dashboard health card
   UPTIME_SEC=$(awk '{print int($1)}' /proc/uptime)
   UPTIME_HOURS=$((UPTIME_SEC / 3600))
@@ -42,8 +63,10 @@ while true; do
   UPTIME_STR="${UPTIME_HOURS}h ${UPTIME_MINS}m"
 
   # Initialize JSON payload
-  # gatewayId is the unique anchor (EXTADDR) that prevents data collisions in the multi-BR cloud database.
+  # hardwareId is the stable anchor (USB serial) that prevents data collisions in the multi-BR cloud database.
+  # gatewayId (EXTADDR) is kept for network debugging but is volatile.
   PAYLOAD=$(jq -n \
+    --arg hardwareId "$HARDWARE_ID" \
     --arg gatewayId "$EXTADDR" \
     --arg panId "$PANID" \
     --arg extPanId "$EXTPANID" \
@@ -52,6 +75,7 @@ while true; do
     --arg status "active" \
     --arg uptime "$UPTIME_STR" \
     '{
+      hardwareId: $hardwareId,
       gatewayId: $gatewayId,
       gatewayHealth: {
         panId: $panId,

@@ -22,8 +22,8 @@ bridge-fog-mac: start-bridge-fog-mac
 
 start-bridge-fog-mac:
 	@echo "🌁 Starting Mac Serial Bridge in the background..."
-	@chmod +x start_otbr_bridge.sh
-	@./start_otbr_bridge.sh > bridge.log 2>&1 &
+	@chmod +x scripts/start_otbr_bridge.sh scripts/mac_startup.sh scripts/topology_monitor.sh
+	@./scripts/start_otbr_bridge.sh > bridge.log 2>&1 &
 	@echo "✓ Bridge started. See bridge.log for details."
 
 # Stop the Mac Serial Bridge

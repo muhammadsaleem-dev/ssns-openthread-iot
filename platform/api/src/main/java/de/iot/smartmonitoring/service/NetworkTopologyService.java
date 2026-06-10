@@ -39,7 +39,7 @@ public class NetworkTopologyService {
         Instant cutoff = Instant.now().minus(Duration.ofMinutes(2));
         
         return topologyRepository.findAll().stream()
-                .filter(t -> t.getGatewayId() != null)
+                .filter(t -> t.getHardwareId() != null)
                 .map(t -> {
                     // If the gateway hasn't reported recently, mark it as offline
                     if (t.getLastUpdatedAt() == null || t.getLastUpdatedAt().isBefore(cutoff)) {
@@ -53,28 +53,36 @@ public class NetworkTopologyService {
     }
 
     /**
-     * Saves or updates the network topology state for a specific gateway.
-     * Uses an UPSERT strategy based on gatewayId to support multiple Border Routers
-     * without data collisions or flickering.
+     * Saves or updates the network topology state for a specific Border Router.
+     * Uses an UPSERT strategy based on hardwareId (stable USB serial number)
+     * to support multiple Border Routers without data collisions.
      */
     public NetworkTopology saveTopology(NetworkTopology topology) {
-        if (topology.getGatewayId() == null) {
-            log.warn("Attempted to save topology without gatewayId. Falling back to default.");
-            topology.setGatewayId("default-br");
+        // Validate hardwareId is present
+        if (topology.getHardwareId() == null || topology.getHardwareId().isEmpty()) {
+            log.error("Topology missing hardwareId. Rejecting request.");
+            throw new IllegalArgumentException("hardwareId is required");
         }
 
-        // Upsert logic: Find existing by gatewayId or create new
-        Optional<NetworkTopology> existing = topologyRepository.findByGatewayId(topology.getGatewayId());
+        // UPSERT: Find existing by hardwareId
+        Optional<NetworkTopology> existing =
+            topologyRepository.findByHardwareId(topology.getHardwareId());
         
         if (existing.isPresent()) {
+            // Update existing record (same physical device)
             topology.setId(existing.get().getId());
+            log.debug("Updating Border Router: {}", topology.getHardwareId());
+        } else {
+            // Create new record (new physical device)
+            log.info("Registering new Border Router: {}", topology.getHardwareId());
         }
 
         topology.setLastUpdatedAt(Instant.now());
         NetworkTopology saved = topologyRepository.save(topology);
         
-        log.info("Updated network topology for gateway {}: {} nodes", 
-                 saved.getGatewayId(), 
+        log.info("Updated topology for BR {} (network: {}): {} nodes",
+                 saved.getHardwareId(),
+                 saved.getGatewayId(),
                  saved.getNodes() != null ? saved.getNodes().size() : 0);
         
         return saved;

@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface NetworkTopologyRepository extends MongoRepository<NetworkTopology, String> {
     Optional<NetworkTopology> findFirstByOrderByLastUpdatedAtDesc();
-    Optional<NetworkTopology> findByGatewayId(String gatewayId);
+    Optional<NetworkTopology> findByHardwareId(String hardwareId);
+    Optional<NetworkTopology> findByGatewayId(String gatewayId);  // Keep for debugging
     void deleteByLastUpdatedAtBefore(Instant cutoff);
 }

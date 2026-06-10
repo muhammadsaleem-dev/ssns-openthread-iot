@@ -27,11 +27,13 @@ services:
       OT_INFRA_IF: "eth0"
       OT_WEB_LISTEN_ADDR: "0.0.0.0"
       TZ: "Europe/Berlin"
-      
-    # ROUTING: Sends radio traffic to the LOCAL gateway container
+      HARDWARE_ID_FILE: "/hardware_id"
+    
     volumes:
-      - ./topology_monitor.sh:/usr/local/bin/topology_monitor.sh
-      - ./mac_startup.sh:/usr/local/bin/mac_startup.sh
+      - ./scripts/topology_monitor.sh:/usr/local/bin/topology_monitor.sh
+      - ./scripts/mac_startup.sh:/usr/local/bin/mac_startup.sh
+      - ./.hardware_id:/hardware_id:ro
+      
     entrypoint: /usr/local/bin/mac_startup.sh
     restart: unless-stopped
     networks:

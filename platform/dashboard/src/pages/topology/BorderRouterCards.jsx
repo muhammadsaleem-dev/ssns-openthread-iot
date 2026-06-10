@@ -37,7 +37,7 @@ function BorderRouterCard({ topology }) {
                 {topology.gatewayHealth?.networkName || 'Border Router'}
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                EUI-64: {topology.gatewayId?.substring(topology.gatewayId.length - 8).toUpperCase() || 'UNKNOWN'}
+                HW: {topology.hardwareId || 'UNKNOWN'}
               </Typography>
             </Box>
           </Box>
@@ -51,8 +51,14 @@ function BorderRouterCard({ topology }) {
 
         <Divider sx={{ my: 2, borderColor: alpha(theme.palette.divider, 0.5) }} />
 
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" display="block">HARDWARE ID</Typography>
+          <Typography variant="body2" fontWeight="bold" sx={{ fontFamily: 'monospace', color: isOffline ? 'text.disabled' : 'success.light', fontSize: '0.75rem' }}>
+            {topology.hardwareId || 'UNKNOWN'}
+          </Typography>
+        </Box>
         <Box sx={{ mb: 2 }}>
-          <Typography variant="caption" color="text.secondary" display="block">EXTENDED ADDRESS (EUI-64)</Typography>
+          <Typography variant="caption" color="text.secondary" display="block">NETWORK ID</Typography>
           <Typography variant="body2" fontWeight="bold" sx={{ fontFamily: 'monospace', color: isOffline ? 'text.disabled' : 'primary.light', fontSize: '0.75rem' }}>
             {formatExtAddr(topology.gatewayId)}
           </Typography>
@@ -114,7 +120,7 @@ export default function BorderRouterCards({ topologyList }) {
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {topologyList && topologyList.length > 0 ? (
           topologyList.map((topology) => (
-            <Grid item xs={12} md={6} lg={4} key={topology.gatewayId || topology.id}>
+            <Grid item xs={12} md={6} lg={4} key={topology.hardwareId || topology.id}>
               <BorderRouterCard topology={topology} />
             </Grid>
           ))
