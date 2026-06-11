@@ -72,3 +72,4 @@ skills-lock.json
 # Hardware identification
 .hardware_id
 *.hardware_id
+SENSOR_INTEGRATION_PLAN.md

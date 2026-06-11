@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# SSNS Sensor Node — Kconfig
+#
+# Compile-time selection between simulation and real hardware sensors.
+# This mirrors the Spring Boot "profile" concept: change the build flag,
+# get a completely different sensor backend with zero runtime overhead.
+#
+# Build commands:
+#   Simulation (default, no hardware needed):
+#     west build -p always -b nrf52840dk/nrf52840
+#
+#   Real hardware (SCD41 + CCS811 + SPS30):
+#     west build -p always -b nrf52840dk/nrf52840 \
+#       -- -DCONFIG_SENSOR_MODE_HARDWARE=y \
+#          -DEXTRA_CONF_FILE=prj_hw.conf
+
+mainmenu "SSNS Sensor Node Configuration"
+
+# ---------------------------------------------------------------------------
+# Sensor Mode Selection
+# ---------------------------------------------------------------------------
+
+choice SENSOR_MODE
+	prompt "Sensor Data Source"
+	default SENSOR_MODE_SIMULATION
+	help
+	  Select the sensor data acquisition backend.
+
+	  Simulation mode runs without any physical hardware and is always
+	  safe to use during development, CI, or demonstrations.
+
+	  Hardware mode reads real I2C sensors (SCD41, CCS811, SPS30)
+	  connected to the nRF52840 DK. The boards/*.overlay file must
+	  match your actual wiring.
+
+config SENSOR_MODE_SIMULATION
+	bool "Simulation Mode"
+	help
+	  Realistic random-walk simulation:
+	    - Baseline drift for all channels
+	    - CO2 and PM2.5 spike trend events (1% chance per cycle)
+	    - 15% per-sensor failure injection with health mask updates
+	    - Authentic blocking latencies (100ms Temp, 10s CO2, 1s PM/TVOC)
+	  No I2C hardware required.
+
+config SENSOR_MODE_HARDWARE
+	bool "Hardware Mode (SCD41 + CCS811 + SPS30)"
+	select I2C
+	select SENSOR
+	help
+	  Read real I2C sensors:
+	    - SCD41:  CO2, Temperature, Humidity (0x62)
+	    - CCS811: eCO2, TVOC              (0x5A or 0x5B)
+	    - SPS30:  PM1.0/2.5/4.0/10.0     (0x69)
+
+	  Background polling threads keep the sensor cache fresh so that
+	  sensor_backend_read() returns instantly without blocking.
+
+	  Requires boards/nrf52840dk_nrf52840.overlay for I2C pin config.
+	  Run alongside prj_hw.conf for Kconfig driver enables.
+
+endchoice
+
+# ---------------------------------------------------------------------------
+# Hardware-only settings (invisible in simulation mode)
+# ---------------------------------------------------------------------------
+
+if SENSOR_MODE_HARDWARE
+
+config SENSOR_SCD41
+    bool "Enable SCD41 CO2/Temp/Hum Sensor"
+    default y
+    depends on SENSOR_MODE_HARDWARE
+    help
+      Enables the custom raw I2C driver for SCD41.
+
+config SENSOR_CCS811
+    bool "Enable CCS811 Air Quality Sensor"
+    default y
+    depends on SENSOR_MODE_HARDWARE
+    help
+      Enables the custom raw I2C driver for TVOC and eCO2.
+
+config SENSOR_CCS811_WARMUP_SECONDS
+	int "CCS811 warm-up period (seconds)"
+	default 1200
+	range 60 3600
+	depends on SENSOR_CCS811
+	help
+	  How long after boot to discard CCS811 readings as unreliable.
+	  AMS datasheet: 20 minutes (1200 s) per power cycle.
+	  During warm-up the health bit stays 0 and values are -999.
+
+config SENSOR_SPS30
+	bool "Enable SPS30 (PM1.0 / PM2.5 / PM4.0 / PM10)"
+	default y
+	help
+	  Sensirion SPS30 laser particulate matter sensor.
+	  I2C address: 0x69.  Measurement interval: 1 second.
+	  Auto fan-cleaning every 168 h causes a 10 s data blackout;
+	  the driver holds the last good reading during this window.
+
+# ---------------------------------------------------------------------------
+# Aggregator polling thread stacks
+# ---------------------------------------------------------------------------
+
+config SENSOR_AGGREGATOR_SCD41_STACK
+	int "SCD41 polling thread stack (bytes)"
+	default 1536
+	range 1024 4096
+	help
+	  Stack for the background SCD41 I2C polling thread.
+	  Increase to 2048 if debug logging is enabled.
+
+config SENSOR_AGGREGATOR_CCS811_STACK
+	int "CCS811 polling thread stack (bytes)"
+	default 1536
+	range 1024 4096
+	depends on SENSOR_CCS811
+
+config SENSOR_AGGREGATOR_SPS30_STACK
+	int "SPS30 polling thread stack (bytes)"
+	default 1536
+	range 1024 4096
+	depends on SENSOR_SPS30
+
+endif # SENSOR_MODE_HARDWARE
+
+source "Kconfig.zephyr"

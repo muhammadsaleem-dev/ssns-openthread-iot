@@ -1,4 +1,5 @@
 #include "network.h"
+/* sensor_interface.h is transitively included via network.h */
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net/socket.h>
@@ -190,16 +191,11 @@ static int wait_for_coap_ack(uint16_t expected_msg_id)
     return -ETIMEDOUT;
 }
 
-int network_send_coap(struct sensor_state *sensors)
+int network_send_coap(const struct sensor_readings *r)
 {
     if (udp_sock < 0) {
         return -1;
     }
-
-    /* --- read sensors --- */
-    float t, h, co2, tvoc, eco2, p1, p25, p4, p10, li;
-    sensor_service_read(sensors, &t, &h, &co2, &tvoc, &eco2,
-                 &p1, &p25, &p4, &p10, &li);
 
     static uint32_t seq_num = 0;
     uint32_t uptime_ms = k_uptime_get_32();
@@ -220,17 +216,17 @@ int network_send_coap(struct sensor_state *sensors)
               zcbor_tstr_put_term(zse, boot_id, sizeof(boot_id)) &&
               zcbor_uint32_put(zse, seq_num++) &&
               zcbor_uint32_put(zse, uptime_ms) &&
-              zcbor_float32_put(zse, t) &&
-              zcbor_float32_put(zse, h) &&
-              zcbor_float32_put(zse, co2) &&
-              zcbor_float32_put(zse, tvoc) &&
-              zcbor_float32_put(zse, eco2) &&
-              zcbor_float32_put(zse, p1) &&
-              zcbor_float32_put(zse, p25) &&
-              zcbor_float32_put(zse, p4) &&
-              zcbor_float32_put(zse, p10) &&
-              zcbor_float32_put(zse, li) &&
-              zcbor_uint32_put(zse, (uint32_t)sensors->health_mask) &&
+              zcbor_float32_put(zse, r->temperature) &&
+              zcbor_float32_put(zse, r->humidity) &&
+              zcbor_float32_put(zse, r->co2) &&
+              zcbor_float32_put(zse, r->tvoc) &&
+              zcbor_float32_put(zse, r->eco2) &&
+              zcbor_float32_put(zse, r->pm1) &&
+              zcbor_float32_put(zse, r->pm25) &&
+              zcbor_float32_put(zse, r->pm4) &&
+              zcbor_float32_put(zse, r->pm10) &&
+              zcbor_float32_put(zse, r->light) &&
+              zcbor_uint32_put(zse, (uint32_t)r->health_mask) &&
               zcbor_tstr_put_term(zse, mesh_id, sizeof(mesh_id)) &&
               zcbor_list_end_encode(zse, 16);
 
@@ -263,8 +259,8 @@ int network_send_coap(struct sensor_state *sensors)
     memcpy(&packet[off], last_payload, last_payload_len);
     off += last_payload_len;
 
-    int r = sendto(udp_sock, packet, off, 0, (struct sockaddr *)&gateway_addr, sizeof(struct sockaddr_in6));
-    if (r < 0) {
+    int ret = sendto(udp_sock, packet, off, 0, (struct sockaddr *)&gateway_addr, sizeof(struct sockaddr_in6));
+    if (ret < 0) {
         if (errno == ENOMEM) {
             LOG_ERR("CRITICAL: Zephyr Network RAM Buffer is FULL! Packet dropped.");
         } else {

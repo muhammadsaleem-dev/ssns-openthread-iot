@@ -1,0 +1,83 @@
+/*
+ * nRF52840 DK I2C Sensor Overlay — SSNS Sensor Node
+ *
+ * Sensors on I2C bus 0 (i2c0):
+ *   SCD41  @ 0x62 — CO2, Temperature, Humidity
+ *   CCS811 @ 0x5A — eCO2, TVOC
+ *   SPS30  @ 0x69 — PM1.0, PM2.5, PM4.0, PM10
+ *
+ * Default I2C pins: P0.26 (SDA), P0.27 (SCL)
+ * To use different pins: change the port/pin numbers in NRF_PSEL macros.
+ *   NRF_PSEL(TWIM_SDA, port, pin)
+ *   NRF_PSEL(TWIM_SCL, port, pin)
+ *
+ * Pull-ups:
+ *   bias-pull-up enables the nRF52840's internal ~13 kΩ pull-ups as a
+ *   fallback. For reliable 400 kHz operation, add external 4.7 kΩ resistors.
+ *   At 100 kHz (STANDARD mode) the internal pull-ups are usually sufficient.
+ *
+ * CCS811 nWAKE GPIO:
+ *   If your CCS811 module does NOT have nWAKE permanently tied to GND:
+ *     1. Wire a GPIO (e.g. P0.03) to the CCS811 nWAKE pin.
+ *     2. Uncomment the wake-gpios line in the ccs811 node below.
+ *     3. Change pin 3 to match your actual wiring.
+ *     4. Set CONFIG_SENSOR_CCS811_WAKE_GPIO=y in prj_hw.conf.
+ *   The Zephyr CCS811 driver then handles GPIO toggling automatically.
+ *
+ *   If your breakout already ties nWAKE to GND (SparkFun, Adafruit),
+ *   leave the wake-gpios line commented — no GPIO wiring needed.
+ *
+ * NOTE: This file uses the modern pinctrl system (NCS 2.x / Zephyr 3.x).
+ * The legacy sda-pin / scl-pin properties are NOT used — they were
+ * removed in NCS 2.0 and cause build errors.
+ */
+
+/* ---- Pin Control --------------------------------------------------------- */
+
+&pinctrl {
+	i2c0_default: i2c0_default {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 26)>,  /* P0.26 — SDA */
+				<NRF_PSEL(TWIM_SCL, 0, 27)>;  /* P0.27 — SCL */
+			bias-pull-up;
+		};
+	};
+
+	i2c0_sleep: i2c0_sleep {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 26)>,
+				<NRF_PSEL(TWIM_SCL, 0, 27)>;
+			low-power-enable;
+		};
+	};
+};
+
+/* ---- I2C Bus ------------------------------------------------------------- */
+
+&i2c0 {
+	status = "okay";
+	pinctrl-0 = <&i2c0_default>;
+	pinctrl-1 = <&i2c0_sleep>;
+	pinctrl-names = "default", "sleep";
+	clock-frequency = <I2C_BITRATE_STANDARD>;  /* 100 kHz — reliable for all three sensors */
+
+	/* ---- Sensirion SCD41 — CO2 / Temperature / Humidity --------------- */
+	scd41: scd41@62 {
+		compatible = "i2c-device";
+		reg = <0x62>;
+		/* No additional properties needed — SCD41 address is fixed */
+	};
+
+	/* ---- AMS CCS811 — eCO2 / TVOC ------------------------------------- */
+	ccs811: ccs811@5a {
+		compatible = "i2c-device";
+		reg = <0x5a>;   /* Change to 0x5b if ADDR pin is pulled HIGH */
+	};
+
+	/* ---- Sensirion SPS30 — Particulate Matter ------------------------- */
+	sps30: sps30@69 {
+		compatible = "i2c-device";
+		reg = <0x69>;
+		/* No additional properties needed */
+	};
+};
