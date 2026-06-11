@@ -1,37 +1,65 @@
 # SSNS Sensor Node (Zephyr/nRF52840)
 
-This repository contains the firmware for the **Sensor Node** built using the Zephyr RTOS and the nRF Connect SDK (NCS v2.9.2). The sensor node joins a local Thread mesh network and securely transmits environmental telemetry to the Border Router via CoAP UDP packets.
+This repository contains the firmware for the **Sensor Node** built using the Zephyr RTOS and the nRF Connect SDK (NCS v2.9.2). The node joins a local Thread mesh network, reads data from multiple physical I2C environmental sensors, and transmits telemetry to the Gateway via CoAP UDP packets.
 
-## System Capabilities & Features
+## System Architecture
+
+The firmware is designed with a highly robust architecture to ensure data reliability and modularity:
 
 * **Hardware Target:** Nordic nRF52840 DK (or custom nRF52840 boards).
-* **Thread Networking:** Fully utilizes the OpenThread stack. Connects to a Border Router using a secure, pre-shared Network Key and PAN ID.
-* **Robust ALOC Routing:** Instead of hardcoding a Border Router's dynamically generated Mesh-Local IPv6 address, this firmware routes CoAP data to the **Thread Leader Anycast Locator (ALOC)** (`fc00`). This guarantees data delivery even if the Border Router hardware is physically swapped (e.g., from Dongle to DK).
-* **CoAP Telemetry:** Packages sensor data into a compressed JSON payload and transmits it to the Gateway via `PUT` requests over CoAP port `5683`.
-* **Sensor Abstraction:** Features a clean abstraction layer in `main.c`. Currently runs a sophisticated telemetry simulator (with baseline drifts and randomized anomaly spikes for CO2/PM2.5) to mimic real environmental changes. Can be easily swapped for real I2C/SPI sensor drivers without touching the networking logic.
-* **Hardware MAC Node IDs:** Automatically generates a permanent `Node ID` (e.g., `node-598c`) derived from the factory-burned EUI-64 MAC address in the nRF52840 silicon, ensuring absolute uniqueness across the network.
+* **Multi-Threaded Sensor Polling:** In hardware mode, each physical sensor runs on its own independent background thread. This allows sensors with vastly different read latencies (e.g., I2C bus waits, warm-ups, or 1Hz polling requirements) to operate without blocking the main application loop or the networking stack.
+* **Aggregator Cache:** The background sensor threads constantly update a central `sensor_readings` cache. The main loop simply reads from this cache at a fixed interval (e.g., 60 seconds) to build the payload, achieving non-blocking concurrency.
+* **Offline NVS Queue:** If the Thread network drops, or the Gateway goes offline, the node caches unsent CoAP payloads to Non-Volatile Storage (Flash memory). Once the network reconnects, it automatically flushes the queue to ensure 0% data loss.
+* **CBOR Serialization:** To minimize radio air-time and power consumption, sensor data is serialized into a highly compressed CBOR array (reducing payload size from ~200 bytes of JSON to just ~88 bytes).
+* **Robust ALOC Routing:** The node routes CoAP data to the **Thread Leader Anycast Locator (ALOC)** (`fc00`), guaranteeing data delivery even if the Border Router hardware changes.
 
-## Build Instructions
+## Supported Sensors
 
-To compile the firmware, make sure your NCS v2.9.2 toolchain is active, then run:
+The firmware implements robust drivers for three I2C environmental sensors. 
+By default, the system requires an initial **60-second system warm-up** to ensure the wireless mesh routing is stable before sending data.
 
+1. **Sensirion SCD41 (CO₂, Temperature, Humidity)**
+   - Operates in periodic measurement mode.
+   - Self-calibrating photoacoustic NDIR sensor.
+2. **Sensirion SPS30 (Particulate Matter)**
+   - Measures PM1.0, PM2.5, PM4.0, and PM10.
+   - Continuously runs its internal fan to sample the air flow.
+3. **AMS CCS811 (eCO₂, TVOC)**
+   - Requires a strict **20-minute physical warm-up** every time the board powers on to reach thermal equilibrium on its MOX heater. The firmware explicitly enforces this wait time; it will output a `FAULT` state to the dashboard during these 20 minutes.
+   - The driver automatically intercepts and filters the infamous `65021` (`0xFDFD`) hardware error code common during its 48-hour factory burn-in period.
+
+*(Note: If a sensor is disconnected or damaged, the node gracefully skips it and continues broadcasting data from the remaining active sensors).*
+
+## Execution Modes
+
+The firmware can be compiled in two different modes to facilitate rapid UI/Backend development without needing physical hardware.
+
+### 1. Hardware Mode (Default)
+Reads from the physical I2C sensors attached to the board.
+
+**Build Command:**
 ```bash
-export PATH="/opt/nordic/ncs/toolchains/b8efef2ad5/bin:$PATH"
-export ZEPHYR_BASE=/opt/nordic/ncs/v2.9.2/zephyr
+west build -p always -b nrf52840dk/nrf52840 -- -DCONFIG_SENSOR_MODE_HARDWARE=y -DEXTRA_CONF_FILE=prj_hw.conf
+```
+
+### 2. Simulation Mode
+Completely disconnects the I2C bus and injects realistic, mathematically simulated environmental data (including baseline drifts and random noise spikes). Perfect for backend and frontend load-testing.
+
+**Build Command:**
+```bash
 west build -p always -b nrf52840dk/nrf52840
 ```
 
 ## Flashing the Firmware
 
-Plug your nRF52840 DK board into your machine via USB.
-
-If you have multiple boards plugged in at the same time, you must specify the target board's Serial Number (SNR) using the `--snr` flag.
-
+Plug your nRF52840 DK board into your machine via USB, and run:
+```bash
+west flash
+```
+Or, if you have multiple boards plugged in:
 ```bash
 nrfjprog --snr <YOUR_BOARD_SNR> --program build/merged.hex --chiperase --verify -f NRF52 -r
 ```
-
-*(Note: The `--chiperase` flag is recommended to ensure no stale networking credentials interfere with the new boot.)*
 
 ## Network Credentials
 
@@ -41,5 +69,3 @@ The node is hardcoded to look for a specific Thread Network to ensure it doesn't
 * **PAN ID:** `0x1235` (Decimal: 4661)
 * **Channel:** `15`
 * **Network Key:** `112233445566778899aabbccddeeff00`
-
-Ensure your OpenThread Border Router is configured with these exact matching credentials, or the sensor node will ignore it.
