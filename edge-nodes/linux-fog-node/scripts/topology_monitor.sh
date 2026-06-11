@@ -16,6 +16,7 @@ API_ENDPOINT="$BASE_URL/api/network/topology"
 
 echo "Topology Monitor starting. Backend: $API_ENDPOINT"
 echo "Polling every $POLL_INTERVAL seconds."
+echo "---"
 
 while true; do
   # Wait for mesh to be initialized by the supervisor
@@ -46,13 +47,20 @@ while true; do
     
     if [ -n "$HARDWARE_ID" ]; then
       HARDWARE_ID="nrf52-$HARDWARE_ID"
-      echo "Hardware ID: $HARDWARE_ID (from $DEVICE_PATH)"
+      # Only log hardware ID on first detection or if it changes
+      if [ "$HARDWARE_ID" != "$PREV_HARDWARE_ID" ]; then
+        echo "Hardware ID: $HARDWARE_ID (from $DEVICE_PATH)"
+        PREV_HARDWARE_ID="$HARDWARE_ID"
+      fi
     else
       echo "WARNING: Could not query USB serial from $DEVICE_PATH"
       HARDWARE_ID="legacy-$EXTADDR"
     fi
   else
-    echo "WARNING: udevadm not available, using legacy fallback"
+    if [ -z "$UDEVADM_WARNING_SHOWN" ]; then
+      echo "WARNING: udevadm not available, using legacy fallback"
+      UDEVADM_WARNING_SHOWN=1
+    fi
     HARDWARE_ID="legacy-$EXTADDR"
   fi
   
@@ -166,7 +174,18 @@ while true; do
   done <<< "$(ot-ctl child table 2>/dev/null)"
 
   # 4. POST to Backend
-  curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$API_ENDPOINT" > /dev/null
+  HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$API_ENDPOINT")
+  
+  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+    # Only log success on first poll or after failures
+    if [ "$LAST_STATUS" != "success" ]; then
+      echo "✓ Topology data forwarded successfully (HTTP $HTTP_CODE)"
+      LAST_STATUS="success"
+    fi
+  else
+    echo "✗ Failed to forward topology data (HTTP $HTTP_CODE)"
+    LAST_STATUS="failed"
+  fi
 
   sleep "$POLL_INTERVAL"
 done

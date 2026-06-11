@@ -1,3 +1,5 @@
-ssns-dashboard.ddns.net {
+ssns-iot.com, www.ssns-iot.com {
     reverse_proxy dashboard:80
 }
+
+

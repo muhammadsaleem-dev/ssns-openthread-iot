@@ -69,4 +69,6 @@ skills-lock.json
 # Kilo workspace
 .kilo/
 
-
+# Hardware identification
+.hardware_id
+*.hardware_id
