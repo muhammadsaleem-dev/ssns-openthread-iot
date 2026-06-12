@@ -239,9 +239,9 @@ public class AlertService {
         StringBuilder message = new StringBuilder("Physical sensor failure detected: ");
         StringBuilder action = new StringBuilder("Action required: ");
         
-        // Bit 0: Temp/Hum (MCP9808)
+        // Bit 0: Temp/Hum (SCD41)
         if ((healthStatus & 0x01) == 0) {
-            message.append("MCP9808 (Temp/Hum) ");
+            message.append("SCD41 (Temp/Hum) ");
             action.append("Check Temperature sensor wiring. ");
         }
         // Bit 1: CO2 (SCD41)
