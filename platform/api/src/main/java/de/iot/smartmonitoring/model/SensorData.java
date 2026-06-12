@@ -53,6 +53,52 @@ public class SensorData {
 
     private Integer healthStatus;
 
+    // Statistical aggregation fields (mean, std, max for each sensor)
+    // Temperature statistics
+    private Double temperatureMean;
+    private Double temperatureStd;
+    private Double temperatureMax;
+
+    // Humidity statistics
+    private Double humidityMean;
+    private Double humidityStd;
+    private Double humidityMax;
+
+    // CO2 statistics
+    private Double co2Mean;
+    private Double co2Std;
+    private Double co2Max;
+
+    // TVOC statistics
+    private Double tvocMean;
+    private Double tvocStd;
+    private Double tvocMax;
+
+    // eCO2 statistics
+    private Double eco2Mean;
+    private Double eco2Std;
+    private Double eco2Max;
+
+    // PM1.0 statistics
+    private Double pm1_0Mean;
+    private Double pm1_0Std;
+    private Double pm1_0Max;
+
+    // PM2.5 statistics
+    private Double pm2_5Mean;
+    private Double pm2_5Std;
+    private Double pm2_5Max;
+
+    // PM4.0 statistics
+    private Double pm4_0Mean;
+    private Double pm4_0Std;
+    private Double pm4_0Max;
+
+    // PM10 statistics
+    private Double pm10Mean;
+    private Double pm10Std;
+    private Double pm10Max;
+
     @Indexed
     @Builder.Default
     private Instant timestamp = Instant.now();
