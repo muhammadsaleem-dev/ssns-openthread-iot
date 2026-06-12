@@ -34,8 +34,76 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <string.h>
+#include <math.h>
 
 LOG_MODULE_REGISTER(sensor_agg, LOG_LEVEL_INF);
+
+/* ---------------------------------------------------------------------------
+ * Statistics helper functions
+ * ---------------------------------------------------------------------------*/
+
+/**
+ * @brief Add a sample to the circular buffer and update statistics.
+ * @param stats  Pointer to the statistics structure.
+ * @param value  New sample value to add.
+ */
+static void stats_add_sample(struct sensor_stats *stats, float value)
+{
+    /* Add to circular buffer */
+    stats->buffer[stats->index] = value;
+    stats->index = (stats->index + 1) % SENSOR_STATS_BUFFER_SIZE;
+    
+    /* Update count (max 30) */
+    if (stats->count < SENSOR_STATS_BUFFER_SIZE) {
+        stats->count++;
+    }
+}
+
+/**
+ * @brief Calculate mean, standard deviation, and max from the buffer.
+ * @param stats  Pointer to the statistics structure.
+ */
+static void stats_calculate(struct sensor_stats *stats)
+{
+    if (stats->count == 0) {
+        stats->mean = 0.0f;
+        stats->std = 0.0f;
+        stats->max = 0.0f;
+        return;
+    }
+    
+    /* Calculate mean */
+    float sum = 0.0f;
+    for (uint8_t i = 0; i < stats->count; i++) {
+        sum += stats->buffer[i];
+    }
+    stats->mean = sum / stats->count;
+    
+    /* Calculate standard deviation */
+    float variance = 0.0f;
+    for (uint8_t i = 0; i < stats->count; i++) {
+        float diff = stats->buffer[i] - stats->mean;
+        variance += diff * diff;
+    }
+    stats->std = sqrtf(variance / stats->count);
+    
+    /* Calculate max */
+    stats->max = stats->buffer[0];
+    for (uint8_t i = 1; i < stats->count; i++) {
+        if (stats->buffer[i] > stats->max) {
+            stats->max = stats->buffer[i];
+        }
+    }
+}
+
+/**
+ * @brief Initialize statistics structure with zeros.
+ * @param stats  Pointer to the statistics structure.
+ */
+static void stats_init(struct sensor_stats *stats)
+{
+    memset(stats, 0, sizeof(struct sensor_stats));
+}
 
 /* ---------------------------------------------------------------------------
  * Thread stacks (sizes come from Kconfig)
@@ -79,6 +147,17 @@ static void scd41_thread_fn(void *p1, void *p2, void *p3)
             cache.temperature  = d.temperature;
             cache.humidity     = d.humidity;
             cache.co2          = d.co2;
+            
+            /* Add samples to statistics buffers */
+            stats_add_sample(&cache.temperature_stats, d.temperature);
+            stats_add_sample(&cache.humidity_stats, d.humidity);
+            stats_add_sample(&cache.co2_stats, d.co2);
+            
+            /* Calculate statistics */
+            stats_calculate(&cache.temperature_stats);
+            stats_calculate(&cache.humidity_stats);
+            stats_calculate(&cache.co2_stats);
+            
             /* Both Temp/Hum and CO2 come from SCD41 */
             cache.health_mask |= (SENSOR_HEALTH_TEMP_HUM | SENSOR_HEALTH_CO2);
         } else {
@@ -116,6 +195,15 @@ static void ccs811_thread_fn(void *p1, void *p2, void *p3)
             /* Good reading */
             cache.eco2        = d.eco2;
             cache.tvoc        = d.tvoc;
+            
+            /* Add samples to statistics buffers */
+            stats_add_sample(&cache.eco2_stats, d.eco2);
+            stats_add_sample(&cache.tvoc_stats, d.tvoc);
+            
+            /* Calculate statistics */
+            stats_calculate(&cache.eco2_stats);
+            stats_calculate(&cache.tvoc_stats);
+            
             cache.health_mask |= SENSOR_HEALTH_TVOC;
 
         } else if (d.warming_up) {
@@ -162,6 +250,18 @@ static void sps30_thread_fn(void *p1, void *p2, void *p3)
             cache.pm25 = d.pm25;
             cache.pm4  = d.pm4;
             cache.pm10 = d.pm10;
+            
+            /* Add samples to statistics buffers */
+            stats_add_sample(&cache.pm1_stats, d.pm1);
+            stats_add_sample(&cache.pm25_stats, d.pm25);
+            stats_add_sample(&cache.pm4_stats, d.pm4);
+            stats_add_sample(&cache.pm10_stats, d.pm10);
+            
+            /* Calculate statistics */
+            stats_calculate(&cache.pm1_stats);
+            stats_calculate(&cache.pm25_stats);
+            stats_calculate(&cache.pm4_stats);
+            stats_calculate(&cache.pm10_stats);
 
             if (d.fan_cleaning) {
                 /* During fan-clean, keep health bit AS-IS (neither set nor clear).
@@ -212,6 +312,18 @@ int sensor_aggregator_start(void)
     cache.pm10        = SENSOR_FAULT_VALUE;
     cache.light       = 500.0f;   /* Constant indoor fallback (no light sensor) */
     cache.health_mask = 0x00;     /* All faults until threads report OK */
+    
+    /* Initialize statistics structures */
+    stats_init(&cache.temperature_stats);
+    stats_init(&cache.humidity_stats);
+    stats_init(&cache.co2_stats);
+    stats_init(&cache.tvoc_stats);
+    stats_init(&cache.eco2_stats);
+    stats_init(&cache.pm1_stats);
+    stats_init(&cache.pm25_stats);
+    stats_init(&cache.pm4_stats);
+    stats_init(&cache.pm10_stats);
+    
     k_mutex_unlock(&cache_mutex);
 
 #ifdef CONFIG_SENSOR_SCD41

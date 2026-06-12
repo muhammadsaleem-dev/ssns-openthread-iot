@@ -42,6 +42,23 @@
 /** Sentinel value returned for any channel that is intentionally warming up (e.g. CCS811 heater). */
 #define SENSOR_WARMUP_VALUE      (-998.0f)
 
+/** Number of samples to keep for statistics calculation */
+#define SENSOR_STATS_BUFFER_SIZE  30
+
+/* ---------------------------------------------------------------------------
+ * Statistics structure for each sensor channel
+ * ---------------------------------------------------------------------------
+ * Tracks the last N samples in a circular buffer and provides mean, std, max.
+ */
+struct sensor_stats {
+    float buffer[SENSOR_STATS_BUFFER_SIZE];  /**< Circular buffer of samples */
+    uint8_t index;                            /**< Current write position */
+    uint8_t count;                            /**< Number of valid samples (0-30) */
+    float mean;                               /**< Running mean */
+    float std;                                /**< Standard deviation */
+    float max;                                /**< Maximum value in buffer */
+};
+
 /* ---------------------------------------------------------------------------
  * Unified sensor readings structure
  * ---------------------------------------------------------------------------
@@ -50,6 +67,7 @@
  * Spring Boot backend depend on the exact CBOR array position.
  */
 struct sensor_readings {
+    /* Current values */
     float    temperature;  /**< °C          — SCD41 (or simulated)  */
     float    humidity;     /**< %RH         — SCD41 (or simulated)  */
     float    co2;          /**< ppm CO₂     — SCD41 (or simulated)  */
@@ -61,6 +79,17 @@ struct sensor_readings {
     float    pm10;         /**< µg/m³ PM10  — SPS30 (or simulated)  */
     float    light;        /**< lux         — simulated / 500 lux fallback */
     uint8_t  health_mask;  /**< Bitmask: see SENSOR_HEALTH_* above  */
+    
+    /* Statistics for each sensor channel */
+    struct sensor_stats temperature_stats;
+    struct sensor_stats humidity_stats;
+    struct sensor_stats co2_stats;
+    struct sensor_stats tvoc_stats;
+    struct sensor_stats eco2_stats;
+    struct sensor_stats pm1_stats;
+    struct sensor_stats pm25_stats;
+    struct sensor_stats pm4_stats;
+    struct sensor_stats pm10_stats;
 };
 
 /* ---------------------------------------------------------------------------

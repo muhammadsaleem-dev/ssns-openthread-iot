@@ -210,12 +210,15 @@ int network_send_coap(const struct sensor_readings *r)
         snprintf(mesh_id, sizeof(mesh_id), "node-0000");
     }
 
-    ZCBOR_STATE_E(zse, 2, last_payload, sizeof(last_payload), 16);
-    bool ok = zcbor_list_start_encode(zse, 16) &&
+    ZCBOR_STATE_E(zse, 2, last_payload, sizeof(last_payload), 43);
+    bool ok = zcbor_list_start_encode(zse, 43) &&
+              /* Metadata (4 fields) */
               zcbor_tstr_put_term(zse, node_id, sizeof(node_id)) &&
               zcbor_tstr_put_term(zse, boot_id, sizeof(boot_id)) &&
               zcbor_uint32_put(zse, seq_num++) &&
               zcbor_uint32_put(zse, uptime_ms) &&
+              
+              /* Current values (10 fields) */
               zcbor_float32_put(zse, r->temperature) &&
               zcbor_float32_put(zse, r->humidity) &&
               zcbor_float32_put(zse, r->co2) &&
@@ -226,9 +229,57 @@ int network_send_coap(const struct sensor_readings *r)
               zcbor_float32_put(zse, r->pm4) &&
               zcbor_float32_put(zse, r->pm10) &&
               zcbor_float32_put(zse, r->light) &&
+              
+              /* Health mask and mesh ID (2 fields) */
               zcbor_uint32_put(zse, (uint32_t)r->health_mask) &&
               zcbor_tstr_put_term(zse, mesh_id, sizeof(mesh_id)) &&
-              zcbor_list_end_encode(zse, 16);
+              
+              /* Temperature statistics (3 fields) */
+              zcbor_float32_put(zse, r->temperature_stats.mean) &&
+              zcbor_float32_put(zse, r->temperature_stats.std) &&
+              zcbor_float32_put(zse, r->temperature_stats.max) &&
+              
+              /* Humidity statistics (3 fields) */
+              zcbor_float32_put(zse, r->humidity_stats.mean) &&
+              zcbor_float32_put(zse, r->humidity_stats.std) &&
+              zcbor_float32_put(zse, r->humidity_stats.max) &&
+              
+              /* CO2 statistics (3 fields) */
+              zcbor_float32_put(zse, r->co2_stats.mean) &&
+              zcbor_float32_put(zse, r->co2_stats.std) &&
+              zcbor_float32_put(zse, r->co2_stats.max) &&
+              
+              /* TVOC statistics (3 fields) */
+              zcbor_float32_put(zse, r->tvoc_stats.mean) &&
+              zcbor_float32_put(zse, r->tvoc_stats.std) &&
+              zcbor_float32_put(zse, r->tvoc_stats.max) &&
+              
+              /* eCO2 statistics (3 fields) */
+              zcbor_float32_put(zse, r->eco2_stats.mean) &&
+              zcbor_float32_put(zse, r->eco2_stats.std) &&
+              zcbor_float32_put(zse, r->eco2_stats.max) &&
+              
+              /* PM1 statistics (3 fields) */
+              zcbor_float32_put(zse, r->pm1_stats.mean) &&
+              zcbor_float32_put(zse, r->pm1_stats.std) &&
+              zcbor_float32_put(zse, r->pm1_stats.max) &&
+              
+              /* PM2.5 statistics (3 fields) */
+              zcbor_float32_put(zse, r->pm25_stats.mean) &&
+              zcbor_float32_put(zse, r->pm25_stats.std) &&
+              zcbor_float32_put(zse, r->pm25_stats.max) &&
+              
+              /* PM4 statistics (3 fields) */
+              zcbor_float32_put(zse, r->pm4_stats.mean) &&
+              zcbor_float32_put(zse, r->pm4_stats.std) &&
+              zcbor_float32_put(zse, r->pm4_stats.max) &&
+              
+              /* PM10 statistics (3 fields) */
+              zcbor_float32_put(zse, r->pm10_stats.mean) &&
+              zcbor_float32_put(zse, r->pm10_stats.std) &&
+              zcbor_float32_put(zse, r->pm10_stats.max) &&
+              
+              zcbor_list_end_encode(zse, 43);
 
     if (!ok) {
         LOG_ERR("CBOR encode failed!");
