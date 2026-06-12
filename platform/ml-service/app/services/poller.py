@@ -70,15 +70,33 @@ async def start_polling_loop():
                         continue
                     last_processed_timestamps[node_id] = timestamp
 
-                    required_fields = [
+                    # Current sensor readings (10 features)
+                    current_fields = [
                         "temperature", "humidity", "co2", "tvoc", "eco2",
                         "pm1_0", "pm2_5", "pm4_0", "pm10", "lightIntensity"
                     ]
+                    
+                    # Statistical aggregation fields (27 features: 9 sensors × 3 stats)
+                    stats_fields = [
+                        "temperatureMean", "temperatureStd", "temperatureMax",
+                        "humidityMean", "humidityStd", "humidityMax",
+                        "co2Mean", "co2Std", "co2Max",
+                        "tvocMean", "tvocStd", "tvocMax",
+                        "eco2Mean", "eco2Std", "eco2Max",
+                        "pm1_0Mean", "pm1_0Std", "pm1_0Max",
+                        "pm2_5Mean", "pm2_5Std", "pm2_5Max",
+                        "pm4_0Mean", "pm4_0Std", "pm4_0Max",
+                        "pm10Mean", "pm10Std", "pm10Max",
+                    ]
+                    
+                    required_fields = current_fields + stats_fields
                     if not all(k in latest_reading and latest_reading[k] is not None for k in required_fields):
                         logger.debug(f"Missing required fields for node {node_id}")
                         continue
 
+                    # Build 37-dimensional feature vector (10 current + 27 statistics)
                     features = [
+                        # Current readings (10)
                         latest_reading["temperature"],
                         latest_reading["humidity"],
                         latest_reading["co2"],
@@ -89,6 +107,42 @@ async def start_polling_loop():
                         latest_reading["pm4_0"],
                         latest_reading["pm10"],
                         latest_reading["lightIntensity"],
+                        # Temperature statistics (3)
+                        latest_reading["temperatureMean"],
+                        latest_reading["temperatureStd"],
+                        latest_reading["temperatureMax"],
+                        # Humidity statistics (3)
+                        latest_reading["humidityMean"],
+                        latest_reading["humidityStd"],
+                        latest_reading["humidityMax"],
+                        # CO2 statistics (3)
+                        latest_reading["co2Mean"],
+                        latest_reading["co2Std"],
+                        latest_reading["co2Max"],
+                        # TVOC statistics (3)
+                        latest_reading["tvocMean"],
+                        latest_reading["tvocStd"],
+                        latest_reading["tvocMax"],
+                        # eCO2 statistics (3)
+                        latest_reading["eco2Mean"],
+                        latest_reading["eco2Std"],
+                        latest_reading["eco2Max"],
+                        # PM1.0 statistics (3)
+                        latest_reading["pm1_0Mean"],
+                        latest_reading["pm1_0Std"],
+                        latest_reading["pm1_0Max"],
+                        # PM2.5 statistics (3)
+                        latest_reading["pm2_5Mean"],
+                        latest_reading["pm2_5Std"],
+                        latest_reading["pm2_5Max"],
+                        # PM4.0 statistics (3)
+                        latest_reading["pm4_0Mean"],
+                        latest_reading["pm4_0Std"],
+                        latest_reading["pm4_0Max"],
+                        # PM10 statistics (3)
+                        latest_reading["pm10Mean"],
+                        latest_reading["pm10Std"],
+                        latest_reading["pm10Max"],
                     ]
 
                     # Sanity Filter: Skip inference if any hardware fault placeholders (-999.0) are present

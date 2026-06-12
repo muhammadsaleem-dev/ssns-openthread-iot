@@ -77,7 +77,19 @@ class AnomalyDetector:
             score = self.model.decision_function(X_test)[0]
             logger.warning(f"ML Anomaly Detected on {self.node_id}! Score: {score:.3f}")
             
-            feature_names = ["Temp", "Humidity", "CO2", "TVOC", "eCO2", "PM1.0", "PM2.5", "PM4.0", "PM10", "Light"]
+            # Feature names for 37-dimensional vector (10 current + 27 statistics)
+            feature_names = [
+                "Temp", "Humidity", "CO2", "TVOC", "eCO2", "PM1.0", "PM2.5", "PM4.0", "PM10", "Light",
+                "Temp_Mean", "Temp_Std", "Temp_Max",
+                "Humidity_Mean", "Humidity_Std", "Humidity_Max",
+                "CO2_Mean", "CO2_Std", "CO2_Max",
+                "TVOC_Mean", "TVOC_Std", "TVOC_Max",
+                "eCO2_Mean", "eCO2_Std", "eCO2_Max",
+                "PM1.0_Mean", "PM1.0_Std", "PM1.0_Max",
+                "PM2.5_Mean", "PM2.5_Std", "PM2.5_Max",
+                "PM4.0_Mean", "PM4.0_Std", "PM4.0_Max",
+                "PM10_Mean", "PM10_Std", "PM10_Max",
+            ]
             if len(self.baseline_data) > 1:
                 baseline_np = np.array(self.baseline_data)
                 means = np.mean(baseline_np, axis=0)
