@@ -12,6 +12,25 @@ import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 
 import { updateNodeLocation } from '../services/api';
 
+const MetricBox = ({ icon: Icon, label, value, unit, color, precision = 1 }) => {
+  const isFault = value != null && value <= -998.5; // -999.0
+  const isWarmup = value != null && value > -998.5 && value <= -997.5; // -998.0
+  
+  return (
+    <Box>
+      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
+        <Icon sx={{ fontSize: 14, mr: 0.5, color }} /> {label}
+      </Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700, color: isFault ? '#EF4444' : (isWarmup ? '#F59E0B' : 'inherit') }}>
+        {value != null ? (isFault ? 'FAULT' : (isWarmup ? 'WARMUP' : (precision === 0 ? Math.round(value) : value.toFixed(precision)))) : '--'} 
+        {value != null && !isFault && !isWarmup && (
+          <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>{unit}</Typography>
+        )}
+      </Typography>
+    </Box>
+  );
+};
+
 export default function NodeCard({ node, latestTelemetry, hasActiveAlerts, onLocationUpdated, isSelected, onClick }) {
   const [isEditing, setIsEditing] = useState(false);
   const [locationValue, setLocationValue] = useState(node.location || '');
@@ -157,24 +176,6 @@ export default function NodeCard({ node, latestTelemetry, hasActiveAlerts, onLoc
             Sensor is offline. No live data available.
           </Typography>
         ) : latestTelemetry ? (
-const MetricBox = ({ icon: Icon, label, value, unit, color, precision = 1 }) => {
-  const isFault = value != null && value <= -900;
-  return (
-    <Box>
-      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
-        <Icon sx={{ fontSize: 14, mr: 0.5, color }} /> {label}
-      </Typography>
-      <Typography variant="h5" sx={{ fontWeight: 700, color: isFault ? '#EF4444' : 'inherit' }}>
-        {value != null ? (isFault ? 'FAULT' : (precision === 0 ? Math.round(value) : value.toFixed(precision))) : '--'} 
-        {value != null && !isFault && (
-          <Typography component="span" sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>{unit}</Typography>
-        )}
-      </Typography>
-    </Box>
-  );
-};
-
-// ... inside the render function where the grid is ...
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
             <MetricBox icon={ThermostatIcon} label="Temp" value={latestTelemetry.temperature} unit="°C" color="#3B82F6" precision={1} />
             <MetricBox icon={WaterDropIcon} label="Humid" value={latestTelemetry.humidity} unit="%" color="#3B82F6" precision={0} />

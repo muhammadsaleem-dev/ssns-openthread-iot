@@ -50,12 +50,19 @@ export default function StatCard({ title, value, unit, icon, color = '#3B82F6', 
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-          {parseFloat(value) <= -900 ? (
+          {parseFloat(value) <= -998.5 ? (
             <Typography
               variant="h5"
               sx={{ fontWeight: 700, color: 'error.main', lineHeight: 1, letterSpacing: 1 }}
             >
               FAULT
+            </Typography>
+          ) : parseFloat(value) <= -997.5 ? (
+            <Typography
+              variant="h5"
+              sx={{ fontWeight: 700, color: 'warning.main', lineHeight: 1, letterSpacing: 1 }}
+            >
+              WARMUP
             </Typography>
           ) : (
             <>

@@ -85,8 +85,8 @@ int ccs811_driver_read(struct ccs811_data *out)
 
     /* --- Warm-up guard -------------------------------------------------- */
     if (elapsed_ms < warmup_ms) {
-        out->eco2       = SENSOR_FAULT_VALUE;
-        out->tvoc       = SENSOR_FAULT_VALUE;
+        out->eco2       = SENSOR_WARMUP_VALUE;
+        out->tvoc       = SENSOR_WARMUP_VALUE;
         out->valid      = false;
         out->warming_up = true;
         return 0;  /* Not an error — caller distinguishes via warming_up flag */
@@ -106,8 +106,8 @@ int ccs811_driver_read(struct ccs811_data *out)
     /* Filter out 65021 (0xFDFD) which is a common CCS811 internal hardware error code,
      * often thrown during the 48-hour burn-in period even after the 20m warmup. */
     if (out->eco2 == 65021.0f || out->tvoc == 65021.0f) {
-        out->eco2       = SENSOR_FAULT_VALUE;
-        out->tvoc       = SENSOR_FAULT_VALUE;
+        out->eco2       = SENSOR_WARMUP_VALUE;
+        out->tvoc       = SENSOR_WARMUP_VALUE;
         out->valid      = false;
         out->warming_up = true;
         return 0;

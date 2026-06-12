@@ -122,8 +122,8 @@ static void ccs811_thread_fn(void *p1, void *p2, void *p3)
             /* Warm-up period: suppress readings, clear health bit.
              * This is EXPECTED behaviour, not a fault — but we still
              * clear the health bit to signal "data not ready" downstream. */
-            cache.eco2        = SENSOR_FAULT_VALUE;
-            cache.tvoc        = SENSOR_FAULT_VALUE;
+            cache.eco2        = SENSOR_WARMUP_VALUE;
+            cache.tvoc        = SENSOR_WARMUP_VALUE;
             cache.health_mask &= ~SENSOR_HEALTH_TVOC;
             /* No error log — the driver already logs "N min remaining" */
 

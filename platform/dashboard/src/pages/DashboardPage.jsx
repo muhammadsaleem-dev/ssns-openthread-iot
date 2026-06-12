@@ -427,7 +427,8 @@ export default function DashboardPage() {
                   {recentFeed.map((row, i) => {
                     const formatVal = (v, precision = 1) => {
                        if (v == null) return '--';
-                       if (v <= -900) return <Typography component="span" sx={{ color: 'error.main', fontWeight: 700, fontSize: '0.65rem' }}>FAULT</Typography>;
+                       if (v <= -998.5) return <Typography component="span" sx={{ color: 'error.main', fontWeight: 700, fontSize: '0.65rem' }}>FAULT</Typography>;
+                       if (v <= -997.5) return <Typography component="span" sx={{ color: 'warning.main', fontWeight: 700, fontSize: '0.65rem' }}>WARMUP</Typography>;
                        return v.toFixed(precision);
                     };
 

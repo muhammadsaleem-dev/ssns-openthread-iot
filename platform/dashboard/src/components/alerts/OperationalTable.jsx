@@ -24,7 +24,7 @@ export default function OperationalTable({ rows, nodeMap, onResolve }) {
             </TD>
             <TD>
               <Typography sx={{ fontWeight: 600, color: 'error.light', fontSize: '0.8rem' }}>
-                {a.triggerValue != null ? (a.triggerValue === -999 ? 'FAULT' : a.triggerValue.toFixed(1)) : '—'}
+                {a.triggerValue != null ? (a.triggerValue <= -998.5 ? 'FAULT' : (a.triggerValue <= -997.5 ? 'WARMUP' : a.triggerValue.toFixed(1))) : '—'}
               </Typography>
             </TD>
             <TD>

@@ -36,8 +36,11 @@
 #define SENSOR_HEALTH_TVOC       (1u << 3)  /**< CCS811 — eCO2 + TVOC            */
 #define SENSOR_HEALTH_ALL        (0x0Fu)    /**< All four sensors reporting OK    */
 
-/** Sentinel value returned for any channel that failed or is still warming up. */
+/** Sentinel value returned for any channel that failed. */
 #define SENSOR_FAULT_VALUE       (-999.0f)
+
+/** Sentinel value returned for any channel that is intentionally warming up (e.g. CCS811 heater). */
+#define SENSOR_WARMUP_VALUE      (-998.0f)
 
 /* ---------------------------------------------------------------------------
  * Unified sensor readings structure
