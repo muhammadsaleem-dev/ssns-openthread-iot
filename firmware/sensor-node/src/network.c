@@ -409,75 +409,75 @@ int network_encode_coap_batch(const struct sensor_readings *samples, const uint3
     ok = ok && zcbor_map_start_encode(zse, 27);
     
     /* Temperature statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "temp_mean", 10) &&
+    ok = ok && zcbor_tstr_put_term(zse, "temp_mean", 9) &&
                zcbor_float32_put(zse, last->temperature_stats.mean) &&
-               zcbor_tstr_put_term(zse, "temp_std", 9) &&
+               zcbor_tstr_put_term(zse, "temp_std", 8) &&
                zcbor_float32_put(zse, last->temperature_stats.std) &&
-               zcbor_tstr_put_term(zse, "temp_max", 9) &&
+               zcbor_tstr_put_term(zse, "temp_max", 8) &&
                zcbor_float32_put(zse, last->temperature_stats.max);
     
     /* Humidity statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "hum_mean", 9) &&
+    ok = ok && zcbor_tstr_put_term(zse, "hum_mean", 8) &&
                zcbor_float32_put(zse, last->humidity_stats.mean) &&
-               zcbor_tstr_put_term(zse, "hum_std", 8) &&
+               zcbor_tstr_put_term(zse, "hum_std", 7) &&
                zcbor_float32_put(zse, last->humidity_stats.std) &&
-               zcbor_tstr_put_term(zse, "hum_max", 8) &&
+               zcbor_tstr_put_term(zse, "hum_max", 7) &&
                zcbor_float32_put(zse, last->humidity_stats.max);
     
     /* CO2 statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "co2_mean", 9) &&
+    ok = ok && zcbor_tstr_put_term(zse, "co2_mean", 8) &&
                zcbor_float32_put(zse, last->co2_stats.mean) &&
-               zcbor_tstr_put_term(zse, "co2_std", 8) &&
+               zcbor_tstr_put_term(zse, "co2_std", 7) &&
                zcbor_float32_put(zse, last->co2_stats.std) &&
-               zcbor_tstr_put_term(zse, "co2_max", 8) &&
+               zcbor_tstr_put_term(zse, "co2_max", 7) &&
                zcbor_float32_put(zse, last->co2_stats.max);
     
     /* TVOC statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "tvoc_mean", 10) &&
+    ok = ok && zcbor_tstr_put_term(zse, "tvoc_mean", 9) &&
                zcbor_float32_put(zse, last->tvoc_stats.mean) &&
-               zcbor_tstr_put_term(zse, "tvoc_std", 9) &&
+               zcbor_tstr_put_term(zse, "tvoc_std", 8) &&
                zcbor_float32_put(zse, last->tvoc_stats.std) &&
-               zcbor_tstr_put_term(zse, "tvoc_max", 9) &&
+               zcbor_tstr_put_term(zse, "tvoc_max", 8) &&
                zcbor_float32_put(zse, last->tvoc_stats.max);
     
     /* eCO2 statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "eco2_mean", 10) &&
+    ok = ok && zcbor_tstr_put_term(zse, "eco2_mean", 9) &&
                zcbor_float32_put(zse, last->eco2_stats.mean) &&
-               zcbor_tstr_put_term(zse, "eco2_std", 9) &&
+               zcbor_tstr_put_term(zse, "eco2_std", 8) &&
                zcbor_float32_put(zse, last->eco2_stats.std) &&
-               zcbor_tstr_put_term(zse, "eco2_max", 9) &&
+               zcbor_tstr_put_term(zse, "eco2_max", 8) &&
                zcbor_float32_put(zse, last->eco2_stats.max);
     
     /* PM1 statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "pm1_mean", 9) &&
+    ok = ok && zcbor_tstr_put_term(zse, "pm1_mean", 8) &&
                zcbor_float32_put(zse, last->pm1_stats.mean) &&
-               zcbor_tstr_put_term(zse, "pm1_std", 8) &&
+               zcbor_tstr_put_term(zse, "pm1_std", 7) &&
                zcbor_float32_put(zse, last->pm1_stats.std) &&
-               zcbor_tstr_put_term(zse, "pm1_max", 8) &&
+               zcbor_tstr_put_term(zse, "pm1_max", 7) &&
                zcbor_float32_put(zse, last->pm1_stats.max);
     
     /* PM2.5 statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "pm25_mean", 10) &&
+    ok = ok && zcbor_tstr_put_term(zse, "pm25_mean", 9) &&
                zcbor_float32_put(zse, last->pm25_stats.mean) &&
-               zcbor_tstr_put_term(zse, "pm25_std", 9) &&
+               zcbor_tstr_put_term(zse, "pm25_std", 8) &&
                zcbor_float32_put(zse, last->pm25_stats.std) &&
-               zcbor_tstr_put_term(zse, "pm25_max", 9) &&
+               zcbor_tstr_put_term(zse, "pm25_max", 8) &&
                zcbor_float32_put(zse, last->pm25_stats.max);
     
     /* PM4 statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "pm4_mean", 9) &&
+    ok = ok && zcbor_tstr_put_term(zse, "pm4_mean", 8) &&
                zcbor_float32_put(zse, last->pm4_stats.mean) &&
-               zcbor_tstr_put_term(zse, "pm4_std", 8) &&
+               zcbor_tstr_put_term(zse, "pm4_std", 7) &&
                zcbor_float32_put(zse, last->pm4_stats.std) &&
-               zcbor_tstr_put_term(zse, "pm4_max", 8) &&
+               zcbor_tstr_put_term(zse, "pm4_max", 7) &&
                zcbor_float32_put(zse, last->pm4_stats.max);
     
     /* PM10 statistics */
-    ok = ok && zcbor_tstr_put_term(zse, "pm10_mean", 10) &&
+    ok = ok && zcbor_tstr_put_term(zse, "pm10_mean", 9) &&
                zcbor_float32_put(zse, last->pm10_stats.mean) &&
-               zcbor_tstr_put_term(zse, "pm10_std", 9) &&
+               zcbor_tstr_put_term(zse, "pm10_std", 8) &&
                zcbor_float32_put(zse, last->pm10_stats.std) &&
-               zcbor_tstr_put_term(zse, "pm10_max", 9) &&
+               zcbor_tstr_put_term(zse, "pm10_max", 8) &&
                zcbor_float32_put(zse, last->pm10_stats.max);
     
     ok = ok && zcbor_map_end_encode(zse, 27);
