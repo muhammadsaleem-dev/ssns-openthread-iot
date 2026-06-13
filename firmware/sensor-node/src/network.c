@@ -24,7 +24,7 @@ static char node_id[16];
 static char boot_id[9];
 static int udp_sock = -1;
 static struct sockaddr_in6 gateway_addr;
-static uint8_t last_payload[384];
+static uint8_t last_payload[1024];  /* Increased for batch payloads */
 static size_t last_payload_len = 0;
 
 static void resolve_boot_id(void)
@@ -324,11 +324,203 @@ int network_send_coap(const struct sensor_readings *r)
     return wait_for_coap_ack(msg_id - 1);
 }
 
+int network_send_coap_batch(const struct sensor_readings *samples, const uint32_t *timestamps, uint8_t count)
+{
+    if (udp_sock < 0 || count == 0 || count > 5) {
+        return -1;
+    }
+
+    static uint32_t seq_num = 0;
+
+    /* Extract current Mesh ID */
+    char mesh_id[16];
+    otInstance *instance = openthread_get_default_instance();
+    if (instance) {
+        const otExtAddress *ext = otLinkGetExtendedAddress(instance);
+        snprintf(mesh_id, sizeof(mesh_id), "node-%02x%02x", ext->m8[6], ext->m8[7]);
+    } else {
+        snprintf(mesh_id, sizeof(mesh_id), "node-0000");
+    }
+
+    /* Phase 2: Batch CBOR structure
+     * Root array with 2 elements:
+     * [
+     *   [sample1_array, sample2_array, ...],  // Array of sample arrays
+     *   statistics_map                         // Shared statistics from last sample
+     * ]
+     */
+    
+    /* Use last_payload buffer for batch encoding */
+    ZCBOR_STATE_E(zse, 2, last_payload, sizeof(last_payload), 100);
+    
+    /* Start root array [samples_array, statistics] */
+    bool ok = zcbor_list_start_encode(zse, 2);
+    
+    /* 1. Encode samples array */
+    ok = ok && zcbor_list_start_encode(zse, count);
+    
+    for (uint8_t i = 0; i < count && ok; i++) {
+        const struct sensor_readings *r = &samples[i];
+        
+        /* Each sample is a 16-field array: metadata(4) + current(10) + health(1) + mesh_id(1) */
+        ok = ok && zcbor_list_start_encode(zse, 16) &&
+                   /* Metadata (4 fields) */
+                   zcbor_tstr_put_term(zse, node_id, sizeof(node_id)) &&
+                   zcbor_tstr_put_term(zse, boot_id, sizeof(boot_id)) &&
+                   zcbor_uint32_put(zse, seq_num++) &&
+                   zcbor_uint32_put(zse, timestamps[i]) &&  /* Use actual timestamp for this sample */
+                   
+                   /* Current values (10 fields) */
+                   zcbor_float32_put(zse, r->temperature) &&
+                   zcbor_float32_put(zse, r->humidity) &&
+                   zcbor_float32_put(zse, r->co2) &&
+                   zcbor_float32_put(zse, r->tvoc) &&
+                   zcbor_float32_put(zse, r->eco2) &&
+                   zcbor_float32_put(zse, r->pm1) &&
+                   zcbor_float32_put(zse, r->pm25) &&
+                   zcbor_float32_put(zse, r->pm4) &&
+                   zcbor_float32_put(zse, r->pm10) &&
+                   zcbor_float32_put(zse, r->light) &&
+                   
+                   /* Health mask and mesh ID (2 fields) */
+                   zcbor_uint32_put(zse, (uint32_t)r->health_mask) &&
+                   zcbor_tstr_put_term(zse, mesh_id, sizeof(mesh_id)) &&
+                   
+                   zcbor_list_end_encode(zse, 16);
+    }
+    
+    ok = ok && zcbor_list_end_encode(zse, count);
+    
+    /* 2. Encode statistics map (from last sample) */
+    const struct sensor_readings *last = &samples[count - 1];
+    
+    ok = ok && zcbor_map_start_encode(zse, 27);
+    
+    /* Temperature statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "temp_mean", 10) &&
+               zcbor_float32_put(zse, last->temperature_stats.mean) &&
+               zcbor_tstr_put_term(zse, "temp_std", 9) &&
+               zcbor_float32_put(zse, last->temperature_stats.std) &&
+               zcbor_tstr_put_term(zse, "temp_max", 9) &&
+               zcbor_float32_put(zse, last->temperature_stats.max);
+    
+    /* Humidity statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "hum_mean", 9) &&
+               zcbor_float32_put(zse, last->humidity_stats.mean) &&
+               zcbor_tstr_put_term(zse, "hum_std", 8) &&
+               zcbor_float32_put(zse, last->humidity_stats.std) &&
+               zcbor_tstr_put_term(zse, "hum_max", 8) &&
+               zcbor_float32_put(zse, last->humidity_stats.max);
+    
+    /* CO2 statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "co2_mean", 9) &&
+               zcbor_float32_put(zse, last->co2_stats.mean) &&
+               zcbor_tstr_put_term(zse, "co2_std", 8) &&
+               zcbor_float32_put(zse, last->co2_stats.std) &&
+               zcbor_tstr_put_term(zse, "co2_max", 8) &&
+               zcbor_float32_put(zse, last->co2_stats.max);
+    
+    /* TVOC statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "tvoc_mean", 10) &&
+               zcbor_float32_put(zse, last->tvoc_stats.mean) &&
+               zcbor_tstr_put_term(zse, "tvoc_std", 9) &&
+               zcbor_float32_put(zse, last->tvoc_stats.std) &&
+               zcbor_tstr_put_term(zse, "tvoc_max", 9) &&
+               zcbor_float32_put(zse, last->tvoc_stats.max);
+    
+    /* eCO2 statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "eco2_mean", 10) &&
+               zcbor_float32_put(zse, last->eco2_stats.mean) &&
+               zcbor_tstr_put_term(zse, "eco2_std", 9) &&
+               zcbor_float32_put(zse, last->eco2_stats.std) &&
+               zcbor_tstr_put_term(zse, "eco2_max", 9) &&
+               zcbor_float32_put(zse, last->eco2_stats.max);
+    
+    /* PM1 statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "pm1_mean", 9) &&
+               zcbor_float32_put(zse, last->pm1_stats.mean) &&
+               zcbor_tstr_put_term(zse, "pm1_std", 8) &&
+               zcbor_float32_put(zse, last->pm1_stats.std) &&
+               zcbor_tstr_put_term(zse, "pm1_max", 8) &&
+               zcbor_float32_put(zse, last->pm1_stats.max);
+    
+    /* PM2.5 statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "pm25_mean", 10) &&
+               zcbor_float32_put(zse, last->pm25_stats.mean) &&
+               zcbor_tstr_put_term(zse, "pm25_std", 9) &&
+               zcbor_float32_put(zse, last->pm25_stats.std) &&
+               zcbor_tstr_put_term(zse, "pm25_max", 9) &&
+               zcbor_float32_put(zse, last->pm25_stats.max);
+    
+    /* PM4 statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "pm4_mean", 9) &&
+               zcbor_float32_put(zse, last->pm4_stats.mean) &&
+               zcbor_tstr_put_term(zse, "pm4_std", 8) &&
+               zcbor_float32_put(zse, last->pm4_stats.std) &&
+               zcbor_tstr_put_term(zse, "pm4_max", 8) &&
+               zcbor_float32_put(zse, last->pm4_stats.max);
+    
+    /* PM10 statistics */
+    ok = ok && zcbor_tstr_put_term(zse, "pm10_mean", 10) &&
+               zcbor_float32_put(zse, last->pm10_stats.mean) &&
+               zcbor_tstr_put_term(zse, "pm10_std", 9) &&
+               zcbor_float32_put(zse, last->pm10_stats.std) &&
+               zcbor_tstr_put_term(zse, "pm10_max", 9) &&
+               zcbor_float32_put(zse, last->pm10_stats.max);
+    
+    ok = ok && zcbor_map_end_encode(zse, 27);
+    
+    /* Close root array */
+    ok = ok && zcbor_list_end_encode(zse, 2);
+
+    if (!ok) {
+        LOG_ERR("CBOR batch encode failed!");
+        return -1;
+    }
+
+    last_payload_len = (size_t)(zse->payload_mut - last_payload);
+    LOG_INF("Generated CBOR batch payload: %zu bytes (%d samples)", last_payload_len, count);
+
+    /* --- build raw CoAP packet --- */
+    uint8_t packet[1024];  /* Larger buffer for batch */
+    size_t off = 0;
+
+    static uint16_t msg_id = 0x1000;
+    packet[off++] = (1 << 6) | (0 << 4) | 0;
+    packet[off++] = 3;
+    packet[off++] = (uint8_t)(msg_id >> 8);
+    packet[off++] = (uint8_t)(msg_id & 0xFF);
+    msg_id++;
+
+    const char *uri = "storedata";
+    size_t ulen = strlen(uri);
+    packet[off++] = (11 << 4) | ulen;
+    memcpy(&packet[off], uri, ulen);
+    off += ulen;
+
+    packet[off++] = 0xFF;
+    memcpy(&packet[off], last_payload, last_payload_len);
+    off += last_payload_len;
+
+    int ret = sendto(udp_sock, packet, off, 0, (struct sockaddr *)&gateway_addr, sizeof(struct sockaddr_in6));
+    if (ret < 0) {
+        if (errno == ENOMEM) {
+            LOG_ERR("CRITICAL: Zephyr Network RAM Buffer is FULL! Batch packet dropped.");
+        } else {
+            LOG_ERR("Failed to send CoAP batch request (%d)", errno);
+        }
+        return -errno;
+    }
+
+    /* Now we actually wait for the Gateway to ACK */
+    return wait_for_coap_ack(msg_id - 1);
+}
+
 int network_send_raw_payload(const uint8_t *payload, size_t len)
 {
     if (udp_sock < 0) return -1;
 
-    uint8_t packet[512];
+    uint8_t packet[1024];  /* Increased for batch payloads */
     size_t off = 0;
 
     static uint16_t msg_id = 0x2000;

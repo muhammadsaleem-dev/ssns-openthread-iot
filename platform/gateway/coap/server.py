@@ -26,9 +26,31 @@ class StoreDataResource(resource.Resource):
     
     async def render_put(self, request):
         try:
-            # Decode CBOR Array from binary payload
+            # Decode CBOR from binary payload
             cbor_data = cbor2.loads(request.payload)
-            if not isinstance(cbor_data, list) or len(cbor_data) < 43:
+            
+            # Phase 2: Detect batch format vs single sample format
+            # Batch format: [samples_array, statistics_map] (2 elements)
+            # Single format: [43 fields] (43 elements)
+            
+            if isinstance(cbor_data, list) and len(cbor_data) == 2:
+                # Phase 2: Batch format
+                return await self._handle_batch(request, cbor_data)
+            elif isinstance(cbor_data, list) and len(cbor_data) >= 43:
+                # Phase 1: Single sample format (backward compatible)
+                return await self._handle_single_sample(request, cbor_data)
+            else:
+                logger.error("Malformed CBOR received (unexpected structure)")
+                return aiocoap.Message(code=aiocoap.BAD_REQUEST)
+                
+        except (cbor2.CBORDecodeError, Exception) as e:
+            logger.error("CBOR processing error: %s", e)
+            return aiocoap.Message(code=aiocoap.BAD_REQUEST)
+    
+    async def _handle_single_sample(self, request, cbor_data):
+        """Handle Phase 1 single sample format (backward compatible)."""
+        try:
+            if len(cbor_data) < 43:
                 logger.error("Malformed CBOR array received (expected 43 items, got %d)", len(cbor_data))
                 return aiocoap.Message(code=aiocoap.BAD_REQUEST)
 
@@ -205,6 +227,151 @@ class StoreDataResource(resource.Resource):
             
         except (cbor2.CBORDecodeError, Exception) as e:
             logger.error("CBOR processing error: %s", e)
+            return aiocoap.Message(code=aiocoap.BAD_REQUEST)
+    
+    async def _handle_batch(self, request, cbor_data):
+        """Handle Phase 2 batch format: [[sample1, sample2, ...], {statistics}]."""
+        try:
+            samples_array = cbor_data[0]
+            statistics_map = cbor_data[1]
+            
+            if not isinstance(samples_array, list) or not isinstance(statistics_map, dict):
+                logger.error("Invalid batch structure")
+                return aiocoap.Message(code=aiocoap.BAD_REQUEST)
+            
+            logger.info("Received batch with %d samples", len(samples_array))
+            
+            # Extract IPv6 address
+            ipv6_addr = None
+            if hasattr(request.remote, 'sockaddr') and request.remote.sockaddr:
+                addr = request.remote.sockaddr[0]
+                if addr != '127.0.0.1' and addr != '::1':
+                    ipv6_addr = addr
+            
+            # Phase 2 Fix: Find maximum uptime in batch first to prevent time reconstruction issues
+            max_uptime_in_batch = 0
+            for sample in samples_array:
+                if isinstance(sample, list) and len(sample) >= 4:
+                    uptime_ms = sample[3]
+                    if uptime_ms > max_uptime_in_batch:
+                        max_uptime_in_batch = uptime_ms
+            
+            # Pre-update the max known uptime for this node to prevent backlog detection
+            if max_uptime_in_batch > 0 and len(samples_array) > 0:
+                first_sample = samples_array[0]
+                if isinstance(first_sample, list) and len(first_sample) >= 2:
+                    node_id_temp = first_sample[0]
+                    latest_uptime_key = f"uptime:{node_id_temp}"
+                    self._queue_manager.r.set(latest_uptime_key, max_uptime_in_batch)
+                    logger.debug("Pre-set max uptime for %s: %dms", node_id_temp, max_uptime_in_batch)
+            
+            # Process each sample in the batch
+            for idx, sample in enumerate(samples_array):
+                if not isinstance(sample, list) or len(sample) < 16:
+                    logger.warning("Skipping malformed sample %d in batch", idx)
+                    continue
+                
+                # Parse sample (16 fields: metadata(4) + current(10) + health(1) + mesh_id(1))
+                node_id = sample[0]
+                boot_id = sample[1]
+                seq_num = sample[2]
+                uptime_ms = sample[3]
+                
+                temperature = sample[4]
+                humidity = sample[5]
+                co2 = sample[6]
+                tvoc = sample[7]
+                eco2 = sample[8]
+                pm1_0 = sample[9]
+                pm2_5 = sample[10]
+                pm4_0 = sample[11]
+                pm10 = sample[12]
+                light = sample[13]
+                
+                health_status = sample[14]
+                mesh_id = sample[15]
+                
+                # Build payload with current values + shared statistics
+                payload = {
+                    # Metadata
+                    "id": node_id,
+                    "nodeId": node_id,
+                    "bootId": boot_id,
+                    "sequenceNumber": seq_num,
+                    "uptimeMs": uptime_ms,
+                    "meshId": mesh_id,
+                    "ipv6Address": ipv6_addr,
+                    "healthStatus": health_status,
+                    
+                    # Current values
+                    "t": temperature,
+                    "h": humidity,
+                    "c": co2,
+                    "tv": tvoc,
+                    "ec": eco2,
+                    "p1": pm1_0,
+                    "p25": pm2_5,
+                    "p4": pm4_0,
+                    "p10": pm10,
+                    "li": light,
+                    
+                    # Statistics from shared map
+                    "temperatureMean": statistics_map.get("temp_mean", 0.0),
+                    "temperatureStd": statistics_map.get("temp_std", 0.0),
+                    "temperatureMax": statistics_map.get("temp_max", 0.0),
+                    
+                    "humidityMean": statistics_map.get("hum_mean", 0.0),
+                    "humidityStd": statistics_map.get("hum_std", 0.0),
+                    "humidityMax": statistics_map.get("hum_max", 0.0),
+                    
+                    "co2Mean": statistics_map.get("co2_mean", 0.0),
+                    "co2Std": statistics_map.get("co2_std", 0.0),
+                    "co2Max": statistics_map.get("co2_max", 0.0),
+                    
+                    "tvocMean": statistics_map.get("tvoc_mean", 0.0),
+                    "tvocStd": statistics_map.get("tvoc_std", 0.0),
+                    "tvocMax": statistics_map.get("tvoc_max", 0.0),
+                    
+                    "eco2Mean": statistics_map.get("eco2_mean", 0.0),
+                    "eco2Std": statistics_map.get("eco2_std", 0.0),
+                    "eco2Max": statistics_map.get("eco2_max", 0.0),
+                    
+                    "pm1_0Mean": statistics_map.get("pm1_mean", 0.0),
+                    "pm1_0Std": statistics_map.get("pm1_std", 0.0),
+                    "pm1_0Max": statistics_map.get("pm1_max", 0.0),
+                    
+                    "pm2_5Mean": statistics_map.get("pm25_mean", 0.0),
+                    "pm2_5Std": statistics_map.get("pm25_std", 0.0),
+                    "pm2_5Max": statistics_map.get("pm25_max", 0.0),
+                    
+                    "pm4_0Mean": statistics_map.get("pm4_mean", 0.0),
+                    "pm4_0Std": statistics_map.get("pm4_std", 0.0),
+                    "pm4_0Max": statistics_map.get("pm4_max", 0.0),
+                    
+                    "pm10Mean": statistics_map.get("pm10_mean", 0.0),
+                    "pm10Std": statistics_map.get("pm10_std", 0.0),
+                    "pm10Max": statistics_map.get("pm10_max", 0.0),
+                }
+                
+                payload_str = json.dumps(payload)
+                
+                # Deduplication check
+                dedup_key = f"dedup:{node_id}:{boot_id}:{seq_num}"
+                is_new = self._queue_manager.r.setnx(dedup_key, "1")
+                
+                if not is_new:
+                    logger.debug("Duplicate sample in batch dropped: %s", dedup_key)
+                    continue
+                
+                self._queue_manager.r.expire(dedup_key, 300)
+                self._queue_manager.enqueue(node_id, seq_num, payload_str)
+                logger.debug("Batch sample %d/%d queued: %s", idx + 1, len(samples_array), dedup_key)
+            
+            logger.info("Batch processed: %d samples queued", len(samples_array))
+            return aiocoap.Message(code=aiocoap.CHANGED)
+            
+        except Exception as e:
+            logger.error("Batch processing error: %s", e)
             return aiocoap.Message(code=aiocoap.BAD_REQUEST)
 
 
