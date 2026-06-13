@@ -39,39 +39,54 @@ class RedisQueueManager:
         now = datetime.now(timezone.utc)
         
         # --- Task 3.2: Time Reconstruction ---
-        # We track the 'latest' known uptime for each node in Redis
-        latest_uptime_key = f"uptime:{node_id}"
+        # We calculate the absolute boot time of the node to anchor all timestamps.
+        sync_key = f"time_sync:{node_id}"
         
         raw_uptime = data.get('uptimeMs')
         if raw_uptime is None:
             raw_uptime = 0
         current_uptime = int(raw_uptime)
         
-        max_known_uptime = self.r.get(latest_uptime_key)
+        sync_data_str = self.r.get(sync_key)
         
-        if max_known_uptime:
-            offset_ms = int(max_known_uptime) - current_uptime
+        if sync_data_str:
+            sync_data = json.loads(sync_data_str)
+            known_boot_time = sync_data.get("boot_time", now.timestamp())
+            max_uptime = sync_data.get("max_uptime", 0)
             
-            # Reboot Detection: If the node's uptime drops significantly 
-            # (e.g. by more than 10 minutes) while our max known uptime was large, 
-            # the sensor physical board was rebooted or rolled over!
-            if offset_ms > 600000:
-                logger.info("Sensor reboot/rollover detected for %s (offset %dms). Resetting uptime sync.", node_id, offset_ms)
-                data['timestamp'] = now.isoformat()
-                self.r.set(latest_uptime_key, current_uptime)
-            elif current_uptime < int(max_known_uptime):
-                # This is a backlog packet! 
-                packet_time = now - timedelta(milliseconds=offset_ms)
-                data['timestamp'] = packet_time.isoformat()
-                logger.info("Reconstructed historical timestamp for %s: -%dms", node_id, offset_ms)
+            # Reboot Detection: If uptime drops by more than 10 mins, it's a fresh boot
+            if current_uptime < (max_uptime - 600000):
+                logger.info("Sensor reboot detected for %s. Resetting time sync.", node_id)
+                known_boot_time = now.timestamp() - (current_uptime / 1000.0)
+                max_uptime = current_uptime
             else:
-                # Live packet with a greater uptime than we've seen
-                data['timestamp'] = now.isoformat()
-                self.r.set(latest_uptime_key, current_uptime)
+                if current_uptime > max_uptime:
+                    max_uptime = current_uptime
+                    
+                # The "implied" boot time by this packet
+                implied_boot_time = now.timestamp() - (current_uptime / 1000.0)
+                
+                # If the packet took 1 hr to arrive, implied_boot_time will be 1 hr in the future.
+                # If implied_boot_time is SMALLER than known, this packet arrived faster (less network delay),
+                # which means it's a more accurate estimate of the true boot time.
+                if implied_boot_time < known_boot_time:
+                    known_boot_time = implied_boot_time
+                    
+            self.r.set(sync_key, json.dumps({"boot_time": known_boot_time, "max_uptime": max_uptime}))
+            
+            # Apply absolute timestamp
+            packet_timestamp = known_boot_time + (current_uptime / 1000.0)
+            data['timestamp'] = datetime.fromtimestamp(packet_timestamp, tz=timezone.utc).isoformat()
+            
+            # Log for debugging if it's significantly older than 'now'
+            delay_ms = (now.timestamp() - packet_timestamp) * 1000
+            if delay_ms > 10000:
+                logger.info("Reconstructed queued timestamp for %s: delayed by %dms", node_id, int(delay_ms))
         else:
             # First time seeing this node
+            boot_time = now.timestamp() - (current_uptime / 1000.0)
+            self.r.set(sync_key, json.dumps({"boot_time": boot_time, "max_uptime": current_uptime}))
             data['timestamp'] = now.isoformat()
-            self.r.set(latest_uptime_key, current_uptime)
 
         # We store the payload and retry_count together in a dictionary
         queue_item = {
@@ -145,7 +160,52 @@ class RedisQueueManager:
                 health_status=payload_data.get("healthStatus", 255),
                 mesh_id=payload_data.get("meshId"),
                 ipv6_address=payload_data.get("ipv6Address"),
-                timestamp=payload_data.get("timestamp")
+                timestamp=payload_data.get("timestamp"),
+                
+                # Temperature stats
+                temperature_mean=payload_data.get("temperatureMean", 0.0),
+                temperature_std=payload_data.get("temperatureStd", 0.0),
+                temperature_max=payload_data.get("temperatureMax", 0.0),
+                
+                # Humidity stats
+                humidity_mean=payload_data.get("humidityMean", 0.0),
+                humidity_std=payload_data.get("humidityStd", 0.0),
+                humidity_max=payload_data.get("humidityMax", 0.0),
+                
+                # CO2 stats
+                co2_mean=payload_data.get("co2Mean", 0.0),
+                co2_std=payload_data.get("co2Std", 0.0),
+                co2_max=payload_data.get("co2Max", 0.0),
+                
+                # TVOC stats
+                tvoc_mean=payload_data.get("tvocMean", 0.0),
+                tvoc_std=payload_data.get("tvocStd", 0.0),
+                tvoc_max=payload_data.get("tvocMax", 0.0),
+                
+                # eCO2 stats
+                eco2_mean=payload_data.get("eco2Mean", 0.0),
+                eco2_std=payload_data.get("eco2Std", 0.0),
+                eco2_max=payload_data.get("eco2Max", 0.0),
+                
+                # PM1.0 stats
+                pm1_0_mean=payload_data.get("pm1_0Mean", 0.0),
+                pm1_0_std=payload_data.get("pm1_0Std", 0.0),
+                pm1_0_max=payload_data.get("pm1_0Max", 0.0),
+                
+                # PM2.5 stats
+                pm2_5_mean=payload_data.get("pm2_5Mean", 0.0),
+                pm2_5_std=payload_data.get("pm2_5Std", 0.0),
+                pm2_5_max=payload_data.get("pm2_5Max", 0.0),
+                
+                # PM4.0 stats
+                pm4_0_mean=payload_data.get("pm4_0Mean", 0.0),
+                pm4_0_std=payload_data.get("pm4_0Std", 0.0),
+                pm4_0_max=payload_data.get("pm4_0Max", 0.0),
+                
+                # PM10 stats
+                pm10_mean=payload_data.get("pm10Mean", 0.0),
+                pm10_std=payload_data.get("pm10Std", 0.0),
+                pm10_max=payload_data.get("pm10Max", 0.0)
             )
 
             # HTTP Forwarding

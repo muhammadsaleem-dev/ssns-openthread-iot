@@ -240,6 +240,8 @@ class StoreDataResource(resource.Resource):
                 return aiocoap.Message(code=aiocoap.BAD_REQUEST)
             
             logger.info("Received batch with %d samples", len(samples_array))
+            logger.info("Statistics map keys: %s", list(statistics_map.keys()))
+            logger.info("Statistics map tvoc_mean value: %s (type: %s)", statistics_map.get('tvoc_mean'), type(statistics_map.get('tvoc_mean')))
             
             # Extract IPv6 address
             ipv6_addr = None
