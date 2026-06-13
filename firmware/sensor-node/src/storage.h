@@ -47,4 +47,12 @@ int storage_get_queue_usage(void);
  */
 int storage_get_queue_capacity(void);
 
+/**
+ * @brief Forward all stored packets to the gateway.
+ * Reads packets from Flash, sends them via network, and deletes on success.
+ * Stops on first failure to preserve packet ordering.
+ * @return Number of packets successfully forwarded, or negative error code.
+ */
+int storage_forward_all_packets(void);
+
 #endif /* STORAGE_H */

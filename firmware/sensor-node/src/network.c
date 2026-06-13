@@ -24,6 +24,17 @@ static char node_id[16];
 static char boot_id[9];
 static int udp_sock = -1;
 static struct sockaddr_in6 gateway_addr;
+
+/* Phase 3: Gateway connectivity tracking */
+static bool gateway_online = true;
+static int64_t last_successful_send = 0;
+static int consecutive_failures = 0;
+
+#define GATEWAY_TIMEOUT_MS 60000          /* 60 seconds */
+#define MAX_CONSECUTIVE_FAILURES 3        /* 3 failures = offline */
+
+/* Forward declaration */
+static void update_gateway_connectivity(int send_result);
 static uint8_t last_payload[1024];  /* Increased for batch payloads */
 static size_t last_payload_len = 0;
 
@@ -324,9 +335,10 @@ int network_send_coap(const struct sensor_readings *r)
     return wait_for_coap_ack(msg_id - 1);
 }
 
-int network_send_coap_batch(const struct sensor_readings *samples, const uint32_t *timestamps, uint8_t count)
+/* Phase 3: Encode batch into CBOR without sending (for offline storage) */
+int network_encode_coap_batch(const struct sensor_readings *samples, const uint32_t *timestamps, uint8_t count)
 {
-    if (udp_sock < 0 || count == 0 || count > 5) {
+    if (count == 0 || count > 5) {
         return -1;
     }
 
@@ -479,7 +491,24 @@ int network_send_coap_batch(const struct sensor_readings *samples, const uint32_
     }
 
     last_payload_len = (size_t)(zse->payload_mut - last_payload);
-    LOG_INF("Generated CBOR batch payload: %zu bytes (%d samples)", last_payload_len, count);
+    LOG_DBG("Encoded CBOR batch payload: %zu bytes (%d samples)", last_payload_len, count);
+    
+    return 0;
+}
+
+int network_send_coap_batch(const struct sensor_readings *samples, const uint32_t *timestamps, uint8_t count)
+{
+    if (udp_sock < 0 || count == 0 || count > 5) {
+        return -1;
+    }
+
+    /* First encode the batch into last_payload buffer */
+    int rc = network_encode_coap_batch(samples, timestamps, count);
+    if (rc != 0) {
+        return rc;
+    }
+    
+    LOG_INF("Transmitting CBOR batch: %zu bytes (%d samples)", last_payload_len, count);
 
     /* --- build raw CoAP packet --- */
     uint8_t packet[1024];  /* Larger buffer for batch */
@@ -509,11 +538,14 @@ int network_send_coap_batch(const struct sensor_readings *samples, const uint32_
         } else {
             LOG_ERR("Failed to send CoAP batch request (%d)", errno);
         }
+        update_gateway_connectivity(-errno);
         return -errno;
     }
 
     /* Now we actually wait for the Gateway to ACK */
-    return wait_for_coap_ack(msg_id - 1);
+    int ack_result = wait_for_coap_ack(msg_id - 1);
+    update_gateway_connectivity(ack_result);
+    return ack_result;
 }
 
 int network_send_raw_payload(const uint8_t *payload, size_t len)
@@ -543,9 +575,56 @@ int network_send_raw_payload(const uint8_t *payload, size_t len)
     int r = sendto(udp_sock, packet, off, 0, (struct sockaddr *)&gateway_addr, sizeof(struct sockaddr_in6));
     if (r < 0) {
         LOG_ERR("Failed to send raw CoAP payload (%d)", errno);
+        update_gateway_connectivity(-errno);
         return -errno;
     }
     
     /* Wait for ACK */
-    return wait_for_coap_ack(msg_id - 1);
+    int ack_result = wait_for_coap_ack(msg_id - 1);
+    update_gateway_connectivity(ack_result);
+    return ack_result;
+}
+
+/* Phase 3: Check if gateway is reachable */
+bool network_is_gateway_reachable(void)
+{
+    int64_t now = k_uptime_get();
+    
+    /* Check if we've had recent successful transmission */
+    if ((now - last_successful_send) < GATEWAY_TIMEOUT_MS) {
+        gateway_online = true;
+        consecutive_failures = 0;
+        return true;
+    }
+    
+    /* Check consecutive failures */
+    if (consecutive_failures >= MAX_CONSECUTIVE_FAILURES) {
+        if (gateway_online) {
+            LOG_WRN("Gateway offline: %d consecutive failures", 
+                    consecutive_failures);
+            gateway_online = false;
+        }
+        return false;
+    }
+    
+    return gateway_online;
+}
+
+/* Phase 3: Update connectivity state after send attempt */
+static void update_gateway_connectivity(int send_result)
+{
+    if (send_result == 0) {
+        /* Success */
+        last_successful_send = k_uptime_get();
+        consecutive_failures = 0;
+        if (!gateway_online) {
+            LOG_INF("Gateway back online!");
+            gateway_online = true;
+        }
+    } else {
+        /* Failure */
+        consecutive_failures++;
+        LOG_WRN("Send failed: %d consecutive failures",
+                consecutive_failures);
+    }
 }

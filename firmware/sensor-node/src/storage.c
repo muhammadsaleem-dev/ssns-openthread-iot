@@ -1,148 +1,163 @@
 #include "storage.h"
+#include "network.h"  /* Phase 3: For network_send_raw_payload */
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/settings/settings.h>
+#include <zephyr/fs/nvs.h>
+#include <zephyr/storage/flash_map.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 LOG_MODULE_REGISTER(storage, LOG_LEVEL_DBG);
 
+// Phase 3.1: Simplified - use RAM queue only (no Flash persistence)
+// This avoids Settings/NVS conflicts with OpenThread
+// 50 packets × 1024 bytes = 50 KB RAM (acceptable for nRF52840 with 256 KB RAM)
 #define QUEUE_MAX_ITEMS 50
+#define PACKET_SLOT_SIZE 1024  /* Large enough for 5-sample batches (~821 bytes) */
 
-static uint16_t next_write_id = 1;
-static uint16_t next_read_id = 1;
-
-/* Callback used to find the oldest packet */
-struct find_ctx {
-    uint8_t *buf;
-    size_t max_len;
-    size_t found_len;
-    uint16_t found_id;
-    bool found;
-};
-
-static int settings_load_cb(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg, void *param)
-{
-    struct find_ctx *ctx = (struct find_ctx *)param;
-    /* name will be the ID, e.g., "1", "2" */
-    int id = atoi(name);
-    
-    if (id > 0 && id == next_read_id && !ctx->found) {
-        if (len > ctx->max_len) {
-            len = ctx->max_len;
-        }
-        read_cb(cb_arg, ctx->buf, len);
-        ctx->found_len = len;
-        ctx->found_id = id;
-        ctx->found = true;
-    }
-    
-    return 0;
-}
-
-static int settings_meta_cb(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg, void *param)
-{
-    if (strcmp(name, "w") == 0) {
-        read_cb(cb_arg, &next_write_id, sizeof(next_write_id));
-    } else if (strcmp(name, "r") == 0) {
-        read_cb(cb_arg, &next_read_id, sizeof(next_read_id));
-    }
-    return 0;
-}
+static uint8_t packet_queue[QUEUE_MAX_ITEMS][PACKET_SLOT_SIZE];
+static uint16_t packet_sizes[QUEUE_MAX_ITEMS];
+static uint16_t queue_head = 0;  /* Next write position */
+static uint16_t queue_tail = 0;  /* Next read position */
+static uint16_t queue_count = 0; /* Number of packets in queue */
 
 int storage_init(void)
 {
-    /* OpenThread automatically calls settings_subsys_init() for us, 
-       so the NVS partition is already mounted safely without crashing! */
-       
-    LOG_INF("Using Settings subsystem for NVS Queue!");
-
-    /* Load our metadata (read and write heads) */
-    settings_load_subtree_direct("qmeta", settings_meta_cb, NULL);
-    LOG_INF("Queue loaded: read_id=%d, write_id=%d", next_read_id, next_write_id);
+    /* Phase 3.1: Simple RAM-based queue (no Flash conflicts) */
+    queue_head = 0;
+    queue_tail = 0;
+    queue_count = 0;
+    
+    LOG_INF("RAM-based packet queue initialized: %d slots × %d bytes = %d KB",
+            QUEUE_MAX_ITEMS, PACKET_SLOT_SIZE, (QUEUE_MAX_ITEMS * PACKET_SLOT_SIZE) / 1024);
+    LOG_INF("Capacity: %d packets = %.1f hours offline coverage",
+            QUEUE_MAX_ITEMS, (QUEUE_MAX_ITEMS * 30.0) / 3600.0);
 
     return 0;
 }
 
 int storage_save_packet(const uint8_t *payload, size_t len)
 {
-    char key[32];
-    snprintf(key, sizeof(key), "q/%d", next_write_id);
-
-    /* Enforce a maximum queue limit to avoid completely filling the flash */
-    if ((next_write_id - next_read_id) > QUEUE_MAX_ITEMS) {
-        LOG_ERR("NVS Queue reached MAX_ITEMS (%d). Dropping packet.", QUEUE_MAX_ITEMS);
-        return -ENOMEM;
+    if (len > PACKET_SLOT_SIZE) {
+        LOG_ERR("Packet too large: %zu bytes (max %d)", len, PACKET_SLOT_SIZE);
+        return -EINVAL;
     }
 
-    int rc = settings_save_one(key, payload, len);
-    if (rc == 0) {
-        LOG_INF("Saved packet to NVS ID %d", next_write_id);
-        next_write_id++;
-        
-        /* Save metadata */
-        settings_save_one("qmeta/w", &next_write_id, sizeof(next_write_id));
-    } else {
-        LOG_ERR("Failed to save to NVS (%d)", rc);
+    /* Circular buffer - overwrite oldest when full */
+    if (queue_count >= QUEUE_MAX_ITEMS) {
+        LOG_WRN("Queue full (%d packets), overwriting oldest", QUEUE_MAX_ITEMS);
+        queue_tail = (queue_tail + 1) % QUEUE_MAX_ITEMS;
+        queue_count--;
     }
+
+    /* Save packet to RAM */
+    memcpy(packet_queue[queue_head], payload, len);
+    packet_sizes[queue_head] = len;
+    queue_head = (queue_head + 1) % QUEUE_MAX_ITEMS;
+    queue_count++;
+
+    LOG_INF("Saved packet to RAM queue (slot %d, %d/%d packets)",
+            (queue_head - 1 + QUEUE_MAX_ITEMS) % QUEUE_MAX_ITEMS,
+            queue_count, QUEUE_MAX_ITEMS);
     
-    return rc;
+    return 0;
 }
 
 int storage_read_oldest_packet(uint8_t *buf, size_t max_len, size_t *out_len, uint16_t *out_id)
 {
-    if (next_read_id == next_write_id) {
+    if (queue_count == 0) {
         return -ENOENT; /* Queue empty */
     }
 
-    struct find_ctx ctx;
-    ctx.buf = buf;
-    ctx.max_len = max_len;
-    ctx.found = false;
-
-    settings_load_subtree_direct("q", settings_load_cb, &ctx);
-
-    if (ctx.found) {
-        *out_len = ctx.found_len;
-        *out_id = ctx.found_id;
-        return 0;
+    size_t len = packet_sizes[queue_tail];
+    if (len > max_len) {
+        len = max_len;
     }
 
-    /* If we expected a packet but couldn't find it, advance the read head to recover */
-    LOG_WRN("Missing packet %d, advancing read head.", next_read_id);
-    next_read_id++;
-    settings_save_one("qmeta/r", &next_read_id, sizeof(next_read_id));
+    memcpy(buf, packet_queue[queue_tail], len);
+    *out_len = len;
+    *out_id = queue_tail;  /* Use slot index as ID */
     
-    return -ENOENT;
+    return 0;
 }
 
 int storage_delete_packet(uint16_t id)
 {
-    char key[32];
-    snprintf(key, sizeof(key), "q/%d", id);
-    
-    /* settings_delete is implemented as settings_save_one with NULL value */
-    int rc = settings_save_one(key, NULL, 0);
-    if (rc == 0) {
-        LOG_INF("Deleted NVS packet ID %d", id);
-        if (id == next_read_id) {
-            next_read_id++;
-            settings_save_one("qmeta/r", &next_read_id, sizeof(next_read_id));
-        }
+    if (queue_count == 0) {
+        return -ENOENT;
     }
-    return rc;
+
+    /* Remove from tail (oldest) */
+    queue_tail = (queue_tail + 1) % QUEUE_MAX_ITEMS;
+    queue_count--;
+    
+    LOG_DBG("Deleted packet from slot %d (%d packets remaining)", id, queue_count);
+    return 0;
 }
 
 int storage_get_queue_usage(void)
 {
-    if (next_write_id >= next_read_id) {
-        return (int)(next_write_id - next_read_id);
-    }
-    return 0;
+    return queue_count;
 }
 
 int storage_get_queue_capacity(void)
 {
     return QUEUE_MAX_ITEMS;
+}
+
+/* Phase 3: Forward all stored packets to gateway */
+int storage_forward_all_packets(void)
+{
+    int forwarded = 0;
+    int failed = 0;
+    uint8_t packet_buf[1024];
+    size_t packet_len;
+    uint16_t packet_id;
+    
+    int queue_size = storage_get_queue_usage();
+    if (queue_size == 0) {
+        LOG_DBG("No packets to forward");
+        return 0;
+    }
+    
+    LOG_INF("Starting to forward %d stored packets...", queue_size);
+    
+    while (storage_get_queue_usage() > 0) {
+        /* Read oldest packet */
+        int rc = storage_read_oldest_packet(packet_buf, sizeof(packet_buf), 
+                                           &packet_len, &packet_id);
+        if (rc != 0) {
+            LOG_ERR("Failed to read packet: %d", rc);
+            failed++;
+            break;
+        }
+        
+        /* Send packet via network */
+        rc = network_send_raw_payload(packet_buf, packet_len);
+        if (rc != 0) {
+            LOG_WRN("Failed to forward packet ID %d, stopping (rc=%d)", 
+                    packet_id, rc);
+            failed++;
+            break;
+        }
+        
+        /* Delete successfully forwarded packet */
+        storage_delete_packet(packet_id);
+        forwarded++;
+        
+        /* Small delay to avoid overwhelming the network */
+        k_sleep(K_MSEC(100));
+        
+        /* Log progress every 100 packets */
+        if (forwarded % 100 == 0) {
+            LOG_INF("Forwarded %d/%d packets...", forwarded, queue_size);
+        }
+    }
+    
+    if (forwarded > 0) {
+        LOG_INF("Forwarding complete: %d sent, %d failed, %d remaining",
+                forwarded, failed, storage_get_queue_usage());
+    }
+    
+    return forwarded;
 }

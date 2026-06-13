@@ -30,6 +30,16 @@ int network_init(void);
 int network_send_coap(const struct sensor_readings *r);
 
 /**
+ * @brief Encode a batch of sensor readings into CBOR payload (without sending).
+ * Phase 3: Used for offline storage - encodes batch into internal buffer.
+ * @param samples     Array of sensor readings.
+ * @param timestamps  Array of actual timestamps (ms) for each sample.
+ * @param count       Number of samples in the batch (1-5).
+ * @return 0 on success, negative errno on encoding failure.
+ */
+int network_encode_coap_batch(const struct sensor_readings *samples, const uint32_t *timestamps, uint8_t count);
+
+/**
  * @brief Encode a batch of sensor readings into a CBOR payload and send via CoAP/UDP.
  * Phase 2: Batch transmission - sends multiple samples in a single packet.
  * Waits up to 5 seconds for a CoAP ACK from the gateway.
@@ -67,5 +77,12 @@ const uint8_t *network_get_last_payload(void);
  * @return Size in bytes.
  */
 size_t network_get_last_payload_len(void);
+
+/**
+ * @brief Check if the gateway is currently reachable.
+ * Phase 3: Gateway connectivity tracking based on recent send success/failures.
+ * @return true if gateway is online, false if offline (3+ consecutive failures).
+ */
+bool network_is_gateway_reachable(void);
 
 #endif /* NETWORK_H */

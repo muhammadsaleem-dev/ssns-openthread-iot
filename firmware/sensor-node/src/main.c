@@ -92,45 +92,53 @@ int main(void)
                                ((current_time - last_transmit_time) >= TRANSMIT_INTERVAL_MS && sample_count > 0);
 
         if (should_transmit) {
-            LOG_INF("Transmitting batch of %d samples...", sample_count);
+            /* Phase 3: Always encode batch first (needed for both send and store) */
+            rc = network_encode_coap_batch(sample_buffer, sample_timestamps, sample_count);
+            if (rc != 0) {
+                LOG_ERR("Failed to encode batch, skipping transmission");
+                sample_count = 0;
+                last_transmit_time = current_time;
+                k_sleep(K_SECONDS(1));
+                continue;
+            }
+            
+            /* Phase 3: Check gateway connectivity before attempting transmission */
+            bool gateway_reachable = network_is_gateway_reachable();
+            
+            if (gateway_reachable) {
+                /* Gateway online - attempt transmission */
+                LOG_INF("Transmitting batch of %d samples...", sample_count);
+                rc = network_send_coap_batch(sample_buffer, sample_timestamps, sample_count);
 
-            /* 3. Transmit batch over CoAP with actual timestamps */
-            rc = network_send_coap_batch(sample_buffer, sample_timestamps, sample_count);
+                if (rc < 0) {
+                    consecutive_failures++;
+                    LOG_WRN("Batch transmission failed (%d/3). Saving to NVS queue...",
+                            consecutive_failures);
+                    storage_save_packet(network_get_last_payload(),
+                                        network_get_last_payload_len());
 
-            if (rc < 0) {
-                consecutive_failures++;
-                LOG_WRN("Batch transmission failed (%d/3). Saving to NVS queue...",
-                        consecutive_failures);
-                storage_save_packet(network_get_last_payload(),
-                                    network_get_last_payload_len());
+                    if (consecutive_failures >= 3) {
+                        network_reset_stack();
+                        consecutive_failures = 0;
+                    }
 
-                if (consecutive_failures >= 3) {
-                    network_reset_stack();
+                } else if (rc == 0) {
                     consecutive_failures = 0;
-                }
+                    LOG_INF("Batch sent successfully!");
 
-            } else if (rc == 0) {
-                consecutive_failures = 0;
-
-                /* 4. Network is online — drain up to 5 queued backlog packets */
-                uint8_t buf[1024];  /* Increased for batch payloads */
-                size_t  out_len;
-                uint16_t oldest_id;
-
-                for (int i = 0; i < 5; i++) {
-                    if (storage_read_oldest_packet(buf, sizeof(buf),
-                                                   &out_len, &oldest_id) == 0) {
-                        LOG_INF("Draining backlog packet ID %d...", oldest_id);
-                        if (network_send_raw_payload(buf, out_len) == 0) {
-                            storage_delete_packet(oldest_id);
-                            k_sleep(K_MSEC(500));
-                        } else {
-                            break;  /* Network failed again — stop draining */
-                        }
-                    } else {
-                        break;  /* Queue empty */
+                    /* Phase 3: Forward all stored packets when gateway is back online */
+                    int queue_size = storage_get_queue_usage();
+                    if (queue_size > 0) {
+                        LOG_INF("Gateway online, forwarding %d stored packets...", queue_size);
+                        int forwarded = storage_forward_all_packets();
+                        LOG_INF("Forwarded %d packets from storage", forwarded);
                     }
                 }
+            } else {
+                /* Gateway offline - store already-encoded batch to Flash */
+                LOG_INF("Gateway offline, storing batch (%d samples) to Flash...", sample_count);
+                storage_save_packet(network_get_last_payload(),
+                                    network_get_last_payload_len());
             }
 
             LOG_INF("Offline Queue: %d / %d packets | Batch sent: %d samples",

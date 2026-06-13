@@ -81,3 +81,25 @@
 		/* No additional properties needed */
 	};
 };
+
+/* ---- Flash Partitions for Phase 3 Offline Storage ----------------------- */
+/* Delete the default small storage partition and create a larger one */
+
+/delete-node/ &storage_partition;
+
+&flash0 {
+	partitions {
+		/* EXPANDED: Settings storage for offline queue (128 KB) */
+		storage_partition: partition@f8000 {
+			label = "storage";
+			reg = <0x000F8000 0x00020000>;  /* 128 KB at 0xF8000 */
+		};
+	};
+};
+
+/* Tell Zephyr Settings subsystem to use our custom partition */
+/ {
+	chosen {
+		zephyr,settings-partition = &storage_partition;
+	};
+};
