@@ -91,6 +91,18 @@ public class AlertController {
         AlertResponse response = alertService.createExternalAlert(request);
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(response);
     }
+    @org.springframework.web.bind.annotation.PostMapping("/reset-timers")
+    @Operation(
+            summary = "Reset anti-spam debounce timers",
+            description = "Clears the internal cache of recent INFO alerts so new events can trigger immediately."
+    )
+    @ApiResponse(responseCode = "200", description = "Timers reset")
+    public ResponseEntity<Void> resetTimers() {
+        log.info("POST /api/alerts/reset-timers");
+        alertService.resetDebounceTimers();
+        return ResponseEntity.ok().build();
+    }
+
     @org.springframework.web.bind.annotation.PutMapping("/resolve-all")
     @Operation(
             summary = "Resolve all unresolved alerts",

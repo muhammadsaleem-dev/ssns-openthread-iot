@@ -158,7 +158,12 @@ public class SensorDataService {
 
         // Limit the total records sent to the UI if raw query exceeds 400 without downsampling
         if (hours <= 1 && rawData.size() > 400) {
+            // Sort descending first so we keep the newest 400, not the oldest 400
+            rawData.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
             rawData = rawData.subList(0, 400);
+        } else if (hours <= 1 && !rawData.isEmpty()) {
+            // Even if we don't truncate, we must return the data sorted descending
+            rawData.sort((a, b) -> b.getTimestamp().compareTo(a.getTimestamp()));
         }
 
         List<SensorDataResponse> response = rawData.stream().map(this::toResponse).toList();
@@ -197,6 +202,34 @@ public class SensorDataService {
                 .id(first.getId())
                 .nodeId(first.getNodeId())
                 .timestamp(Instant.ofEpochMilli((first.getTimestamp().toEpochMilli() / bucketMillis) * bucketMillis))
+                // Preserve statistics from the representative reading in the bucket
+                .temperatureMean(first.getTemperatureMean())
+                .temperatureStd(first.getTemperatureStd())
+                .temperatureMax(first.getTemperatureMax())
+                .humidityMean(first.getHumidityMean())
+                .humidityStd(first.getHumidityStd())
+                .humidityMax(first.getHumidityMax())
+                .co2Mean(first.getCo2Mean())
+                .co2Std(first.getCo2Std())
+                .co2Max(first.getCo2Max())
+                .tvocMean(first.getTvocMean())
+                .tvocStd(first.getTvocStd())
+                .tvocMax(first.getTvocMax())
+                .eco2Mean(first.getEco2Mean())
+                .eco2Std(first.getEco2Std())
+                .eco2Max(first.getEco2Max())
+                .pm1_0Mean(first.getPm1_0Mean())
+                .pm1_0Std(first.getPm1_0Std())
+                .pm1_0Max(first.getPm1_0Max())
+                .pm2_5Mean(first.getPm2_5Mean())
+                .pm2_5Std(first.getPm2_5Std())
+                .pm2_5Max(first.getPm2_5Max())
+                .pm4_0Mean(first.getPm4_0Mean())
+                .pm4_0Std(first.getPm4_0Std())
+                .pm4_0Max(first.getPm4_0Max())
+                .pm10Mean(first.getPm10Mean())
+                .pm10Std(first.getPm10Std())
+                .pm10Max(first.getPm10Max())
                 .build();
             
             double tempSum = 0, humSum = 0, co2Sum = 0, pm25Sum = 0, tvocSum = 0;

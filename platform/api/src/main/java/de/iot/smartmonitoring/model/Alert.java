@@ -59,6 +59,17 @@ public class Alert {
         ML_ANOMALY,
         HARDWARE_FAULT,
         
+        // Smart Statistical Events
+        TRANSIENT_VOC_EVENT,
+        OCCUPANCY_EVENT,
+        PARTICULATE_EVENT,
+        SUSTAINED_ENVIRONMENTAL_CHANGE,
+        VENTILATION_EVENT,
+        CLEANING_EVENT,
+        COMBUSTION_WARNING,
+        VACANCY_EVENT,
+        MOISTURE_EVENT,
+        
         // Legacy types kept for backward compatibility with existing DB records
         @Deprecated AIR_QUALITY_POOR,
         @Deprecated LIGHT_INTENSITY_HIGH

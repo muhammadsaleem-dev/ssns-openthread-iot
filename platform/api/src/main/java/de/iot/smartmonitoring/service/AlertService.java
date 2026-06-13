@@ -43,9 +43,129 @@ public class AlertService {
      * Evaluate a telemetry reading against all configured alert thresholds.
      */
     public void evaluate(SensorData data) {
-        // First check for physical hardware faults
+        // 1. Check for physical hardware faults (legacy bitmask)
         triggerHardwareFault(data.getNodeId(), data.getHealthStatus());
 
+        // 2. Sensor Fault (Statistical)
+        if (data.getTvocStd() != null && data.getTvocStd() == 0.0 && data.getTvocMean() != null && data.getTvocMean() > 0) {
+            createAlert(data.getNodeId(), Alert.AlertType.HARDWARE_FAULT,
+                    Alert.AlertSeverity.CRITICAL,
+                    "TVOC standard deviation is perfectly zero. Sensor may be frozen.",
+                    "Power cycle the sensor node.",
+                    data.getTvoc(), 0.0);
+        }
+
+        // 3. Transient VOC Event (Perfume / Breath)
+        if (data.getTvocMax() != null && data.getTvocMean() != null && data.getTvocStd() != null && data.getTvoc() != null) {
+            // A human breath is a "fat" spike, which dramatically increases the standard deviation. 
+            // We use a relaxed threshold (1.5*std) but ENFORCE a minimum absolute jump of 25 ppb to ignore baseline noise.
+            boolean isSpike = data.getTvocMax() > data.getTvocMean() + Math.max(1.5 * data.getTvocStd(), 25.0);
+            
+            if (isSpike && data.getTvoc() < data.getTvocMean() + Math.max(data.getTvocStd(), 10.0)) {
+                createAlert(data.getNodeId(), Alert.AlertType.TRANSIENT_VOC_EVENT,
+                        Alert.AlertSeverity.INFO,
+                        "Transient VOC spike detected and recovered.",
+                        "No action required.",
+                        data.getTvocMax(), data.getTvocMean());
+            } 
+            // 8. Sustained Environmental Change (Ventilation Failure)
+            else if (data.getTvoc() > tvocMax && data.getTvocMean() > tvocMax * 0.8 && data.getTvocStd() < 100) {
+                createAlert(data.getNodeId(), Alert.AlertType.SUSTAINED_ENVIRONMENTAL_CHANGE,
+                        Alert.AlertSeverity.WARNING,
+                        "Persistent high TVOC detected.",
+                        "Check ventilation system immediately.",
+                        data.getTvoc(), tvocMax);
+            }
+        }
+
+        // 4. Particulate Event
+        if (data.getPm2_5Max() != null && data.getPm2_5Mean() != null && data.getPm2_5Std() != null && data.getPm2_5() != null) {
+            // Apply a noise floor of 5.0 ug/m3 (based on SPS30 hardware accuracy)
+            if (data.getPm2_5Max() > data.getPm2_5Mean() + Math.max(3 * data.getPm2_5Std(), 5.0) &&
+                data.getPm2_5() < data.getPm2_5Mean() + data.getPm2_5Std()) {
+                createAlert(data.getNodeId(), Alert.AlertType.PARTICULATE_EVENT,
+                        Alert.AlertSeverity.INFO,
+                        "Transient particulate disturbance detected.",
+                        "No action required.",
+                        data.getPm2_5Max(), data.getPm2_5Mean());
+            }
+        }
+
+        // 5. Occupancy Event
+        boolean isCo2Valid = data.getCo2() != null && data.getCo2() > -900.0;
+        if (isCo2Valid && data.getCo2Mean() != null && data.getCo2Std() != null) {
+            if (data.getCo2Mean() > 800 && data.getCo2Std() < 50) {
+                createAlert(data.getNodeId(), Alert.AlertType.OCCUPANCY_EVENT,
+                        Alert.AlertSeverity.INFO,
+                        "Occupancy detected (elevated, stable CO2).",
+                        "No action required.",
+                        data.getCo2Mean(), 800.0);
+            } else if (data.getCo2() > co2Max) {
+                createAlert(data.getNodeId(), Alert.AlertType.HIGH_CO2,
+                        Alert.AlertSeverity.WARNING,
+                        String.format("CO2 %.1f ppm exceeds threshold %.1f ppm", data.getCo2(), co2Max),
+                        "Increase fresh air intake.",
+                        data.getCo2(), co2Max);
+            }
+        }
+
+        // 6. Rapid Ventilation
+        boolean isTempValid = data.getTemperature() != null && data.getTemperature() > -900.0;
+        if (isTempValid && isCo2Valid && data.getTemperatureMean() != null && data.getTemperatureStd() != null &&
+            data.getCo2Mean() != null && data.getCo2Std() != null) {
+            // Apply hardware noise floors: SCD41 Temp accuracy +/- 0.4C, CO2 accuracy +/- 40ppm
+            if (data.getTemperature() < data.getTemperatureMean() - Math.max(2 * data.getTemperatureStd(), 0.5) &&
+                data.getCo2() < data.getCo2Mean() - Math.max(2 * data.getCo2Std(), 30.0)) {
+                createAlert(data.getNodeId(), Alert.AlertType.VENTILATION_EVENT,
+                        Alert.AlertSeverity.INFO,
+                        "Rapid ventilation detected (Temp & CO2 dropping).",
+                        "No action required.",
+                        data.getTemperature(), data.getTemperatureMean());
+            }
+        }
+
+        // 7. Active Cleaning
+        if (data.getTvocMax() != null && data.getTvocMean() != null && data.getTvocStd() != null &&
+            data.getPm2_5Max() != null && data.getPm2_5Mean() != null && data.getPm2_5Std() != null) {
+            // Apply hardware noise floors: 25 ppb for TVOC, 5.0 ug/m3 for PM2.5
+            if (data.getTvocMax() > data.getTvocMean() + Math.max(3 * data.getTvocStd(), 25.0) &&
+                data.getPm2_5Max() > data.getPm2_5Mean() + Math.max(3 * data.getPm2_5Std(), 5.0)) {
+                createAlert(data.getNodeId(), Alert.AlertType.CLEANING_EVENT,
+                        Alert.AlertSeverity.INFO,
+                        "Active cleaning detected (VOC + PM spike).",
+                        "No action required.",
+                        data.getTvocMax(), data.getTvocMean());
+            }
+        }
+
+        // 8. Moisture Event
+        if (data.getHumidity() != null && data.getHumidityMean() != null && data.getHumidityStd() != null &&
+            data.getCo2Std() != null) {
+            // Apply hardware noise floor: SCD41 Humidity accuracy +/- 3% RH
+            if (data.getHumidity() > data.getHumidityMean() + Math.max(3 * data.getHumidityStd(), 5.0) &&
+                data.getCo2Std() < 10) {
+                createAlert(data.getNodeId(), Alert.AlertType.MOISTURE_EVENT,
+                        Alert.AlertSeverity.INFO,
+                        "Localized moisture spike detected.",
+                        "No action required.",
+                        data.getHumidity(), data.getHumidityMean());
+            }
+        }
+
+        // 9. Combustion Warning
+        if (data.getPm2_5() != null && data.getTvoc() != null && data.getTemperature() != null &&
+            data.getTemperatureMean() != null && data.getTemperatureStd() != null) {
+            if (data.getPm2_5() > pm25Max && data.getTvoc() > tvocMax &&
+                data.getTemperature() > data.getTemperatureMean() + (2 * data.getTemperatureStd())) {
+                createAlert(data.getNodeId(), Alert.AlertType.COMBUSTION_WARNING,
+                        Alert.AlertSeverity.CRITICAL,
+                        "Combustion warning: High PM, VOC, and Temperature.",
+                        "Evacuate and investigate immediately.",
+                        data.getTemperature(), data.getTemperatureMean());
+            }
+        }
+        
+        // Legacy Checks (Temperature High/Low)
         if (data.getTemperature() != null && data.getTemperature() > -900.0) {
             if (data.getTemperature() > temperatureMax) {
                 createAlert(data.getNodeId(), Alert.AlertType.TEMPERATURE_HIGH,
@@ -63,33 +183,6 @@ public class AlertService {
                         "Check heating systems; close external windows.",
                         data.getTemperature(), temperatureMin);
             }
-        }
-
-        if (data.getCo2() != null && data.getCo2() > co2Max) {
-            createAlert(data.getNodeId(), Alert.AlertType.HIGH_CO2,
-                    Alert.AlertSeverity.WARNING,
-                    String.format("CO2 %.1f ppm exceeds threshold %.1f ppm",
-                            data.getCo2(), co2Max),
-                    "Increase fresh air intake or open windows.",
-                    data.getCo2(), co2Max);
-        }
-
-        if (data.getPm2_5() != null && data.getPm2_5() > pm25Max) {
-            createAlert(data.getNodeId(), Alert.AlertType.HIGH_PARTICULATES,
-                    Alert.AlertSeverity.WARNING,
-                    String.format("PM2.5 %.1f µg/m³ exceeds threshold %.1f µg/m³",
-                            data.getPm2_5(), pm25Max),
-                    "Check building air filters; keep external windows closed if smoggy.",
-                    data.getPm2_5(), pm25Max);
-        }
-
-        if (data.getTvoc() != null && data.getTvoc() > tvocMax) {
-            createAlert(data.getNodeId(), Alert.AlertType.HIGH_VOC,
-                    Alert.AlertSeverity.WARNING,
-                    String.format("TVOC %.1f ppb exceeds threshold %.1f ppb",
-                            data.getTvoc(), tvocMax),
-                    "Investigate for chemical spills or off-gassing materials; increase ventilation.",
-                    data.getTvoc(), tvocMax);
         }
     }
 
@@ -269,15 +362,34 @@ public class AlertService {
 
     // ---- Internal helpers ----
 
+    /**
+     * Resets the debounce timers for all INFO alerts, allowing immediate triggering.
+     * In an HA setup, we simply delete the recent INFO events from the shared database.
+     */
+    public void resetDebounceTimers() {
+        alertRepository.deleteBySeverity(Alert.AlertSeverity.INFO);
+        log.info("Deleted all INFO events to reset the distributed debounce timers.");
+    }
+
     private void createAlert(String nodeId, Alert.AlertType type,
                              Alert.AlertSeverity severity, String message,
                              String recommendedAction,
                              Double triggerValue, Double thresholdValue) {
         
-        // Deduplication: Prevent database spam if the sensor continuously reports the same error.
-        java.util.Optional<Alert> existing = alertRepository.findFirstByNodeIdAndTypeAndResolvedFalse(nodeId, type);
-        if (existing.isPresent()) {
-            return; // An unresolved alert of this exact type is already active.
+        boolean isInfo = (severity == Alert.AlertSeverity.INFO);
+
+        if (isInfo) {
+            // Distributed Anti-Spam: Query the shared DB to see if this node recently fired this INFO alert
+            java.util.Optional<Alert> recent = alertRepository.findFirstByNodeIdAndTypeOrderByCreatedAtDesc(nodeId, type);
+            if (recent.isPresent() && recent.get().getCreatedAt().isAfter(java.time.Instant.now().minusSeconds(300))) {
+                return; // Suppress spam for 5 minutes
+            }
+        } else {
+            // Deduplication: Prevent database spam if the sensor continuously reports the same error.
+            java.util.Optional<Alert> existing = alertRepository.findFirstByNodeIdAndTypeAndResolvedFalse(nodeId, type);
+            if (existing.isPresent()) {
+                return; // An unresolved alert of this exact type is already active.
+            }
         }
 
         Alert alert = Alert.builder()
@@ -288,10 +400,15 @@ public class AlertService {
                 .recommendedAction(recommendedAction)
                 .triggerValue(triggerValue)
                 .thresholdValue(thresholdValue)
-                .resolved(false)
+                .resolved(isInfo) // Auto-resolve INFO events
                 .build();
         alertRepository.save(alert);
-        log.warn("ALERT [{}] {} on {}: {}", severity, type, nodeId, message);
+        
+        if (isInfo) {
+            log.info("ACTIVITY FEED [{}] {} on {}: {}", severity, type, nodeId, message);
+        } else {
+            log.warn("ALERT [{}] {} on {}: {}", severity, type, nodeId, message);
+        }
     }
 
     /**

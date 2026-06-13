@@ -45,4 +45,8 @@ public interface AlertRepository extends MongoRepository<Alert, String> {
     long countByTypeInAndResolvedFalse(List<Alert.AlertType> types);
 
     long countByResolvedFalse();
+
+    java.util.Optional<Alert> findFirstByNodeIdAndTypeOrderByCreatedAtDesc(String nodeId, Alert.AlertType type);
+
+    void deleteBySeverity(Alert.AlertSeverity severity);
 }
