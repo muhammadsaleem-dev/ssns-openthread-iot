@@ -25,6 +25,7 @@ import useTelemetryStream from '../hooks/useTelemetryStream';
 import { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlertsPage, fetchAlertCounts, updateNodeLocation, fetchNetworkTopology } from '../services/api';
 import { formatTimestamp, average, computeAqi } from '../utils/format';
 import CustomPagination from '../components/CustomPagination';
+import ActivityFeed from '../components/alerts/ActivityFeed';
 import API from '../config/api';
 
 const SEVERITY_COLOR = {
@@ -174,7 +175,7 @@ export default function DashboardPage() {
   // Recent alerts (latest 5)
   const recentAlerts = useMemo(() => {
     if (!recentAlertsPage || !recentAlertsPage.content) return [];
-    return recentAlertsPage.content;
+    return recentAlertsPage.content.filter(a => a.severity !== 'INFO');
   }, [recentAlertsPage]);
 
   // Smart KPI Stats (Max for global, Exact for specific room)
@@ -396,10 +397,10 @@ export default function DashboardPage() {
         </Grid>
       </Grid>
 
-      {/* ─── Bottom row: Recent Feed + Alerts ─── */}
+      {/* ─── Bottom row: Recent Feed + Alerts + Activity Feed ─── */}
       <Grid container spacing={2.5}>
         {/* Recent Telemetry Feed */}
-        <Grid size={{ xs: 12, lg: 7 }}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <SectionHeader 
             title={selectedLocationName ? `Recent Telemetry: ${selectedLocationName}` : "Recent Telemetry"} 
             subtitle="Latest sensor readings" 
@@ -477,7 +478,7 @@ export default function DashboardPage() {
         </Grid>
 
         {/* Alerts Panel */}
-        <Grid size={{ xs: 12, lg: 5 }}>
+        <Grid size={{ xs: 12, md: 6, lg: 3 }}>
           <SectionHeader 
             title={selectedLocationName ? `Recent Alerts: ${selectedLocationName}` : "Recent Alerts"} 
             subtitle="Environmental anomalies" 
@@ -524,6 +525,11 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+        </Grid>
+
+        {/* Activity Feed */}
+        <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+          <ActivityFeed />
         </Grid>
       </Grid>
 

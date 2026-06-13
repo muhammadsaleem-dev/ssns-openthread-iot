@@ -176,53 +176,16 @@ export default function NodeCard({ node, latestTelemetry, hasActiveAlerts, onLoc
             Sensor is offline. No live data available.
           </Typography>
         ) : latestTelemetry ? (
-          <>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
-              <MetricBox icon={ThermostatIcon} label="Temp" value={latestTelemetry.temperature} unit="°C" color="#3B82F6" precision={1} />
-              <MetricBox icon={WaterDropIcon} label="Humid" value={latestTelemetry.humidity} unit="%" color="#3B82F6" precision={0} />
-              
-              <MetricBox icon={AirIcon} label="CO2" value={latestTelemetry.co2} unit="ppm" color="#10B981" precision={0} />
-              <MetricBox icon={CloudOutlinedIcon} label="TVOC" value={latestTelemetry.tvoc} unit="ppb" color="#F59E0B" precision={0} />
-              
-              <MetricBox icon={AirIcon} label="PM2.5" value={latestTelemetry.pm2_5} unit="µg" color="#6366F1" precision={1} />
-              <MetricBox icon={AirIcon} label="PM10" value={latestTelemetry.pm10} unit="µg" color="#8B5CF6" precision={1} />
-            </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
+            <MetricBox icon={ThermostatIcon} label="Temp" value={latestTelemetry.temperature} unit="°C" color="#3B82F6" precision={1} />
+            <MetricBox icon={WaterDropIcon} label="Humid" value={latestTelemetry.humidity} unit="%" color="#3B82F6" precision={0} />
             
-            {/* 30-Sample Statistics Summary */}
-            {latestTelemetry.temperatureMean != null && (
-              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1 }}>
-                  30-Sample Statistics (Mean / Max)
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, fontSize: '0.7rem' }}>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>Temp:</Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, ml: 0.5 }}>
-                      {latestTelemetry.temperatureMean?.toFixed(1)}°C / {latestTelemetry.temperatureMax?.toFixed(1)}°C
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>CO2:</Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, ml: 0.5 }}>
-                      {latestTelemetry.co2Mean?.toFixed(0)}ppm / {latestTelemetry.co2Max?.toFixed(0)}ppm
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>PM2.5:</Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, ml: 0.5 }}>
-                      {latestTelemetry.pm2_5Mean?.toFixed(1)}µg / {latestTelemetry.pm2_5Max?.toFixed(1)}µg
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>Humid:</Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, ml: 0.5 }}>
-                      {latestTelemetry.humidityMean?.toFixed(0)}% / {latestTelemetry.humidityMax?.toFixed(0)}%
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-            )}
-          </>
+            <MetricBox icon={AirIcon} label="CO2" value={latestTelemetry.co2} unit="ppm" color="#10B981" precision={0} />
+            <MetricBox icon={CloudOutlinedIcon} label="TVOC" value={latestTelemetry.tvoc} unit="ppb" color="#F59E0B" precision={0} />
+            
+            <MetricBox icon={AirIcon} label="PM2.5" value={latestTelemetry.pm2_5} unit="µg" color="#6366F1" precision={1} />
+            <MetricBox icon={AirIcon} label="PM10" value={latestTelemetry.pm10} unit="µg" color="#8B5CF6" precision={1} />
+          </Box>
         ) : (
           <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', py: 2 }}>
             Awaiting telemetry...

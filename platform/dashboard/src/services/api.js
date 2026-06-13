@@ -69,9 +69,15 @@ export const resolveAllAlerts = async (category = 'all') => {
   return data;
 };
 
-/** Mark a single alert as resolved. */
+/** Resolve a specific alert. */
 export const resolveAlert = async (id) => {
   const { data } = await client.put(`/api/alerts/${id}/resolve`);
+  return data;
+};
+
+/** Reset backend anti-spam debounce timers for INFO events. */
+export const resetAlertTimers = async () => {
+  const { data } = await client.post('/api/alerts/reset-timers');
   return data;
 };
 
