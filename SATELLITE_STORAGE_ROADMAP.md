@@ -153,44 +153,124 @@ Sample sensors frequently (6s) but transmit in batches (30s) to maintain data gr
 
 ---
 
-## ⏳ PHASE 3: ADAPTIVE SAMPLING (PLANNED)
+## ⏳ PHASE 3: OFFLINE STORAGE & RESILIENCE (PLANNED)
 
 ### Objective
-Dynamically adjust sampling rates based on environmental conditions and anomaly detection results.
+Store sensor data locally during gateway outages and forward when connection is restored. Achieve 4.8 days of offline coverage using Flash storage, delta compression, and adaptive sampling.
 
 ### Status: **NOT STARTED**
 
+### Reference Document
+**See:** `docs/archive/HYBRID_STORAGE_APPROACH.md` for detailed technical design
+
 ### Planned Implementation
 
-#### 1. Firmware Intelligence
-**File:** `firmware/sensor-node/src/main.c`
-- [ ] Implement local anomaly detection (simple threshold-based)
-- [ ] Add sampling rate state machine (NORMAL, ALERT, STABLE)
-- [ ] Increase frequency during anomalies (e.g., 10s → 5s intervals)
-- [ ] Decrease frequency during stable periods (e.g., 30s → 60s intervals)
+#### 1. Flash Storage (NVS)
+**Files:** `firmware/sensor-node/src/storage.c` (new), `storage.h` (new)
+- [ ] Initialize Zephyr NVS filesystem (650 KB Flash)
+- [ ] Implement `store_packet()` function for offline buffering
+- [ ] Implement `forward_stored_packets()` for batch transmission
+- [ ] Add gateway connectivity check (CoAP ping)
+- [ ] Handle Flash write failures gracefully
+
+**Storage Capacity:**
+- 650 KB Flash available
+- ~3,250 packets (200 bytes average with compression)
+- 27 hours raw coverage (without adaptive sampling)
+
+#### 2. Delta Compression
+**Files:** `firmware/sensor-node/src/compression.c` (new), `compression.h` (new)
+- [ ] Implement `compress_packet()` using delta encoding
+- [ ] Implement `decompress_packet()` for reconstruction
+- [ ] Store first packet as baseline (full values)
+- [ ] Store subsequent packets as deltas (differences)
+- [ ] Add checksum validation
+
+**Compression Benefits:**
+- 2.25x compression ratio (450 bytes → 200 bytes average)
+- Baseline packet: 150 bytes (CBOR)
+- Delta packets: 50 bytes each
+- Preserves full precision on decompression
+
+#### 3. Adaptive Sampling
+**Files:** `firmware/sensor-node/src/main.c` (modify), `sensors.c` (modify)
+- [ ] Implement `calculate_next_interval()` based on statistics
+- [ ] Define thresholds for stable/changing environments
+- [ ] Adjust sampling rate: 10s (changing) → 30s (normal) → 300s (stable)
+- [ ] Use existing circular buffer statistics (std deviation)
 - [ ] Add hysteresis to prevent oscillation
 
-#### 2. Backend Feedback Loop
+**Efficiency Gains:**
+- 5x average efficiency improvement
+- Night/stable: 5-minute intervals (12 samples/hour)
+- Day/changing: 10-second intervals (360 samples/hour)
+- Realistic coverage: 4.8 days during outages
+
+#### 4. State Machine Integration
+**File:** `firmware/sensor-node/src/network.c` (modify)
+- [ ] Add gateway connectivity state tracking
+- [ ] Implement store-and-forward logic
+- [ ] Batch forward stored packets on reconnection
+- [ ] Maintain packet ordering and timestamps
+- [ ] Handle partial transmission failures
+
+### Expected Benefits
+- **Offline Coverage:** 4.8 days (115 hours) during gateway outages
+- **Data Reliability:** Zero data loss during network failures
+- **Power Efficiency:** 5x improvement during stable periods
+- **Flash Lifetime:** Years (only writes when gateway down)
+- **Resource Usage:** <1% CPU, <5 KB RAM
+
+### Implementation Effort
+- **Flash Storage:** 2-3 hours
+- **Delta Compression:** 3-4 hours
+- **Adaptive Sampling:** 2-3 hours
+- **Integration & Testing:** 2-3 hours
+- **Total:** 9-13 hours
+- **Complexity:** High
+- **Risk:** Medium (Flash wear, compression bugs)
+
+### Testing Requirements
+- [ ] Flash write/read verification
+- [ ] Compression/decompression accuracy
+- [ ] Gateway disconnect/reconnect scenarios
+- [ ] Long-term Flash endurance test
+- [ ] Power consumption measurement
+- [ ] Batch forwarding stress test
+
+---
+
+## ⏳ PHASE 4: ADAPTIVE SAMPLING ENHANCEMENTS (FUTURE)
+
+### Objective
+Add ML-driven adaptive sampling with backend feedback loop for intelligent rate adjustment.
+
+### Status: **NOT STARTED** (Depends on Phase 3)
+
+### Planned Implementation
+
+#### 1. Backend Feedback Loop
 **Files:** Backend API and ML service
 - [ ] Send sampling rate commands to nodes via CoAP
 - [ ] Implement bidirectional communication
 - [ ] ML service triggers rate changes based on predictions
+- [ ] Add CoAP observe pattern for real-time commands
 
-#### 3. Configuration
+#### 2. Advanced Configuration
 - [ ] Define sampling rate profiles (AGGRESSIVE, NORMAL, CONSERVATIVE)
 - [ ] Add dashboard controls for adaptive sampling
 - [ ] Per-node and per-metric rate configuration
+- [ ] Historical rate adjustment analytics
 
 ### Expected Benefits
-- **Power Optimization:** 50-70% reduction during stable periods
-- **Anomaly Response:** Faster detection with increased sampling
-- **Network Efficiency:** Reduced congestion during normal operation
-- **Battery Life:** Extended sensor node lifetime
+- **ML-Driven Optimization:** Predictive rate adjustment
+- **Anomaly Response:** Sub-10s detection with ML triggers
+- **Network Efficiency:** Coordinated rate adjustment across mesh
 
 ### Estimated Effort
-- **Time:** 6-8 hours
-- **Complexity:** High
-- **Risk:** Medium (requires careful tuning)
+- **Time:** 4-6 hours
+- **Complexity:** Medium
+- **Risk:** Low (builds on Phase 3)
 
 ---
 
@@ -199,16 +279,22 @@ Dynamically adjust sampling rates based on environmental conditions and anomaly 
 
 ### Completed
 - ✅ **Phase 1:** Statistical Aggregation (6 commits, 8 hours)
-- ✅ **Phase 2:** Batch Transmission (6 hours)
+- ✅ **Phase 2:** Batch Transmission (2 commits, 6 hours)
 
 ### Upcoming
-- ⏳ **Phase 3:** Adaptive Sampling (6-8 hours)
+- ⏳ **Phase 3:** Offline Storage & Resilience (9-13 hours)
+  - Flash Storage (NVS): 2-3 hours
+  - Delta Compression: 3-4 hours
+  - Adaptive Sampling: 2-3 hours
+  - Integration & Testing: 2-3 hours
+- ⏳ **Phase 4:** Adaptive Sampling Enhancements (4-6 hours)
 
 ### Total Estimated Effort
 - **Phase 1:** 8 hours (DONE)
 - **Phase 2:** 6 hours (DONE)
-- **Phase 3:** 6-8 hours (REMAINING)
-- **Total Project:** 20-22 hours
+- **Phase 3:** 9-13 hours (REMAINING)
+- **Phase 4:** 4-6 hours (REMAINING)
+- **Total Project:** 27-33 hours
 
 ---
 
@@ -230,9 +316,18 @@ Dynamically adjust sampling rates based on environmental conditions and anomaly 
 - [ ] Power consumption measurement
 
 ### Phase 3 Testing (Planned)
-- [ ] Adaptive rate transition testing
+- [ ] Flash write/read verification
+- [ ] Compression/decompression accuracy
+- [ ] Gateway disconnect/reconnect scenarios
+- [ ] Long-term Flash endurance test
+- [ ] Power consumption measurement
+- [ ] Batch forwarding stress test
+- [ ] 4.8-day offline coverage verification
+
+### Phase 4 Testing (Planned)
+- [ ] ML-driven rate adjustment testing
+- [ ] Backend feedback loop verification
 - [ ] Anomaly response time measurement
-- [ ] Battery life benchmarking
 - [ ] Network congestion analysis
 
 ---
@@ -252,9 +347,16 @@ Dynamically adjust sampling rates based on environmental conditions and anomaly 
 - ✅ Backward compatible (gateway handles both formats)
 
 ### Phase 3 (Target)
-- 50-70% power savings during stable periods
-- < 10s anomaly detection time
-- 2x battery life extension
+- 4.8 days offline coverage during gateway outages
+- Zero data loss during network failures
+- 2.25x compression ratio (delta encoding)
+- 5x power efficiency during stable periods
+- <1% CPU usage, <5 KB RAM overhead
+
+### Phase 4 (Target)
+- ML-driven adaptive sampling
+- Sub-10s anomaly detection with backend triggers
+- Coordinated rate adjustment across mesh network
 - Zero false positive rate increase
 
 ---
@@ -264,7 +366,8 @@ Dynamically adjust sampling rates based on environmental conditions and anomaly 
 - **Current Branch:** `feature/satellite-inspired-storage`
 - **Last Updated:** 2026-06-13
 - **Status:** Phase 1 & Phase 2 complete, pushed to remote
-- **Next Action:** Discuss storage strategy for network outages, then proceed with Phase 3
+- **Next Action:** Implement Phase 3 (Offline Storage & Resilience)
+- **Reference:** See `docs/archive/HYBRID_STORAGE_APPROACH.md` for Phase 3 technical details
 
 ---
 
