@@ -153,15 +153,18 @@ Sample sensors frequently (6s) but transmit in batches (30s) to maintain data gr
 
 ---
 
-## ⏳ PHASE 3: OFFLINE STORAGE & RESILIENCE (PLANNED)
+## ⏳ PHASE 3: OFFLINE STORAGE (SIMPLIFIED)
 
 ### Objective
-Store sensor data locally during gateway outages and forward when connection is restored. Achieve 4.8 days of offline coverage using Flash storage, delta compression, and adaptive sampling.
+Store sensor data locally during gateway outages and forward when connection is restored. Achieve 36 hours of offline coverage using Flash storage and delta compression.
 
 ### Status: **NOT STARTED**
 
+### Design Decision
+**Adaptive Sampling removed** - Adds complexity without clear benefit for current use case. Focus on reliable offline storage with Phase 2's proven 6s/30s batching strategy.
+
 ### Reference Document
-**See:** `docs/archive/HYBRID_STORAGE_APPROACH.md` for detailed technical design
+**See:** `docs/archive/HYBRID_STORAGE_APPROACH.md` for original technical design (note: adaptive sampling sections not implemented)
 
 ### Planned Implementation
 
@@ -172,80 +175,106 @@ Store sensor data locally during gateway outages and forward when connection is 
 - [ ] Implement `forward_stored_packets()` for batch transmission
 - [ ] Add gateway connectivity check (CoAP ping)
 - [ ] Handle Flash write failures gracefully
+- [ ] Maintain packet ordering with sequence numbers
 
-**Storage Capacity:**
+**Storage Capacity (without compression):**
 - 650 KB Flash available
-- ~3,250 packets (200 bytes average with compression)
-- 27 hours raw coverage (without adaptive sampling)
+- ~1,444 packets (450 bytes each)
+- 12 hours raw coverage
 
 #### 2. Delta Compression
 **Files:** `firmware/sensor-node/src/compression.c` (new), `compression.h` (new)
 - [ ] Implement `compress_packet()` using delta encoding
 - [ ] Implement `decompress_packet()` for reconstruction
-- [ ] Store first packet as baseline (full values)
-- [ ] Store subsequent packets as deltas (differences)
-- [ ] Add checksum validation
+- [ ] Store first packet as baseline (full 450 bytes)
+- [ ] Store subsequent packets as deltas (~50 bytes)
+- [ ] Add checksum validation for data integrity
 
 **Compression Benefits:**
-- 2.25x compression ratio (450 bytes → 200 bytes average)
-- Baseline packet: 150 bytes (CBOR)
-- Delta packets: 50 bytes each
+- 3x compression ratio (450 bytes → 150 bytes average)
+- Baseline packet: 450 bytes (full CBOR)
+- Delta packets: 50 bytes each (differences only)
 - Preserves full precision on decompression
 
-#### 3. Adaptive Sampling
-**Files:** `firmware/sensor-node/src/main.c` (modify), `sensors.c` (modify)
-- [ ] Implement `calculate_next_interval()` based on statistics
-- [ ] Define thresholds for stable/changing environments
-- [ ] Adjust sampling rate: 10s (changing) → 30s (normal) → 300s (stable)
-- [ ] Use existing circular buffer statistics (std deviation)
-- [ ] Add hysteresis to prevent oscillation
+**Storage Capacity (with compression):**
+- 650 KB / 150 bytes = ~4,333 packets
+- 4,333 × 30s = 129,990 seconds
+- **36 hours coverage** (1.5 days)
 
-**Efficiency Gains:**
-- 5x average efficiency improvement
-- Night/stable: 5-minute intervals (12 samples/hour)
-- Day/changing: 10-second intervals (360 samples/hour)
-- Realistic coverage: 4.8 days during outages
-
-#### 4. State Machine Integration
+#### 3. State Machine Integration
 **File:** `firmware/sensor-node/src/network.c` (modify)
 - [ ] Add gateway connectivity state tracking
 - [ ] Implement store-and-forward logic
 - [ ] Batch forward stored packets on reconnection
 - [ ] Maintain packet ordering and timestamps
 - [ ] Handle partial transmission failures
+- [ ] Add retry logic with exponential backoff
 
 ### Expected Benefits
-- **Offline Coverage:** 4.8 days (115 hours) during gateway outages
+- **Offline Coverage:** 36 hours (1.5 days) during gateway outages
 - **Data Reliability:** Zero data loss during network failures
-- **Power Efficiency:** 5x improvement during stable periods
 - **Flash Lifetime:** Years (only writes when gateway down)
 - **Resource Usage:** <1% CPU, <5 KB RAM
+- **Simplicity:** No adaptive complexity, proven Phase 2 batching
+- **Dashboard:** Unchanged (still 6-second data intervals)
 
 ### Implementation Effort
 - **Flash Storage:** 2-3 hours
 - **Delta Compression:** 3-4 hours
-- **Adaptive Sampling:** 2-3 hours
 - **Integration & Testing:** 2-3 hours
-- **Total:** 9-13 hours
-- **Complexity:** High
-- **Risk:** Medium (Flash wear, compression bugs)
+- **Total:** 7-10 hours
+- **Complexity:** Medium
+- **Risk:** Low (well-defined scope, no adaptive logic)
 
 ### Testing Requirements
 - [ ] Flash write/read verification
 - [ ] Compression/decompression accuracy
 - [ ] Gateway disconnect/reconnect scenarios
-- [ ] Long-term Flash endurance test
-- [ ] Power consumption measurement
-- [ ] Batch forwarding stress test
+- [ ] Long-term Flash endurance test (48 hours)
+- [ ] Data integrity verification (checksum validation)
+- [ ] Batch forwarding stress test (1000+ packets)
+- [ ] 36-hour offline coverage verification
 
 ---
 
-## ⏳ PHASE 4: ADAPTIVE SAMPLING ENHANCEMENTS (FUTURE)
+## ⏳ PHASE 4: ADAPTIVE SAMPLING (FUTURE - OPTIONAL)
+
+### Objective
+Add firmware-based adaptive sampling to dynamically adjust sampling rates based on environmental stability.
+
+### Status: **DEFERRED** (Not needed for current requirements)
+
+### Rationale for Deferral
+- Phase 2 batching (6s/30s) already provides good granularity
+- 36-hour offline coverage sufficient for typical outages
+- Adaptive sampling adds complexity without clear ROI
+- Dashboard users prefer consistent update intervals
+- Can be reconsidered if battery life becomes critical
+
+### If Implemented Later
+
+#### Firmware-Based Adaptive Sampling
+**Files:** `firmware/sensor-node/src/main.c` (modify)
+- [ ] Implement `calculate_next_interval()` based on statistics
+- [ ] Define thresholds for stable/changing environments
+- [ ] Adjust sampling rate: 10s (changing) → 30s (normal) → 300s (stable)
+- [ ] Use existing circular buffer statistics (std deviation)
+
+**Potential Benefits:**
+- Extended offline coverage (36h → 4.8 days)
+- Power savings during stable periods
+- Faster response during anomalies
+
+**Estimated Effort:** 2-3 hours
+
+---
+
+## ⏳ PHASE 5: ML-DRIVEN ENHANCEMENTS (FUTURE - OPTIONAL)
 
 ### Objective
 Add ML-driven adaptive sampling with backend feedback loop for intelligent rate adjustment.
 
-### Status: **NOT STARTED** (Depends on Phase 3)
+### Status: **NOT STARTED** (Depends on Phase 4)
 
 ### Planned Implementation
 
@@ -270,7 +299,7 @@ Add ML-driven adaptive sampling with backend feedback loop for intelligent rate 
 ### Estimated Effort
 - **Time:** 4-6 hours
 - **Complexity:** Medium
-- **Risk:** Low (builds on Phase 3)
+- **Risk:** Low (builds on Phase 4)
 
 ---
 
@@ -282,19 +311,21 @@ Add ML-driven adaptive sampling with backend feedback loop for intelligent rate 
 - ✅ **Phase 2:** Batch Transmission (2 commits, 6 hours)
 
 ### Upcoming
-- ⏳ **Phase 3:** Offline Storage & Resilience (9-13 hours)
+- ⏳ **Phase 3:** Offline Storage (Simplified) (7-10 hours)
   - Flash Storage (NVS): 2-3 hours
   - Delta Compression: 3-4 hours
-  - Adaptive Sampling: 2-3 hours
   - Integration & Testing: 2-3 hours
-- ⏳ **Phase 4:** Adaptive Sampling Enhancements (4-6 hours)
+
+### Future (Optional)
+- 🔮 **Phase 4:** Adaptive Sampling (2-3 hours) - Deferred
+- 🔮 **Phase 5:** ML-Driven Enhancements (4-6 hours) - Future
 
 ### Total Estimated Effort
 - **Phase 1:** 8 hours (DONE)
 - **Phase 2:** 6 hours (DONE)
-- **Phase 3:** 9-13 hours (REMAINING)
-- **Phase 4:** 4-6 hours (REMAINING)
-- **Total Project:** 27-33 hours
+- **Phase 3:** 7-10 hours (NEXT)
+- **Core Project Total:** 21-24 hours
+- **With Optional Phases:** 27-33 hours
 
 ---
 
@@ -319,12 +350,17 @@ Add ML-driven adaptive sampling with backend feedback loop for intelligent rate 
 - [ ] Flash write/read verification
 - [ ] Compression/decompression accuracy
 - [ ] Gateway disconnect/reconnect scenarios
-- [ ] Long-term Flash endurance test
-- [ ] Power consumption measurement
-- [ ] Batch forwarding stress test
-- [ ] 4.8-day offline coverage verification
+- [ ] Long-term Flash endurance test (48 hours)
+- [ ] Data integrity verification (checksum validation)
+- [ ] Batch forwarding stress test (1000+ packets)
+- [ ] 36-hour offline coverage verification
 
-### Phase 4 Testing (Planned)
+### Phase 4 Testing (If Implemented)
+- [ ] Adaptive rate transition testing
+- [ ] Power consumption measurement with adaptive sampling
+- [ ] Coverage extension verification (36h → 4.8 days)
+
+### Phase 5 Testing (If Implemented)
 - [ ] ML-driven rate adjustment testing
 - [ ] Backend feedback loop verification
 - [ ] Anomaly response time measurement
@@ -347,17 +383,22 @@ Add ML-driven adaptive sampling with backend feedback loop for intelligent rate 
 - ✅ Backward compatible (gateway handles both formats)
 
 ### Phase 3 (Target)
-- 4.8 days offline coverage during gateway outages
+- 36 hours offline coverage during gateway outages
 - Zero data loss during network failures
-- 2.25x compression ratio (delta encoding)
-- 5x power efficiency during stable periods
+- 3x compression ratio (delta encoding)
 - <1% CPU usage, <5 KB RAM overhead
+- Maintains Phase 2 batching (6s/30s)
+- Dashboard unchanged (6-second intervals)
 
-### Phase 4 (Target)
+### Phase 4 (Optional Target)
+- Extended coverage: 36h → 4.8 days
+- Power efficiency during stable periods
+- Firmware-based adaptive sampling
+
+### Phase 5 (Optional Target)
 - ML-driven adaptive sampling
 - Sub-10s anomaly detection with backend triggers
 - Coordinated rate adjustment across mesh network
-- Zero false positive rate increase
 
 ---
 
@@ -366,8 +407,9 @@ Add ML-driven adaptive sampling with backend feedback loop for intelligent rate 
 - **Current Branch:** `feature/satellite-inspired-storage`
 - **Last Updated:** 2026-06-13
 - **Status:** Phase 1 & Phase 2 complete, pushed to remote
-- **Next Action:** Implement Phase 3 (Offline Storage & Resilience)
-- **Reference:** See `docs/archive/HYBRID_STORAGE_APPROACH.md` for Phase 3 technical details
+- **Next Action:** Implement Phase 3 (Offline Storage - Simplified)
+- **Design Decision:** Adaptive sampling deferred - focus on reliable offline storage
+- **Reference:** See `docs/archive/HYBRID_STORAGE_APPROACH.md` for original design (note: adaptive sampling not implemented)
 
 ---
 
