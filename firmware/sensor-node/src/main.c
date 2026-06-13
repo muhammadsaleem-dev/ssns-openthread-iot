@@ -102,43 +102,33 @@ int main(void)
                 continue;
             }
             
-            /* Phase 3: Check gateway connectivity before attempting transmission */
-            bool gateway_reachable = network_is_gateway_reachable();
-            
-            if (gateway_reachable) {
-                /* Gateway online - attempt transmission */
-                LOG_INF("Transmitting batch of %d samples...", sample_count);
-                rc = network_send_coap_batch(sample_buffer, sample_timestamps, sample_count);
+            /* Phase 3: Always attempt transmission to detect gateway recovery */
+            LOG_INF("Transmitting batch of %d samples...", sample_count);
+            rc = network_send_coap_batch(sample_buffer, sample_timestamps, sample_count);
 
-                if (rc < 0) {
-                    consecutive_failures++;
-                    LOG_WRN("Batch transmission failed (%d/3). Saving to NVS queue...",
-                            consecutive_failures);
-                    storage_save_packet(network_get_last_payload(),
-                                        network_get_last_payload_len());
-
-                    if (consecutive_failures >= 3) {
-                        network_reset_stack();
-                        consecutive_failures = 0;
-                    }
-
-                } else if (rc == 0) {
-                    consecutive_failures = 0;
-                    LOG_INF("Batch sent successfully!");
-
-                    /* Phase 3: Forward all stored packets when gateway is back online */
-                    int queue_size = storage_get_queue_usage();
-                    if (queue_size > 0) {
-                        LOG_INF("Gateway online, forwarding %d stored packets...", queue_size);
-                        int forwarded = storage_forward_all_packets();
-                        LOG_INF("Forwarded %d packets from storage", forwarded);
-                    }
-                }
-            } else {
-                /* Gateway offline - store already-encoded batch to Flash */
-                LOG_INF("Gateway offline, storing batch (%d samples) to Flash...", sample_count);
+            if (rc < 0) {
+                consecutive_failures++;
+                LOG_WRN("Batch transmission failed (%d/3). Saving to RAM queue...",
+                        consecutive_failures);
                 storage_save_packet(network_get_last_payload(),
                                     network_get_last_payload_len());
+
+                if (consecutive_failures >= 3) {
+                    network_reset_stack();
+                    consecutive_failures = 0;
+                }
+
+            } else if (rc == 0) {
+                consecutive_failures = 0;
+                LOG_INF("Batch sent successfully!");
+
+                /* Phase 3: Forward all stored packets when gateway is back online */
+                int queue_size = storage_get_queue_usage();
+                if (queue_size > 0) {
+                    LOG_INF("Gateway online, forwarding %d stored packets...", queue_size);
+                    int forwarded = storage_forward_all_packets();
+                    LOG_INF("Forwarded %d packets from storage", forwarded);
+                }
             }
 
             LOG_INF("Offline Queue: %d / %d packets | Batch sent: %d samples",
