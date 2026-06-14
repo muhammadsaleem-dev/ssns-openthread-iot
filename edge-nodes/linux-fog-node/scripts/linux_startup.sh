@@ -39,6 +39,20 @@ while true; do
 
   # 3. Launch Thread Identity Manager in background
   (
+    # Wait for wpan0 to be created by the agent
+    until ip link show wpan0 >/dev/null 2>&1; do
+      sleep 1
+    done
+
+    # Bring it up so the kernel generates the IPv6 link-local address
+    ip link set wpan0 up 2>/dev/null || true
+
+    # Wait for wpan0 to get a link-local address to avoid IPV6_JOIN_GROUP ENODEV crash
+    echo "SYNC: Waiting for wpan0 interface to be ready..."
+    until ip -6 addr show dev wpan0 2>/dev/null | grep -q 'fe80::'; do
+      sleep 1
+    done
+
     # Wait for agent to start (no fixed delay)
     until STATE=$(ot-ctl state 2>/dev/null) && [ -n "$STATE" ]; do 
       echo "SYNC: Waiting for Agent..."
