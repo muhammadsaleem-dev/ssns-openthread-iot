@@ -54,8 +54,8 @@ class RedisQueueManager:
             known_boot_time = sync_data.get("boot_time", now.timestamp())
             max_uptime = sync_data.get("max_uptime", 0)
             
-            # Reboot Detection: If uptime drops by more than 10 mins, it's a fresh boot
-            if current_uptime < (max_uptime - 600000):
+            # Reboot Detection: If uptime drops by more than 1 min, it's a fresh boot
+            if max_uptime > 60000 and current_uptime < (max_uptime - 60000):
                 logger.info("Sensor reboot detected for %s. Resetting time sync.", node_id)
                 known_boot_time = now.timestamp() - (current_uptime / 1000.0)
                 max_uptime = current_uptime

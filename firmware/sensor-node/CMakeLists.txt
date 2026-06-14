@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(ssns_sensor_node)
-
 # ---------------------------------------------------------------------------
 # Devicetree Overlay
 # ---------------------------------------------------------------------------
 # Explicitly tell Zephyr to use our overlay file so it doesn't get lost
 # when building with namespaced board targets like nrf52840dk/nrf52840
 set(DTC_OVERLAY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/app.overlay)
+
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(ssns_sensor_node)
 
 # ---------------------------------------------------------------------------
 # Core sources — always compiled regardless of sensor mode

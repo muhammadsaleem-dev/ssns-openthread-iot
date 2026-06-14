@@ -91,16 +91,28 @@ public class AlertService {
             }
         }
 
-        // 5. Occupancy Event
+        // 5. Occupancy Event & Transient CO2
         boolean isCo2Valid = data.getCo2() != null && data.getCo2() > -900.0;
         if (isCo2Valid && data.getCo2Mean() != null && data.getCo2Std() != null) {
-            if (data.getCo2Mean() > 800 && data.getCo2Std() < 50) {
+            // Transient CO2 Event (Direct Breath)
+            boolean isCo2Spike = data.getCo2Max() != null && 
+                                 data.getCo2Max() > data.getCo2Mean() + Math.max(2.0 * data.getCo2Std(), 100.0);
+            
+            if (isCo2Spike && data.getCo2() < data.getCo2Mean() + Math.max(data.getCo2Std(), 30.0)) {
+                createAlert(data.getNodeId(), Alert.AlertType.TRANSIENT_CO2_EVENT,
+                        Alert.AlertSeverity.INFO,
+                        "Transient CO2 spike detected and recovered.",
+                        "No action required.",
+                        data.getCo2Max(), data.getCo2Mean());
+            } 
+            // Sustained Occupancy
+            else if (data.getCo2Mean() > 800 && data.getCo2Std() < 50) {
                 createAlert(data.getNodeId(), Alert.AlertType.OCCUPANCY_EVENT,
                         Alert.AlertSeverity.INFO,
                         "Occupancy detected (elevated, stable CO2).",
                         "No action required.",
                         data.getCo2Mean(), 800.0);
-            } else if (data.getCo2() > co2Max) {
+            } else if (data.getCo2() > co2Max && data.getCo2Mean() > co2Max * 0.8 && data.getCo2Std() < 150) {
                 createAlert(data.getNodeId(), Alert.AlertType.HIGH_CO2,
                         Alert.AlertSeverity.WARNING,
                         String.format("CO2 %.1f ppm exceeds threshold %.1f ppm", data.getCo2(), co2Max),
@@ -108,6 +120,7 @@ public class AlertService {
                         data.getCo2(), co2Max);
             }
         }
+
 
         // 6. Rapid Ventilation
         boolean isTempValid = data.getTemperature() != null && data.getTemperature() > -900.0;

@@ -61,6 +61,7 @@ public class Alert {
         
         // Smart Statistical Events
         TRANSIENT_VOC_EVENT,
+        TRANSIENT_CO2_EVENT,
         OCCUPANCY_EVENT,
         PARTICULATE_EVENT,
         SUSTAINED_ENVIRONMENTAL_CHANGE,

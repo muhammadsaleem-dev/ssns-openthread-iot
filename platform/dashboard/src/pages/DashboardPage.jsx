@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { Box, Grid, Card, CardContent, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, alpha, Select, MenuItem, FormControl, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, TablePagination, ToggleButtonGroup, ToggleButton, useTheme } from '@mui/material';
+import { Box, Grid, Card, CardContent, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, alpha, Select, MenuItem, FormControl, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, TablePagination, ToggleButtonGroup, ToggleButton, useTheme, InputBase } from '@mui/material';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import AirIcon from '@mui/icons-material/Air';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
@@ -14,6 +14,8 @@ import SensorsIcon from '@mui/icons-material/Sensors';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import EditIcon from '@mui/icons-material/Edit';
 import HubIcon from '@mui/icons-material/Hub';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
 
 import StatCard from '../components/StatCard';
 import SectionHeader from '../components/SectionHeader';
@@ -35,6 +37,8 @@ const SEVERITY_COLOR = {
 };
 
 export default function DashboardPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [timeRange, setTimeRange] = useState(1);
   const fetchSensorDataFn = useCallback(() => fetchSensorData(null, timeRange), [timeRange]);
   
@@ -64,6 +68,9 @@ export default function DashboardPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState('');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
+
+  // Search state for Recent Alerts
+  const [alertsSearchQuery, setAlertsSearchQuery] = useState("");
 
   // Pagination State for the Table
   const [tablePage, setTablePage] = useState(0);
@@ -175,8 +182,16 @@ export default function DashboardPage() {
   // Recent alerts (latest 5)
   const recentAlerts = useMemo(() => {
     if (!recentAlertsPage || !recentAlertsPage.content) return [];
-    return recentAlertsPage.content.filter(a => a.severity !== 'INFO');
-  }, [recentAlertsPage]);
+    let alerts = recentAlertsPage.content.filter(a => a.severity !== 'INFO');
+    if (alertsSearchQuery) {
+      const query = alertsSearchQuery.toLowerCase();
+      alerts = alerts.filter(a => 
+        a.message?.toLowerCase().includes(query) || 
+        getNodeName(a.nodeId).toLowerCase().includes(query)
+      );
+    }
+    return alerts;
+  }, [recentAlertsPage, alertsSearchQuery]);
 
   // Smart KPI Stats (Max for global, Exact for specific room)
   const stats = useMemo(() => {
@@ -479,12 +494,78 @@ export default function DashboardPage() {
 
         {/* Alerts Panel */}
         <Grid size={{ xs: 12, md: 6, lg: 3 }}>
-          <SectionHeader 
-            title={selectedLocationName ? `Recent Alerts: ${selectedLocationName}` : "Recent Alerts"} 
-            subtitle="Environmental anomalies" 
-          />
-          <Card>
-            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+          <Card 
+            sx={{ 
+              height: '100%',
+              minHeight: '400px',
+              maxHeight: '800px',
+              display: 'flex', 
+              flexDirection: 'column',
+              bgcolor: isDark ? '#1E232B' : alpha(theme.palette.background.paper, 0.7),
+              backdropFilter: 'blur(20px)',
+              color: isDark ? '#FFFFFF' : theme.palette.text.primary,
+              borderRadius: 4,
+              boxShadow: isDark ? '0 12px 40px 0 rgba(0,0,0,0.4)' : `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.1)}`,
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : alpha(theme.palette.divider, 0.15)}`,
+              fontFamily: "'Inter', sans-serif"
+            }}
+          >
+            {/* Header Area */}
+            <Box sx={{ p: 3, pb: 2, borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : alpha(theme.palette.divider, 0.1)}` }}>
+              <Typography variant="overline" sx={{ color: isDark ? 'rgba(255,255,255,0.5)' : alpha(theme.palette.text.primary, 0.6), fontWeight: 600, letterSpacing: 1.5, fontSize: '0.7rem' }}>
+                MONITORING
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+                <Typography variant="h5" sx={{ fontWeight: 600, color: isDark ? '#FFFFFF' : theme.palette.text.primary }}>
+                  {selectedLocationName ? `Recent Alerts: ${selectedLocationName}` : "Recent Alerts"}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  {/* Search Bar */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    bgcolor: isDark ? 'rgba(255,255,255,0.05)' : alpha(theme.palette.common.black, 0.04), 
+                    borderRadius: 2,
+                    px: 1.5,
+                    py: 0.5,
+                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : alpha(theme.palette.divider, 0.1)}`,
+                    width: '150px'
+                  }}>
+                    <SearchIcon sx={{ color: isDark ? 'rgba(255,255,255,0.4)' : alpha(theme.palette.text.primary, 0.4), fontSize: 18, mr: 1 }} />
+                    <InputBase 
+                      placeholder="Search" 
+                      value={alertsSearchQuery}
+                      onChange={(e) => setAlertsSearchQuery(e.target.value)}
+                      sx={{ color: isDark ? '#FFF' : theme.palette.text.primary, fontSize: '0.85rem', width: '100%' }} 
+                    />
+                    {alertsSearchQuery && (
+                      <IconButton size="small" onClick={() => setAlertsSearchQuery("")} sx={{ p: 0, ml: 0.5 }}>
+                        <CloseIcon sx={{ fontSize: 14, color: isDark ? 'rgba(255,255,255,0.4)' : alpha(theme.palette.text.primary, 0.4) }} />
+                      </IconButton>
+                    )}
+                  </Box>
+                </Box>
+              </Box>
+              <Typography variant="body2" sx={{ color: isDark ? 'rgba(255,255,255,0.5)' : theme.palette.text.secondary, mt: 1 }}>
+                Critical warnings and system faults
+              </Typography>
+            </Box>
+
+            {/* Alerts List */}
+            <Box sx={{ 
+              flexGrow: 1, 
+              overflowY: 'auto',
+              '&::-webkit-scrollbar': { width: '6px' },
+              '&::-webkit-scrollbar-track': { background: 'transparent' },
+              '&::-webkit-scrollbar-thumb': { 
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', 
+                borderRadius: '10px' 
+              },
+              '&::-webkit-scrollbar-thumb:hover': { 
+                background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' 
+              }
+            }}>
               {recentAlerts.length === 0 ? (
                 <Box sx={{ py: 4, textAlign: 'center' }}>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -497,24 +578,23 @@ export default function DashboardPage() {
                     key={alert.id || i}
                     sx={{
                       px: 2.5,
-                      py: 1.5,
-                      borderBottom: i < recentAlerts.length - 1 ? '1px solid' : 'none',
-                      borderColor: 'divider',
+                      py: 2,
+                      borderBottom: i < recentAlerts.length - 1 ? `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : theme.palette.divider}` : 'none',
                       '&:hover': { bgcolor: alpha('#3B82F6', 0.04) },
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Chip
                         label={alert.severity}
                         size="small"
                         color={SEVERITY_COLOR[alert.severity] || 'default'}
-                        sx={{ height: 22 }}
+                        sx={{ height: 22, fontWeight: 600, fontSize: '0.7rem' }}
                       />
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
                         {formatTimestamp(alert.createdAt)}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500, mb: 0.5 }}>
                       {alert.message}
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -523,7 +603,7 @@ export default function DashboardPage() {
                   </Box>
                 ))
               )}
-            </CardContent>
+            </Box>
           </Card>
         </Grid>
 

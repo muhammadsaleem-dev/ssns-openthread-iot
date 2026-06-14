@@ -78,7 +78,7 @@ static void force_thread_dataset(void)
     dataset.mActiveTimestamp.mAuthoritative = true;
     dataset.mComponents.mIsActiveTimestampPresent = true;
 
-    dataset.mChannel = 15;
+    dataset.mChannel = 26;
     dataset.mComponents.mIsChannelPresent = true;
 
     dataset.mPanId = 0x1235;
@@ -502,6 +502,24 @@ int network_send_coap_batch(const struct sensor_readings *samples, const uint32_
         return -1;
     }
 
+    otInstance *instance = openthread_get_default_instance();
+    if (instance) {
+        otDeviceRole role = otThreadGetDeviceRole(instance);
+        if (role == OT_DEVICE_ROLE_DETACHED || role == OT_DEVICE_ROLE_DISABLED) {
+            LOG_WRN("Thread network disconnected! Suppressing transmission to prevent broadcast storms.");
+            update_gateway_connectivity(-1);
+            return -1;
+        }
+        
+        otNeighborInfoIterator iterator = OT_NEIGHBOR_INFO_ITERATOR_INIT;
+        otNeighborInfo neighbor_info;
+        if (otThreadGetNextNeighborInfo(instance, &iterator, &neighbor_info) != OT_ERROR_NONE) {
+            LOG_WRN("Thread network isolated (0 neighbors)! Suppressing transmission to allow partition merge.");
+            update_gateway_connectivity(-1);
+            return -1;
+        }
+    }
+
     /* First encode the batch into last_payload buffer */
     int rc = network_encode_coap_batch(samples, timestamps, count);
     if (rc != 0) {
@@ -551,6 +569,24 @@ int network_send_coap_batch(const struct sensor_readings *samples, const uint32_
 int network_send_raw_payload(const uint8_t *payload, size_t len)
 {
     if (udp_sock < 0) return -1;
+
+    otInstance *instance = openthread_get_default_instance();
+    if (instance) {
+        otDeviceRole role = otThreadGetDeviceRole(instance);
+        if (role == OT_DEVICE_ROLE_DETACHED || role == OT_DEVICE_ROLE_DISABLED) {
+            LOG_WRN("Thread network disconnected! Suppressing raw transmission to prevent broadcast storms.");
+            update_gateway_connectivity(-1);
+            return -1;
+        }
+
+        otNeighborInfoIterator iterator = OT_NEIGHBOR_INFO_ITERATOR_INIT;
+        otNeighborInfo neighbor_info;
+        if (otThreadGetNextNeighborInfo(instance, &iterator, &neighbor_info) != OT_ERROR_NONE) {
+            LOG_WRN("Thread network isolated (0 neighbors)! Suppressing raw transmission to allow partition merge.");
+            update_gateway_connectivity(-1);
+            return -1;
+        }
+    }
 
     uint8_t packet[1024];  /* Increased for batch payloads */
     size_t off = 0;

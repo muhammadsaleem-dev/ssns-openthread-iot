@@ -9,6 +9,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SanitizerIcon from '@mui/icons-material/Sanitizer';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import PersonIcon from '@mui/icons-material/Person';
+import Co2Icon from '@mui/icons-material/Co2';
 import WindowIcon from '@mui/icons-material/Window';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SpeedIcon from '@mui/icons-material/Speed';
@@ -16,6 +17,13 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import { fetchAlertsPage, resetAlertTimers } from '../../services/api';
 
 const EVENT_META = {
+  TRANSIENT_CO2_EVENT: {
+    title: "Breath or High CO2 Source Detected",
+    subtitle: "(Transient CO2 Spike)",
+    icon: Co2Icon,
+    color: "#60A5FA", // Blue
+    gradient: "linear-gradient(180deg, rgba(96, 165, 250, 0.2) 0%, rgba(96, 165, 250, 0) 100%)"
+  },
   TRANSIENT_VOC_EVENT: {
     title: "Breath, Perfume or Spray Detected",
     subtitle: "(Transient TVOC Spike)",
@@ -317,7 +325,7 @@ const ActivityFeed = () => {
                   </Box>
                   
                   {/* Visual detail for specific events (e.g., VOC Spike) */}
-                  {event.type === 'TRANSIENT_VOC_EVENT' && index === 0 && (
+                  {(event.type === 'TRANSIENT_VOC_EVENT' || event.type === 'TRANSIENT_CO2_EVENT') && index === 0 && (
                     <Sparkline color={meta.color} />
                   )}
                 </Box>
