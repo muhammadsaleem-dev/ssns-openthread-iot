@@ -21,13 +21,14 @@ while true; do
   echo "  SUPERVISOR: Cycle #${CYCLE} — Scanning for hardware"
   echo "══════════════════════════════════════════════════════"
 
-  # 1. Wait for dongle to appear (dynamic detection)
-  until DEVICE=$(ls /dev/ttyACM* 2>/dev/null | head -n1) && [ -n "$DEVICE" ]; do
-    echo "STATION: Waiting for nRF52840... (Plug in the dongle)"
+  # 1. Wait for dongle to appear (dynamic detection, checking for OpenThread to avoid J-Link/other devices)
+  until DEVICE=$(for d in /dev/ttyACM*; do if [ -e "$d" ] && udevadm info --name="$d" 2>/dev/null | grep -q "OpenThread"; then echo "$d"; break; fi; done) && [ -n "$DEVICE" ]; do
+    echo "STATION: Waiting for nRF52840 OpenThread device... (Plug in the dongle)"
     sleep 2
   done
 
   echo "STATION: Hardware detected on $DEVICE. Preparing radio..."
+  export OT_RCP_DEVICE="spinel+hdlc+uart://$DEVICE"
   chmod 666 "$DEVICE"
   echo "STATION: Waiting for USB subsystem to stabilize..."
   udevadm settle --timeout=5 || sleep 3
