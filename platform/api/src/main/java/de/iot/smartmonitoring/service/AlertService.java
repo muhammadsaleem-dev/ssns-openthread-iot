@@ -127,7 +127,7 @@ public class AlertService {
         if (isTempValid && isCo2Valid && data.getTemperatureMean() != null && data.getTemperatureStd() != null &&
             data.getCo2Mean() != null && data.getCo2Std() != null) {
             // Apply hardware noise floors: SCD41 Temp accuracy +/- 0.4C, CO2 accuracy +/- 40ppm
-            if (data.getTemperature() < data.getTemperatureMean() - Math.max(2 * data.getTemperatureStd(), 0.5) &&
+            if (data.getTemperature() < data.getTemperatureMean() - Math.max(2 * data.getTemperatureStd(), 0.2) &&
                 data.getCo2() < data.getCo2Mean() - Math.max(2 * data.getCo2Std(), 30.0)) {
                 createAlert(data.getNodeId(), Alert.AlertType.VENTILATION_EVENT,
                         Alert.AlertSeverity.INFO,
