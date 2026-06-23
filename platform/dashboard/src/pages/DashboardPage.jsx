@@ -515,8 +515,8 @@ export default function DashboardPage() {
               <Typography variant="overline" sx={{ color: isDark ? 'rgba(255,255,255,0.5)' : alpha(theme.palette.text.primary, 0.6), fontWeight: 600, letterSpacing: 1.5, fontSize: '0.7rem' }}>
                 MONITORING
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: isDark ? '#FFFFFF' : theme.palette.text.primary }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mt: 0.5, flexWrap: 'wrap', gap: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: isDark ? '#FFFFFF' : theme.palette.text.primary, lineHeight: 1.2 }}>
                   {selectedLocationName ? `Recent Alerts: ${selectedLocationName}` : "Recent Alerts"}
                 </Typography>
                 
@@ -528,9 +528,12 @@ export default function DashboardPage() {
                     bgcolor: isDark ? 'rgba(255,255,255,0.05)' : alpha(theme.palette.common.black, 0.04), 
                     borderRadius: 2,
                     px: 1.5,
-                    py: 0.5,
+                    py: 0.1,
                     border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : alpha(theme.palette.divider, 0.1)}`,
-                    width: '150px'
+                    flexGrow: 1,
+                    width: '100%',
+                    minWidth: '150px',
+                    maxWidth: '220px'
                   }}>
                     <SearchIcon sx={{ color: isDark ? 'rgba(255,255,255,0.4)' : alpha(theme.palette.text.primary, 0.4), fontSize: 18, mr: 1 }} />
                     <InputBase 
