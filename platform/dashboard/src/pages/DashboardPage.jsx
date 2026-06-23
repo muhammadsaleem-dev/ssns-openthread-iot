@@ -257,13 +257,6 @@ export default function DashboardPage() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', md: 'auto' } }}>
-          <StatCard
-            title="Border Router"
-            value={topologyData?.gatewayHealth?.status?.toUpperCase() || 'OFFLINE'}
-            icon={<HubIcon />}
-            trend={topologyData?.gatewayHealth?.channel ? `PAN ID: ${topologyData.gatewayHealth.panId} • Ch ${topologyData.gatewayHealth.channel}` : `PAN ID: ${topologyData?.gatewayHealth?.panId || '---'}`}
-            color={topologyData?.gatewayHealth?.status === 'active' ? '#10B981' : '#EF4444'}
-          />
           <FormControl sx={{ flexGrow: 1, minWidth: { md: 200 } }}>
             <Select 
               size="small"
