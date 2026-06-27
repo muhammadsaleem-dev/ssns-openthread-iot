@@ -25,6 +25,9 @@ html {
 
 body {
   margin: 0;
+  background-color: #0B1120;
+  background-image: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+  background-attachment: fixed;
 }
 
 /* Scrollbar styling for dark theme */
@@ -44,4 +47,34 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.35);
+}
+
+/* Cyberpunk / Industrial SCADA Micro-animations */
+@keyframes card-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes badge-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes neon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(59, 130, 246, 0.4);
+  }
 }

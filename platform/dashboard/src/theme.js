@@ -31,10 +31,13 @@ export const getTheme = (mode) => createTheme({
     }),
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: { fontWeight: 700, letterSpacing: '-0.02em' },
-    h5: { fontWeight: 600, letterSpacing: '-0.01em' },
-    h6: { fontWeight: 600 },
+    fontFamily: '"Inter", "Plus Jakarta Sans", sans-serif',
+    h1: { fontFamily: '"Outfit", sans-serif', fontWeight: 800 },
+    h2: { fontFamily: '"Outfit", sans-serif', fontWeight: 700 },
+    h3: { fontFamily: '"Outfit", sans-serif', fontWeight: 700 },
+    h4: { fontFamily: '"Outfit", sans-serif', fontWeight: 700, letterSpacing: '-0.02em' },
+    h5: { fontFamily: '"Outfit", sans-serif', fontWeight: 600, letterSpacing: '-0.01em' },
+    h6: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 },
     subtitle1: {
       color: mode === 'dark' ? '#94A3B8' : '#64748B',
       fontSize: '0.875rem',
@@ -44,20 +47,21 @@ export const getTheme = (mode) => createTheme({
     },
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 14,
   },
   components: {
     MuiCard: {
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          backgroundColor: mode === 'dark' ? '#111827' : '#FFFFFF',
-          border: `1px solid ${mode === 'dark' ? 'rgba(148, 163, 184, 0.08)' : 'rgba(15, 23, 42, 0.08)'}`,
-          transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease',
-          boxShadow: mode === 'dark' ? 'none' : '0 1px 3px rgba(0,0,0,0.05)',
+          backgroundColor: mode === 'dark' ? 'rgba(17, 24, 39, 0.65)' : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(16px)',
+          border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)'}`,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxShadow: mode === 'dark' ? '0 8px 32px 0 rgba(0, 0, 0, 0.36)' : '0 4px 20px rgba(0,0,0,0.05)',
           '&:hover': {
-            borderColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(37, 99, 235, 0.3)',
-            boxShadow: mode === 'dark' ? '0 0 20px rgba(59, 130, 246, 0.08)' : '0 4px 20px rgba(37, 99, 235, 0.08)',
+            borderColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.4)' : 'rgba(37, 99, 235, 0.3)',
+            boxShadow: mode === 'dark' ? '0 0 25px rgba(59, 130, 246, 0.15)' : '0 8px 30px rgba(37, 99, 235, 0.12)',
           },
         },
       },
@@ -92,6 +96,32 @@ export const getTheme = (mode) => createTheme({
         root: {
           fontWeight: 600,
           fontSize: '0.75rem',
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          borderBottom: `1px solid ${mode === 'dark' ? 'rgba(148, 163, 184, 0.06)' : 'rgba(15, 23, 42, 0.06)'}`,
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '0.78rem',
+        },
+        head: {
+          fontFamily: '"Outfit", sans-serif',
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          color: mode === 'dark' ? '#94A3B8' : '#64748B',
+        },
+      },
+    },
+    MuiTableRow: {
+      styleOverrides: {
+        root: {
+          transition: 'background-color 0.15s ease',
+          '&:hover': {
+            backgroundColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.06)' : 'rgba(37, 99, 235, 0.04)',
+          },
         },
       },
     },

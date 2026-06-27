@@ -405,15 +405,15 @@ export default function DashboardPage() {
         </Grid>
       </Grid>
 
-      {/* ─── Bottom row: Recent Feed + Alerts + Activity Feed ─── */}
-      <Grid container spacing={2.5}>
+      {/* ─── Centerstage Row: 100% Full-Width Recent Telemetry Table ─── */}
+      <Grid container spacing={2.5} sx={{ animation: 'card-reveal 0.4s ease forwards' }}>
         {/* Recent Telemetry Feed */}
-        <Grid size={{ xs: 12, lg: 6 }}>
+        <Grid size={{ xs: 12 }}>
           <SectionHeader 
             title={selectedLocationName ? `Recent Telemetry: ${selectedLocationName}` : "Recent Telemetry"} 
-            subtitle="Latest sensor readings" 
+            subtitle="Latest high-precision sensor stream" 
           />
-          <Card>
+          <Card sx={{ borderTop: `2px solid ${theme.palette.primary.main}` }}>
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -436,8 +436,8 @@ export default function DashboardPage() {
                   {recentFeed.map((row, i) => {
                     const formatVal = (v, precision = 1) => {
                        if (v == null) return '--';
-                       if (v <= -998.5) return <Typography component="span" sx={{ color: 'error.main', fontWeight: 700, fontSize: '0.65rem' }}>FAULT</Typography>;
-                       if (v <= -997.5) return <Typography component="span" sx={{ color: 'warning.main', fontWeight: 700, fontSize: '0.65rem' }}>WARMUP</Typography>;
+                       if (v <= -998.5) return <Chip label="FAULT" size="small" color="error" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800 }} />;
+                       if (v <= -997.5) return <Chip label="WARMUP" size="small" color="warning" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, animation: 'badge-pulse 2s infinite', boxShadow: '0 0 10px rgba(245, 158, 11, 0.3)' }} />;
                        return v.toFixed(precision);
                     };
 
@@ -484,9 +484,12 @@ export default function DashboardPage() {
             />
           </Card>
         </Grid>
+      </Grid>
 
+      {/* ─── Monitoring Row: Side-by-Side Recent Alerts (50%) & Events Feed (50%) ─── */}
+      <Grid container spacing={2.5} sx={{ mt: 1, animation: 'card-reveal 0.5s ease forwards' }}>
         {/* Alerts Panel */}
-        <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Card 
             sx={{ 
               height: '100%',
@@ -604,7 +607,7 @@ export default function DashboardPage() {
         </Grid>
 
         {/* Activity Feed */}
-        <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <ActivityFeed />
         </Grid>
       </Grid>

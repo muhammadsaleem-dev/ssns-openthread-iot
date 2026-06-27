@@ -97,11 +97,11 @@ export default function TelemetryChart({
               <LineChart {...commonProps}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" />
                 <XAxis dataKey="timestamp" type="number" domain={['dataMin', 'dataMax']} tickFormatter={formatTime} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={{ stroke: 'rgba(148,163,184,0.1)' }} tickLine={false} />
-                <YAxis domain={['dataMin', 'auto']} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip unit={unit} valueLabel={valueLabel} />} />
                 <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                {threshold && <ReferenceLine y={threshold} stroke="#EF4444" strokeDasharray="8 4" strokeOpacity={0.7} strokeWidth={2} label={{ position: 'insideTopLeft', value: 'Max', fill: '#EF4444', fontSize: 10, fontWeight: 600 }} />}
-                {minThreshold && <ReferenceLine y={minThreshold} stroke="#EF4444" strokeDasharray="8 4" strokeOpacity={0.7} strokeWidth={2} label={{ position: 'insideBottomLeft', value: 'Min', fill: '#EF4444', fontSize: 10, fontWeight: 600 }} />}
+                {threshold && <ReferenceLine y={threshold} ifOverflow="extendDomain" stroke="#EF4444" strokeDasharray="8 4" strokeOpacity={0.7} strokeWidth={2} label={{ position: 'insideTopLeft', value: 'Max', fill: '#EF4444', fontSize: 10, fontWeight: 600 }} />}
+                {minThreshold && <ReferenceLine y={minThreshold} ifOverflow="extendDomain" stroke="#EF4444" strokeDasharray="8 4" strokeOpacity={0.7} strokeWidth={2} label={{ position: 'insideBottomLeft', value: 'Min', fill: '#EF4444', fontSize: 10, fontWeight: 600 }} />}
                 {series.map(s => (
                   <Line
                     key={s.key}
@@ -126,10 +126,10 @@ export default function TelemetryChart({
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" />
                 <XAxis dataKey="timestamp" type="number" domain={['dataMin', 'dataMax']} tickFormatter={formatTime} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={{ stroke: 'rgba(148,163,184,0.1)' }} tickLine={false} />
-                <YAxis domain={['dataMin', 'auto']} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip unit={unit} valueLabel={valueLabel} />} />
-                {threshold && <ReferenceLine y={threshold} stroke="#EF4444" strokeDasharray="8 4" strokeOpacity={0.7} strokeWidth={2} label={{ position: 'insideTopLeft', value: 'Max', fill: '#EF4444', fontSize: 10, fontWeight: 600 }} />}
-                {minThreshold && <ReferenceLine y={minThreshold} stroke="#EF4444" strokeDasharray="8 4" strokeOpacity={0.7} strokeWidth={2} label={{ position: 'insideBottomLeft', value: 'Min', fill: '#EF4444', fontSize: 10, fontWeight: 600 }} />}
+                {threshold && <ReferenceLine y={threshold} ifOverflow="extendDomain" stroke="#EF4444" strokeDasharray="8 4" strokeOpacity={0.7} strokeWidth={2} label={{ position: 'insideTopLeft', value: 'Max', fill: '#EF4444', fontSize: 10, fontWeight: 600 }} />}
+                {minThreshold && <ReferenceLine y={minThreshold} ifOverflow="extendDomain" stroke="#EF4444" strokeDasharray="8 4" strokeOpacity={0.7} strokeWidth={2} label={{ position: 'insideBottomLeft', value: 'Min', fill: '#EF4444', fontSize: 10, fontWeight: 600 }} />}
                 <Area
                   type="monotone"
                   dataKey={dataKey}

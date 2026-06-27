@@ -31,10 +31,10 @@ export default function useTelemetryStream() {
         try {
           const newPacket = JSON.parse(event.data);
           setStreamData(prev => {
-            // Append new packet, keeping max 400 items
+            // Append new packet, keeping max 10000 items
             const updated = [...prev, newPacket];
-            if (updated.length > 400) {
-              return updated.slice(updated.length - 400);
+            if (updated.length > 10000) {
+              return updated.slice(updated.length - 10000);
             }
             return updated;
           });

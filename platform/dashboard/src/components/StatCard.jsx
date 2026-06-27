@@ -14,6 +14,12 @@ export default function StatCard({ title, value, unit, icon, color = '#3B82F6', 
         position: 'relative',
         overflow: 'hidden',
         minHeight: 140,
+        borderTop: `2px solid ${alpha(color, 0.4)}`,
+        transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: `0 12px 30px -10px ${alpha(color, 0.3)}`,
+        },
       }}
     >
       {/* Accent glow */}
@@ -22,27 +28,28 @@ export default function StatCard({ title, value, unit, icon, color = '#3B82F6', 
           position: 'absolute',
           top: -30,
           right: -30,
-          width: 100,
-          height: 100,
+          width: 120,
+          height: 120,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${alpha(color, 0.15)} 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${alpha(color, 0.2)} 0%, transparent 70%)`,
         }}
       />
 
       <CardContent sx={{ position: 'relative', p: 2.5 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-          <Typography variant="subtitle1" sx={{ color: 'text.secondary', fontSize: '0.8rem', fontWeight: 500 }}>
+          <Typography variant="subtitle1" sx={{ color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
             {title}
           </Typography>
           <Box
             sx={{
-              p: 0.8,
-              borderRadius: 2,
-              backgroundColor: alpha(color, 0.1),
+              p: 1,
+              borderRadius: 2.5,
+              backgroundColor: alpha(color, 0.15),
               color: color,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              boxShadow: `0 0 16px ${alpha(color, 0.35)}`,
             }}
           >
             {icon}
@@ -68,7 +75,7 @@ export default function StatCard({ title, value, unit, icon, color = '#3B82F6', 
             <>
               <Typography
                 variant="h4"
-                sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1 }}
+                sx={{ fontWeight: 800, fontFamily: '"JetBrains Mono", monospace', color: 'text.primary', lineHeight: 1 }}
               >
                 {value}
               </Typography>
