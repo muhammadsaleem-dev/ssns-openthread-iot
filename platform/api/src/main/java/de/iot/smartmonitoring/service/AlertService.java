@@ -43,8 +43,24 @@ public class AlertService {
      * Evaluate a telemetry reading against all configured alert thresholds.
      */
     public void evaluate(SensorData data) {
-        // 1. Check for physical hardware faults (legacy bitmask)
-        triggerHardwareFault(data.getNodeId(), data.getHealthStatus());
+        // 1. Check for physical hardware faults vs live telemetry
+        boolean hasAnyFault = (data.getTemperature() != null && data.getTemperature() <= -900.0) ||
+                              (data.getHumidity() != null && data.getHumidity() <= -900.0) ||
+                              (data.getCo2() != null && data.getCo2() <= -900.0) ||
+                              (data.getTvoc() != null && data.getTvoc() <= -900.0) ||
+                              (data.getPm2_5() != null && data.getPm2_5() <= -900.0);
+
+        if (!hasAnyFault) {
+            // All sensor data streams are valid numbers. Self-heal and resolve any latched hardware fault!
+            alertRepository.findFirstByNodeIdAndTypeAndResolvedFalse(data.getNodeId(), Alert.AlertType.HARDWARE_FAULT)
+                    .ifPresent(alert -> {
+                        alert.setResolved(true);
+                        alertRepository.save(alert);
+                        log.info("Self-Healing: Auto-resolved latched HARDWARE_FAULT on node {}", data.getNodeId());
+                    });
+        } else {
+            triggerHardwareFault(data.getNodeId(), data.getHealthStatus());
+        }
 
         // 2. Sensor Fault (Statistical)
         if (data.getTvocStd() != null && data.getTvocStd() == 0.0 && data.getTvocMean() != null && data.getTvocMean() > 0) {
@@ -338,8 +354,18 @@ public class AlertService {
      * Uses the healthStatus bitmask to identify the specific faulty sensor.
      */
     public void triggerHardwareFault(String nodeId, Integer healthStatus) {
-        if (healthStatus == null || healthStatus == 255) {
-            return; // No fault or unknown status
+        if (healthStatus == null) {
+            return;
+        }
+        if (healthStatus == 255) {
+            // Self-Healing: Auto-resolve latched HARDWARE_FAULT alerts once sensor hardware recovers
+            alertRepository.findFirstByNodeIdAndTypeAndResolvedFalse(nodeId, Alert.AlertType.HARDWARE_FAULT)
+                    .ifPresent(alert -> {
+                        alert.setResolved(true);
+                        alertRepository.save(alert);
+                        log.info("Self-Healing: Auto-resolved latched HARDWARE_FAULT on node {} after hardware recovery.", nodeId);
+                    });
+            return;
         }
 
         StringBuilder message = new StringBuilder("Physical sensor failure detected: ");

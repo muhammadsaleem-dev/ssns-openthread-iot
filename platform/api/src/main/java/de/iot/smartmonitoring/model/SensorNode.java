@@ -45,7 +45,7 @@ public class SensorNode {
     private Boolean mlEnabled = true;
 
     @Builder.Default
-    private Integer baselineWindowSize = 20;
+    private Integer baselineWindowSize = 40;
 
     @Builder.Default
     @Field("forecast_horizon_min")

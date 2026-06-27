@@ -19,14 +19,22 @@ class LightweightForecaster:
     def forecast(self, horizon_sec: float) -> tuple[float | None, float | None, str | None, str | None]:
         """
         Returns projected (co2, pm2_5, context_str, recommended_action) at `latest_time + horizon_sec`.
-        If not enough data (e.g., < 10 readings), returns (None, None, None, None).
+        If not enough data (e.g., < 40 readings = 10 minutes), returns (None, None, None, None).
         """
-        if len(self.history) < 10:
+        if len(self.history) < 40:
             return None, None, None, None
             
+        # Apply Exponential Moving Average (EMA) smoothing to filter out momentary transient breath spikes
+        def _ema(arr, alpha=0.25):
+            res = np.empty_like(arr)
+            res[0] = arr[0]
+            for i in range(1, len(arr)):
+                res[i] = alpha * arr[i] + (1 - alpha) * res[i-1]
+            return res
+
         times = np.array([x[0] for x in self.history])
-        co2_vals = np.array([x[1] for x in self.history])
-        pm25_vals = np.array([x[2] for x in self.history])
+        co2_vals = _ema(np.array([x[1] for x in self.history]))
+        pm25_vals = _ema(np.array([x[2] for x in self.history]))
         
         # Simple linear regression: y = mx + c
         t_mean = np.mean(times)

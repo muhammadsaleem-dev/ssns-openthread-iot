@@ -57,7 +57,7 @@ export default function DashboardPage() {
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);
 
-  const fetchRecentAlertsFn = useCallback(() => fetchAlertsPage(false, 'all', 0, 5, selectedNodeId), [selectedNodeId]);
+  const fetchRecentAlertsFn = useCallback(() => fetchAlertsPage(true, 'all', 0, 5, selectedNodeId), [selectedNodeId]);
   const fetchCountsFn = useCallback(() => fetchAlertCounts(selectedNodeId), [selectedNodeId]);
 
   const { data: recentAlertsPage, loading: loadingAlerts } = usePolling(fetchRecentAlertsFn, API.POLL_INTERVAL);
@@ -182,7 +182,7 @@ export default function DashboardPage() {
   // Recent alerts (latest 5)
   const recentAlerts = useMemo(() => {
     if (!recentAlertsPage || !recentAlertsPage.content) return [];
-    let alerts = recentAlertsPage.content.filter(a => a.severity !== 'INFO');
+    let alerts = recentAlertsPage.content.filter(a => a.severity !== 'INFO' && !a.resolved);
     if (alertsSearchQuery) {
       const query = alertsSearchQuery.toLowerCase();
       alerts = alerts.filter(a => 
