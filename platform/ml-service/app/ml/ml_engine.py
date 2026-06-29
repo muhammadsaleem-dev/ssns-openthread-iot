@@ -115,19 +115,23 @@ class AnomalyDetector:
                 
                 # Generate recommended action based on top driver
                 top_driver_name = feature_names[top_2_idx[0]]
-                if top_driver_name == "Temp":
-                    recommended_action = "Inspect HVAC unit."
-                elif top_driver_name == "CO2":
-                    recommended_action = "Increase ventilation or open windows."
+                if "_Std" in top_driver_name:
+                    recommended_action = "Temporary activity or movement detected near sensor. No action needed unless it persists."
+                elif "Temp" in top_driver_name:
+                    recommended_action = "Room temperature is abnormal. Check AC, heater, or thermostat settings."
+                elif "CO2" in top_driver_name:
+                    recommended_action = "High CO2 detected. Open windows or turn on fresh air ventilation."
                 elif "PM" in top_driver_name:
-                    recommended_action = "Check building air filters; keep external windows closed."
-                elif "VOC" in top_driver_name:
-                    recommended_action = "Investigate for chemical spills or off-gassing."
+                    recommended_action = "High dust or smoke levels detected. Check air filter or investigate source."
+                elif "VOC" in top_driver_name or "eCO2" in top_driver_name:
+                    recommended_action = "Chemical odors or aerosols detected. Check for cleaning sprays or spills."
+                elif "Humidity" in top_driver_name:
+                    recommended_action = "Abnormal humidity detected. Check for steam, water leaks, or humidifier settings."
                 else:
-                    recommended_action = "Perform general environmental inspection."
+                    recommended_action = "Unusual air quality pattern detected. Please do a quick visual check of the room."
             else:
                 context_str = f"Anomaly score: {score:.2f} | Multi-variable deviation detected"
-                recommended_action = "Perform general environmental inspection."
+                recommended_action = "Unusual air quality pattern detected. Please do a quick visual check of the room."
 
         return is_anomaly, context_str, recommended_action
 

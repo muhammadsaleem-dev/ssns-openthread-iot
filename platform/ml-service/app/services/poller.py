@@ -224,6 +224,15 @@ async def start_polling_loop():
                                         logger.info(f"Dispatched FORECAST_WARNING for {node_id}")
                                     else:
                                         logger.error(f"Failed to dispatch forecast alert for {node_id}: {f_resp.text}")
+                            else:
+                                # 5. Self-Healing: If both forecast and anomaly detection are safe, auto-resolve AI alerts
+                                if not is_anomaly:
+                                    try:
+                                        res_resp = await client.put("/api/alerts/resolve-all?category=ai")
+                                        if res_resp.status_code == 200 and int(res_resp.text or 0) > 0:
+                                            logger.info(f"Self-Healing: Autonomous AI resolved {res_resp.text} outdated AI alerts.")
+                                    except Exception as e_res:
+                                        logger.debug(f"Could not auto-resolve AI alerts: {e_res}")
                                 
                     except Exception as e:
                         logger.error(f"Error computing forecast for {node_id}: {str(e)}")

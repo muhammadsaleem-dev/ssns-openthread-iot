@@ -428,7 +428,7 @@ export default function DashboardPage() {
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>PM2.5</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', md: 'table-cell' } }}>PM4.0</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', sm: 'table-cell' } }}>PM10</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', lg: 'table-cell' } }}>Light</TableCell>
+                    {/* <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem', display: { xs: 'none', lg: 'table-cell' } }}>Light</TableCell> */}
                     <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.7rem' }}>Time</TableCell>
                   </TableRow>
                 </TableHead>
@@ -455,7 +455,7 @@ export default function DashboardPage() {
                         <TableCell sx={{ fontSize: '0.7rem' }}>{formatVal(row.pm2_5)}</TableCell>
                         <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', md: 'table-cell' } }}>{formatVal(row.pm4_0)}</TableCell>
                         <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', sm: 'table-cell' } }}>{formatVal(row.pm10)}</TableCell>
-                        <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', lg: 'table-cell' } }}>{formatVal(row.lightIntensity, 0)}</TableCell>
+                        {/* <TableCell sx={{ fontSize: '0.7rem', display: { xs: 'none', lg: 'table-cell' } }}>{formatVal(row.lightIntensity, 0)}</TableCell> */}
                         <TableCell sx={{ color: 'text.secondary', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
                           {formatTimestamp(row.timestamp)}
                         </TableCell>

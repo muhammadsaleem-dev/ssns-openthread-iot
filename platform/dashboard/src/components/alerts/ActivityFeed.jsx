@@ -25,8 +25,8 @@ const EVENT_META = {
     gradient: "linear-gradient(180deg, rgba(96, 165, 250, 0.2) 0%, rgba(96, 165, 250, 0) 100%)"
   },
   TRANSIENT_VOC_EVENT: {
-    title: "Breath, Perfume or Spray Detected",
-    subtitle: "(Transient TVOC Spike)",
+    title: "Chemical Odors, Cooking or Aerosols Detected",
+    subtitle: "(Transient VOC Spike)",
     icon: SanitizerIcon,
     color: "#FCD34D", // Amber/Yellow
     gradient: "linear-gradient(180deg, rgba(252, 211, 77, 0.2) 0%, rgba(252, 211, 77, 0) 100%)"
