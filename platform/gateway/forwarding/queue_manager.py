@@ -59,29 +59,19 @@ class RedisQueueManager:
                 logger.info("Sensor reboot detected for %s. Resetting time sync.", node_id)
                 known_boot_time = now.timestamp() - (current_uptime / 1000.0)
                 max_uptime = current_uptime
+                data['timestamp'] = now.isoformat()
+            elif current_uptime >= (max_uptime - 2000):
+                # Live arriving packet (newest reading or within 2 seconds of newest)
+                # Stamp with current UTC time so hardware timer drift never drags timestamps into the past
+                max_uptime = max(max_uptime, current_uptime)
+                known_boot_time = now.timestamp() - (current_uptime / 1000.0)
+                data['timestamp'] = now.isoformat()
             else:
-                if current_uptime > max_uptime:
-                    max_uptime = current_uptime
-                    
-                # The "implied" boot time by this packet
-                implied_boot_time = now.timestamp() - (current_uptime / 1000.0)
+                # Historical backlog packet
+                packet_timestamp = known_boot_time + (current_uptime / 1000.0)
+                data['timestamp'] = datetime.fromtimestamp(packet_timestamp, tz=timezone.utc).isoformat()
                 
-                # If the packet took 1 hr to arrive, implied_boot_time will be 1 hr in the future.
-                # If implied_boot_time is SMALLER than known, this packet arrived faster (less network delay),
-                # which means it's a more accurate estimate of the true boot time.
-                if implied_boot_time < known_boot_time:
-                    known_boot_time = implied_boot_time
-                    
             self.r.set(sync_key, json.dumps({"boot_time": known_boot_time, "max_uptime": max_uptime}))
-            
-            # Apply absolute timestamp
-            packet_timestamp = known_boot_time + (current_uptime / 1000.0)
-            data['timestamp'] = datetime.fromtimestamp(packet_timestamp, tz=timezone.utc).isoformat()
-            
-            # Log for debugging if it's significantly older than 'now'
-            delay_ms = (now.timestamp() - packet_timestamp) * 1000
-            if delay_ms > 10000:
-                logger.info("Reconstructed queued timestamp for %s: delayed by %dms", node_id, int(delay_ms))
         else:
             # First time seeing this node
             boot_time = now.timestamp() - (current_uptime / 1000.0)

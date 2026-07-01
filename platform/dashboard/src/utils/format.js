@@ -31,7 +31,7 @@ export function formatTimestamp(iso) {
     ? timeString 
     : `${d.toLocaleString('en-GB', { day: '2-digit', month: 'short' })}, ${timeString}`;
 
-  const diffInSeconds = Math.floor((now - d) / 1000);
+  const diffInSeconds = Math.max(0, Math.floor((now - d) / 1000));
   
   let relative;
   if (diffInSeconds < 5) {
