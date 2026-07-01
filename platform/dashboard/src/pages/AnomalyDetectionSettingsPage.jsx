@@ -21,8 +21,10 @@ import TuneIcon from '@mui/icons-material/Tune';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 import { fetchNodes, fetchMlStatus, updateMlConfig } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 function MLNodeCard({ node, onReset, onToggleEnabled }) {
+  const { isAdmin } = useAuth();
   const theme = useTheme();
   // We use the node's properties from Java Backend as source of truth for config
   const [windowSize, setWindowSize] = useState(node.baselineWindowSize || 20);
@@ -117,6 +119,7 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
                 <Switch 
                   size="small" 
                   checked={isEnabled} 
+                  disabled={!isAdmin}
                   onChange={(e) => handleToggleEnabled(e.target.checked)} 
                   color="primary"
                 />
@@ -218,7 +221,7 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
                   return `${val} (${(val/120).toFixed(1)}h)`;
                 }}
                 size="small"
-                disabled={isResetting || !isEnabled}
+                disabled={isResetting || !isEnabled || !isAdmin}
               />
             </Box>
           </Box>
@@ -242,7 +245,7 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
                 valueLabelFormat={(val) => `${val}%`}
                 size="small"
                 color="secondary"
-                disabled={isResetting || !isEnabled}
+                disabled={isResetting || !isEnabled || !isAdmin}
               />
             </Box>
           </Box>
@@ -271,21 +274,25 @@ function MLNodeCard({ node, onReset, onToggleEnabled }) {
                 }}
                 size="small"
                 color="info"
-                disabled={isResetting || !isEnabled}
+                disabled={isResetting || !isEnabled || !isAdmin}
               />
             </Box>
           </Box>
 
-          <Button 
-            variant="contained" 
-            fullWidth 
-            onClick={handleReset}
-            disabled={isResetting || !isEnabled}
-            startIcon={<TuneIcon />}
-            sx={{ fontWeight: 600 }}
-          >
-            {isResetting ? 'Calibrating...' : 'Calibrate'}
-          </Button>
+          <Tooltip title={!isAdmin ? "Admin privileges required to calibrate ML models" : ""}>
+            <span>
+              <Button 
+                variant="contained" 
+                fullWidth 
+                onClick={handleReset}
+                disabled={isResetting || !isEnabled || !isAdmin}
+                startIcon={<TuneIcon />}
+                sx={{ fontWeight: 600 }}
+              >
+                {isResetting ? 'Calibrating...' : 'Calibrate'}
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
       </CardContent>
     </Card>

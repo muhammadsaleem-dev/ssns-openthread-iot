@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { Box, Grid, Card, CardContent, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, alpha, Select, MenuItem, FormControl, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, TablePagination, ToggleButtonGroup, ToggleButton, useTheme, InputBase } from '@mui/material';
+import { Box, Grid, Card, CardContent, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, alpha, Select, MenuItem, FormControl, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, TablePagination, ToggleButtonGroup, ToggleButton, useTheme, InputBase, Tooltip } from '@mui/material';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import AirIcon from '@mui/icons-material/Air';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
@@ -29,6 +29,7 @@ import { formatTimestamp, average, computeAqi } from '../utils/format';
 import CustomPagination from '../components/CustomPagination';
 import ActivityFeed from '../components/alerts/ActivityFeed';
 import API from '../config/api';
+import { useAuth } from '../context/AuthContext';
 
 const SEVERITY_COLOR = {
   CRITICAL: 'error',
@@ -37,6 +38,7 @@ const SEVERITY_COLOR = {
 };
 
 export default function DashboardPage() {
+  const { isAdmin } = useAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [timeRange, setTimeRange] = useState(1);
@@ -272,16 +274,21 @@ export default function DashboardPage() {
             </Select>
           </FormControl>
           {selectedNodeId && (
-            <IconButton 
-              size="small" 
-              onClick={() => {
-                setEditNameValue(selectedLocationName || '');
-                setIsEditingName(true);
-              }}
-              sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
+            <Tooltip title={!isAdmin ? "Admin privileges required to rename nodes" : "Rename Room"}>
+              <span>
+                <IconButton 
+                  size="small" 
+                  disabled={!isAdmin}
+                  onClick={() => {
+                    setEditNameValue(selectedLocationName || '');
+                    setIsEditingName(true);
+                  }}
+                  sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
           )}
         </Box>
       </Box>

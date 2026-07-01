@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardContent, Typography, Box, Chip, IconButton, TextField, CircularProgress } from '@mui/material';
+import { Card, CardContent, Typography, Box, Chip, IconButton, TextField, CircularProgress, Tooltip } from '@mui/material';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import AirIcon from '@mui/icons-material/Air';
 import EditIcon from '@mui/icons-material/Edit';
@@ -11,6 +11,7 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 
 import { updateNodeLocation } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const MetricBox = ({ icon: Icon, label, value, unit, color, precision = 1 }) => {
   const isFault = value != null && value <= -998.5; // -999.0
@@ -32,6 +33,7 @@ const MetricBox = ({ icon: Icon, label, value, unit, color, precision = 1 }) => 
 };
 
 export default function NodeCard({ node, latestTelemetry, hasActiveAlerts, onLocationUpdated, isSelected, onClick }) {
+  const { isAdmin } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [locationValue, setLocationValue] = useState(node.location || '');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -132,13 +134,17 @@ export default function NodeCard({ node, latestTelemetry, hasActiveAlerts, onLoc
                 <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
                   {node.location || 'Unnamed Room'}
                 </Typography>
-                <IconButton size="small" onClick={(e) => {
-                  e.stopPropagation(); // Don't trigger card selection
-                  setLocationValue(node.location || '');
-                  setIsEditing(true);
-                }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
-                  <EditIcon sx={{ fontSize: 16 }} />
-                </IconButton>
+                <Tooltip title={!isAdmin ? "Admin privileges required to rename nodes" : "Edit Room Name"}>
+                  <span>
+                    <IconButton size="small" disabled={!isAdmin} onClick={(e) => {
+                      e.stopPropagation(); // Don't trigger card selection
+                      setLocationValue(node.location || '');
+                      setIsEditing(true);
+                    }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+                      <EditIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Box>
             )}
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', mt: 0.5 }}>

@@ -1,10 +1,10 @@
-import { Card, Box, Typography, Button, alpha, useTheme } from '@mui/material';
+import { Card, Box, Typography, Button, alpha, useTheme, Tooltip } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { SeverityBadge, NodeBadge, RecommendedAction, formatAlertMessage } from './AlertPrimitives';
 import { formatTimestamp } from '../../utils/format';
 import { OPERATIONAL_LABELS } from './alertConstants';
 
-export default function MobileAlertCard({ a, nodeMap, onResolve, activeTab }) {
+export default function MobileAlertCard({ a, nodeMap, onResolve, activeTab, isAdmin = true }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const isAi = a.type && a.type.startsWith('AI_');
@@ -71,18 +71,23 @@ export default function MobileAlertCard({ a, nodeMap, onResolve, activeTab }) {
         )}
 
         {/* Action Button */}
-        <Button 
-          fullWidth 
-          variant={a.resolved ? "outlined" : "contained"} 
-          color={a.resolved ? "inherit" : "primary"}
-          disabled={a.resolved} 
-          onClick={() => onResolve(a.id)}
-          startIcon={a.resolved ? <CheckIcon /> : null}
-          sx={{ textTransform: 'none', fontWeight: 600, py: 1 }}
-        >
-          {a.resolved ? 'Resolved' : 'Mark as Resolved'}
-        </Button>
+        <Tooltip title={!isAdmin ? "Admin privileges required" : ""}>
+          <span>
+            <Button 
+              fullWidth 
+              variant={a.resolved ? "outlined" : "contained"} 
+              color={a.resolved ? "inherit" : "primary"}
+              disabled={!isAdmin || a.resolved} 
+              onClick={() => onResolve(a.id)}
+              startIcon={a.resolved ? <CheckIcon /> : null}
+              sx={{ textTransform: 'none', fontWeight: 600, py: 1 }}
+            >
+              {a.resolved ? 'Resolved' : 'Mark as Resolved'}
+            </Button>
+          </span>
+        </Tooltip>
       </Box>
     </Card>
   );
 }
+

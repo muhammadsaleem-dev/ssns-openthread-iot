@@ -1,8 +1,8 @@
-import { Table, TableHead, TableRow, TableBody, Typography, Button } from '@mui/material';
+import { Table, TableHead, TableRow, TableBody, Typography, Button, Tooltip } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { TH, TD, SeverityChip, NodeChip, TimeCell, EmptyRow, ROW_HOVER, formatAlertMessage } from './AlertPrimitives';
 
-export default function InfraTable({ rows, nodeMap, onResolve }) {
+export default function InfraTable({ rows, nodeMap, onResolve, isAdmin = true }) {
   return (
     <Table size="small">
       <TableHead>
@@ -22,9 +22,13 @@ export default function InfraTable({ rows, nodeMap, onResolve }) {
             </TD>
             <TimeCell ts={a.createdAt} />
             <TD align="center">
-              <Button size="small" disabled={a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
-                <CheckIcon fontSize="small" />
-              </Button>
+              <Tooltip title={!isAdmin ? "Admin privileges required" : ""}>
+                <span>
+                  <Button size="small" disabled={!isAdmin || a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
+                    <CheckIcon fontSize="small" />
+                  </Button>
+                </span>
+              </Tooltip>
             </TD>
           </TableRow>
         )) : <EmptyRow colSpan={6} label="No infrastructure alerts" />}
@@ -32,3 +36,4 @@ export default function InfraTable({ rows, nodeMap, onResolve }) {
     </Table>
   );
 }
+

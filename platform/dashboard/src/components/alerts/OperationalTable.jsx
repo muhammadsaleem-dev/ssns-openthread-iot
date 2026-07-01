@@ -1,9 +1,9 @@
-import { Table, TableHead, TableRow, TableBody, Typography, Button } from '@mui/material';
+import { Table, TableHead, TableRow, TableBody, Typography, Button, Tooltip } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { TH, TD, SeverityChip, NodeChip, TimeCell, RecommendedAction, EmptyRow, ROW_HOVER, formatAlertMessage } from './AlertPrimitives';
 import { OPERATIONAL_LABELS } from './alertConstants';
 
-export default function OperationalTable({ rows, nodeMap, onResolve }) {
+export default function OperationalTable({ rows, nodeMap, onResolve, isAdmin = true }) {
   return (
     <Table size="small">
       <TableHead>
@@ -34,9 +34,13 @@ export default function OperationalTable({ rows, nodeMap, onResolve }) {
             </TD>
             <TimeCell ts={a.createdAt} />
             <TD align="center">
-              <Button size="small" disabled={a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
-                <CheckIcon fontSize="small" />
-              </Button>
+              <Tooltip title={!isAdmin ? "Admin privileges required" : ""}>
+                <span>
+                  <Button size="small" disabled={!isAdmin || a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
+                    <CheckIcon fontSize="small" />
+                  </Button>
+                </span>
+              </Tooltip>
             </TD>
           </TableRow>
         )) : <EmptyRow colSpan={8} label="No operational alerts" />}
@@ -44,3 +48,4 @@ export default function OperationalTable({ rows, nodeMap, onResolve }) {
     </Table>
   );
 }
+

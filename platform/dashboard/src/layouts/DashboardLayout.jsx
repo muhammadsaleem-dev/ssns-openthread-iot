@@ -18,6 +18,7 @@ import {
   Typography,
   Divider,
   Chip,
+  Tooltip,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -30,7 +31,11 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import HubIcon from '@mui/icons-material/Hub';
+import LogoutIcon from '@mui/icons-material/Logout';
+import PersonIcon from '@mui/icons-material/Person';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { ThemeModeContext } from '../App';
+import { useAuth } from '../context/AuthContext';
 
 const DRAWER_WIDTH = 240;
 
@@ -47,6 +52,7 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const colorMode = useContext(ThemeModeContext);
+  const { user, isAdmin, logout } = useAuth();
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -103,8 +109,41 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
         ))}
       </List>
 
-      {/* Footer */}
+      {/* Footer / User Box */}
       <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            mb: 1.5,
+            px: 0.5,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
+            {isAdmin ? (
+              <AdminPanelSettingsIcon sx={{ color: 'warning.main', fontSize: 20 }} />
+            ) : (
+              <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+            )}
+            <Box sx={{ overflow: 'hidden' }}>
+              <Typography variant="body2" noWrap sx={{ fontWeight: 700, fontSize: '0.8rem', lineHeight: 1.2 }}>
+                {user?.username || 'User'}
+              </Typography>
+              <Chip
+                label={isAdmin ? 'ADMIN' : 'VISITOR'}
+                size="small"
+                color={isAdmin ? 'warning' : 'default'}
+                sx={{ height: 16, fontSize: '0.62rem', fontWeight: 800, mt: 0.3 }}
+              />
+            </Box>
+          </Box>
+          <Tooltip title="Sign Out">
+            <IconButton size="small" onClick={logout} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+              <LogoutIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
         <Chip
           label="Fog Node Active"
           size="small"
@@ -135,6 +174,11 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
           <Typography variant="h6" noWrap sx={{ fontWeight: 700, flexGrow: 1 }}>
             SSNS Dashboard
           </Typography>
+          <Tooltip title="Sign Out">
+            <IconButton onClick={logout} color="inherit" size="small" sx={{ mr: 1 }}>
+              <LogoutIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <IconButton onClick={colorMode.toggleColorMode} color="inherit">
             {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>

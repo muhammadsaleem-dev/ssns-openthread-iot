@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Box, Typography, Card, Tabs, Tab, Button, Switch, FormControlLabel, TableContainer, alpha, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Card, Tabs, Tab, Button, Switch, FormControlLabel, TableContainer, alpha, useTheme, useMediaQuery, Tooltip } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -8,6 +8,7 @@ import CustomPagination from '../components/CustomPagination';
 import usePolling from '../hooks/usePolling';
 import { fetchAlertCounts, fetchAlertsPage, fetchNodes, resolveAllAlerts, resolveAlert } from '../services/api';
 import API from '../config/api';
+import { useAuth } from '../context/AuthContext';
 
 import { TABS, OPERATIONAL_TYPES, AI_TYPES, INFRA_TYPES, CATEGORY_FILTER } from '../components/alerts/alertConstants';
 import OperationalTable from '../components/alerts/OperationalTable';
@@ -17,7 +18,9 @@ import AllAlertsTable from '../components/alerts/AllAlertsTable';
 import MobileAlertCard from '../components/alerts/MobileAlertCard';
 
 export default function AlertsPage() {
+  const { isAdmin } = useAuth();
   const { data: nodes, loading: nodesLoading } = usePolling(fetchNodes, API.POLL_INTERVAL);
+
   
   const [activeTab, setActiveTab] = useState('all');
   const [page, setPage] = useState(0);
@@ -103,15 +106,19 @@ export default function AlertsPage() {
             control={<Switch checked={hideResolved} onChange={(e) => { setHideResolved(e.target.checked); setPage(0); }} size="small" />}
             label={<Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', fontWeight: 500 }}>Hide Resolved</Typography>}
           />
-          <Button 
-            variant="contained" 
-            color="primary"
-            disabled={unresolvedCount === 0 || counts[activeTab] === 0 || resolving}
-            onClick={handleResolveAll}
-            sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 2 }}
-          >
-            {resolving ? 'Resolving...' : `Resolve ${activeTab === 'all' ? 'All' : 'Category'} Alerts`}
-          </Button>
+          <Tooltip title={!isAdmin ? "Admin privileges required to resolve alerts" : ""}>
+            <span>
+              <Button 
+                variant="contained" 
+                color="primary"
+                disabled={!isAdmin || unresolvedCount === 0 || counts[activeTab] === 0 || resolving}
+                onClick={handleResolveAll}
+                sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 2 }}
+              >
+                {resolving ? 'Resolving...' : `Resolve ${activeTab === 'all' ? 'All' : 'Category'} Alerts`}
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
       </Box>
 
@@ -161,7 +168,7 @@ export default function AlertsPage() {
         {isMobile ? (
           <Box sx={{ p: 2 }}>
             {paginatedAlerts.length > 0 ? paginatedAlerts.map(a => (
-              <MobileAlertCard key={a.id} a={a} nodeMap={nodeMap} onResolve={handleResolveOne} activeTab={activeTab} />
+              <MobileAlertCard key={a.id} a={a} nodeMap={nodeMap} onResolve={handleResolveOne} activeTab={activeTab} isAdmin={isAdmin} />
             )) : (
               <Box sx={{ py: 6, textAlign: 'center' }}>
                 <WarningAmberIcon sx={{ fontSize: 32, mb: 1, color: 'text.secondary' }} />
@@ -171,10 +178,10 @@ export default function AlertsPage() {
           </Box>
         ) : (
           <TableContainer>
-            {activeTab === 'operational' && <OperationalTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} />}
-            {activeTab === 'ai' && <AiInsightsTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} />}
-            {activeTab === 'infra' && <InfraTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} />}
-            {activeTab === 'all' && <AllAlertsTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} />}
+            {activeTab === 'operational' && <OperationalTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} isAdmin={isAdmin} />}
+            {activeTab === 'ai' && <AiInsightsTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} isAdmin={isAdmin} />}
+            {activeTab === 'infra' && <InfraTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} isAdmin={isAdmin} />}
+            {activeTab === 'all' && <AllAlertsTable rows={paginatedAlerts} nodeMap={nodeMap} onResolve={handleResolveOne} isAdmin={isAdmin} />}
           </TableContainer>
         )}
         

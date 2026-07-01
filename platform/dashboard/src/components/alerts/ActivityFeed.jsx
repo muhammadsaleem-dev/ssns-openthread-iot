@@ -15,6 +15,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SpeedIcon from '@mui/icons-material/Speed';
 
 import { fetchAlertsPage, resetAlertTimers } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const EVENT_META = {
   TRANSIENT_CO2_EVENT: {
@@ -103,6 +104,7 @@ const Sparkline = ({ color }) => {
 };
 
 const ActivityFeed = () => {
+  const { isAdmin } = useAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [events, setEvents] = useState([]);
@@ -116,6 +118,7 @@ const ActivityFeed = () => {
   );
 
   const handleClearFeed = async () => {
+    if (!isAdmin) return;
     const now = Date.now();
     clearThresholdRef.current = now;
     localStorage.setItem('activityFeedClearThreshold', now.toString());
@@ -220,16 +223,18 @@ const ActivityFeed = () => {
               )}
             </Box>
 
-            <Tooltip title="Clear Feed">
-              <IconButton onClick={handleClearFeed} size="small" sx={{ 
-                color: isDark ? 'rgba(255,255,255,0.6)' : theme.palette.text.secondary,
-                bgcolor: isDark ? 'rgba(255,255,255,0.05)' : alpha(theme.palette.common.black, 0.04),
-                border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : alpha(theme.palette.divider, 0.1)}`,
-                borderRadius: 2,
-                '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.1)' : alpha(theme.palette.common.black, 0.08) }
-              }}>
-                <ClearAllIcon fontSize="small" />
-              </IconButton>
+            <Tooltip title={!isAdmin ? "Admin privileges required to clear feed" : "Clear Feed"}>
+              <span>
+                <IconButton onClick={handleClearFeed} disabled={!isAdmin} size="small" sx={{ 
+                  color: isDark ? 'rgba(255,255,255,0.6)' : theme.palette.text.secondary,
+                  bgcolor: isDark ? 'rgba(255,255,255,0.05)' : alpha(theme.palette.common.black, 0.04),
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : alpha(theme.palette.divider, 0.1)}`,
+                  borderRadius: 2,
+                  '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.1)' : alpha(theme.palette.common.black, 0.08) }
+                }}>
+                  <ClearAllIcon fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
           </Box>
         </Box>

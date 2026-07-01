@@ -1,9 +1,9 @@
-import { Table, TableHead, TableRow, TableBody, Typography, Button, Box, alpha } from '@mui/material';
+import { Table, TableHead, TableRow, TableBody, Typography, Button, Box, alpha, Tooltip } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { TH, TD, SeverityChip, NodeChip, TimeCell, RecommendedAction, EmptyRow, ROW_HOVER, formatAlertMessage } from './AlertPrimitives';
 import { getAiMeta } from './alertConstants';
 
-export default function AiInsightsTable({ rows, nodeMap, onResolve }) {
+export default function AiInsightsTable({ rows, nodeMap, onResolve, isAdmin = true }) {
   return (
     <Table size="small">
       <TableHead>
@@ -48,9 +48,13 @@ export default function AiInsightsTable({ rows, nodeMap, onResolve }) {
               </TD>
               <TimeCell ts={a.createdAt} />
               <TD align="center">
-                <Button size="small" disabled={a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
-                  <CheckIcon fontSize="small" />
-                </Button>
+                <Tooltip title={!isAdmin ? "Admin privileges required" : ""}>
+                  <span>
+                    <Button size="small" disabled={!isAdmin || a.resolved} onClick={() => onResolve(a.id)} sx={{ minWidth: 'auto', p: 0.5 }}>
+                      <CheckIcon fontSize="small" />
+                    </Button>
+                  </span>
+                </Tooltip>
               </TD>
             </TableRow>
           );
@@ -59,3 +63,4 @@ export default function AiInsightsTable({ rows, nodeMap, onResolve }) {
     </Table>
   );
 }
+
