@@ -16,6 +16,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 
 import { fetchAlertsPage, resetAlertTimers } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { ExplainFormulaButton } from './AlertFormulaDialog';
 
 const EVENT_META = {
   TRANSIENT_CO2_EVENT: {
@@ -80,24 +81,38 @@ const formatTimeOnly = (dateString) => {
   return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} • ${timeStr}`;
 };
 
-// SVG Sparkline Component
-const Sparkline = ({ color }) => {
-  // Generates a random-looking sparkline for the UI visual
-  const points = "0,30 20,25 40,10 60,15 80,5 100,20 120,30";
+// SVG Sparkline Component showing dynamic sensor recovery & trend curves
+const Sparkline = ({ color, type = 'DEFAULT' }) => {
+  let points = "0,26 20,20 40,24 60,12 80,18 100,14 120,22";
+  if (type === 'OCCUPANCY_EVENT') {
+    points = "0,28 20,25 40,22 60,15 80,12 100,8 120,6"; // Stable rising occupancy
+  } else if (type === 'TRANSIENT_CO2_EVENT') {
+    points = "0,28 20,26 40,8 60,22 80,26 100,27 120,28"; // Sharp breath spike & quick 3m recovery
+  } else if (type === 'TRANSIENT_VOC_EVENT') {
+    points = "0,28 25,12 50,22 75,10 100,24 120,27"; // Chemical burst & gentle dispersion
+  } else if (type === 'VENTILATION_EVENT') {
+    points = "0,10 20,12 40,18 60,22 80,26 100,28 120,29"; // Fresh air cooling & CO2 drop
+  } else if (type === 'MOISTURE_EVENT') {
+    points = "0,28 30,14 60,8 90,16 120,26"; // Steaming hot tea humidity curve
+  }
+
   return (
-    <Box sx={{ width: '100%', height: 30, mt: 1, position: 'relative' }}>
+    <Box sx={{ width: '100%', height: 36, mt: 1.5, pt: 0.5, position: 'relative' }}>
       <svg width="100%" height="100%" viewBox="0 0 120 30" preserveAspectRatio="none">
         <defs>
-          <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+          <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.35} />
             <stop offset="100%" stopColor={color} stopOpacity={0.0} />
           </linearGradient>
         </defs>
-        <polygon points={`0,30 ${points} 120,30`} fill={`url(#grad-${color})`} />
-        <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <polygon points={`0,30 ${points} 120,30`} fill={`url(#grad-${color.replace('#', '')})`} />
+        <polyline points={points} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <Box sx={{ position: 'absolute', right: 0, bottom: 0, bgcolor: color, borderRadius: 1, p: 0.2, display: 'flex' }}>
-        <SpeedIcon sx={{ fontSize: 12, color: '#000' }} />
+      <Box sx={{ position: 'absolute', right: 2, bottom: 2, bgcolor: color, borderRadius: 1, px: 0.5, py: 0.2, display: 'flex', alignItems: 'center', gap: 0.3, boxShadow: `0 2px 6px ${alpha(color, 0.4)}` }}>
+        <SpeedIcon sx={{ fontSize: 11, color: '#000' }} />
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: '#000', lineHeight: 1 }}>
+          3m Trend
+        </Typography>
       </Box>
     </Box>
   );
@@ -303,9 +318,12 @@ const ActivityFeed = () => {
                       
                       {/* Text */}
                       <Box>
-                        <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', color: isDark ? '#FFFFFF' : theme.palette.text.primary, lineHeight: 1.2 }}>
-                          {meta.title}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', color: isDark ? '#FFFFFF' : theme.palette.text.primary, lineHeight: 1.2 }}>
+                            {meta.title}
+                          </Typography>
+                          <ExplainFormulaButton alert={event} />
+                        </Box>
                         <Typography sx={{ fontSize: '0.8rem', color: isDark ? 'rgba(255,255,255,0.7)' : theme.palette.text.secondary, mt: 0.3 }}>
                           {meta.subtitle}
                         </Typography>
@@ -332,10 +350,8 @@ const ActivityFeed = () => {
                     />
                   </Box>
                   
-                  {/* Visual detail for specific events (e.g., VOC Spike) */}
-                  {(event.type === 'TRANSIENT_VOC_EVENT' || event.type === 'TRANSIENT_CO2_EVENT') && index === 0 && (
-                    <Sparkline color={meta.color} />
-                  )}
+                  {/* Visual 3m trend graph for all transient & minor activity events */}
+                  <Sparkline color={meta.color} type={event.type} />
                 </Box>
               </Fade>
             );

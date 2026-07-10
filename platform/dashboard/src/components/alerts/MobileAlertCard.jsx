@@ -3,6 +3,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import { SeverityBadge, NodeBadge, RecommendedAction, formatAlertMessage } from './AlertPrimitives';
 import { formatTimestamp } from '../../utils/format';
 import { OPERATIONAL_LABELS } from './alertConstants';
+import { ExplainFormulaButton } from './AlertFormulaDialog';
 
 export default function MobileAlertCard({ a, nodeMap, onResolve, activeTab, isAdmin = true }) {
   const theme = useTheme();
@@ -21,11 +22,12 @@ export default function MobileAlertCard({ a, nodeMap, onResolve, activeTab, isAd
       <Box sx={{ p: 2 }}>
         {/* Top Header: Severity, Category, Time */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5, gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
             <SeverityBadge severity={a.severity} />
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {isInfra ? 'Node Offline' : OPERATIONAL_LABELS[a.type] || a.type}
             </Typography>
+            <ExplainFormulaButton alert={a} />
           </Box>
           <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', whiteSpace: 'nowrap', flexShrink: 0, textAlign: 'right' }}>
             {formatTimestamp(a.createdAt)}
