@@ -47,107 +47,107 @@ const FORMULA_METADATA = {
   },
   TRANSIENT_CO2_SPIKE: {
     title: 'Rule 1 — Human Breath (Transient CO2 Event)',
-    standard: 'ASHRAE Standard 62.1 Appendix D — Enclosed Space Respiratory Accumulation Guidelines',
+    standard: 'Engineering Basis: Statistical Anomaly Detection & Sensirion SCD41 Sensor Specifications',
     engine: 'Engine 2 — Statistical Heuristics & Rolling Window Algorithm',
     formula: 'CO2 Peak > Rolling Average + MAX ( 2 * CO2 Standard Deviation , 100 ppm Hardware Noise Floor ) AND CO2 Reading returns toward Rolling Average within 3 minutes',
     noiseFloor: 'Hardware Noise Floor Clamped at 100.0 ppm per Sensirion SCD41 Datasheet ±40 ppm + 5% accuracy',
-    explanation: 'Per ASHRAE 62.1 Appendix D guidelines, normal room occupancy raises carbon dioxide gradually toward a steady-state baseline of 800–1,000 ppm. Therefore, an instantaneous jump above 3,500 ppm cannot represent room-wide air degradation; rather, it indicates direct human exhalation (~38,000 ppm in exhaled breath) onto the sensor. Because our backend verifies that the 3-minute rolling average and standard deviation remain stable, Engine 2 logs a transient breath event and suppresses false building alarms.'
+    explanation: 'Direct human breath (~38,000 ppm CO2) near the sensor causes a sudden localized spike > 2 Standard Deviations. Because room-wide CO2 concentration changes gradually across the monitored space, a sharp localized spike that recovers within the configured 3-minute observation window is statistically classified by Engine 2 as a transient human-breath event.'
   },
   VENTILATION_EVENT: {
     title: 'Rule 2 — Window Opened (Simultaneous Draft & Gas Dilution)',
-    standard: 'ASHRAE Standard 62.1 Section 6.2 (Ventilation Rates) & ASHRAE Standard 55 Section 5.3 (Thermal Draft Limit)',
+    standard: 'Engineering Basis: Multi-Sensor Correlation Heuristics (2-Sigma Rolling Window) & ASHRAE Standard 55 Thermal Draft Principles',
     engine: 'Engine 2 — Statistical Heuristics & Cross-Sensor Correlation',
     formula: 'Temperature < Rolling Average - (2 * Temperature Standard Deviation) AND CO2 < Rolling Average - (2 * CO2 Standard Deviation)',
     noiseFloor: 'Thermal Floor: ±0.2 °C | CO2 Floor: 100 ppm per Sensirion SCD41 Datasheet',
-    explanation: 'Per ASHRAE 62.1 Section 6.2 and Standard 55 guidelines, introducing outdoor air dilutes indoor carbon dioxide while causing an immediate localized thermal draft drop. When someone opens an exterior window, Engine 2 correlates the simultaneous 2-sigma drops in temperature and CO2 to confirm natural ventilation, preventing maintenance from mistakenly inspecting the heating boiler.'
+    explanation: 'Opening an exterior window causes rapid outdoor air dilution and an immediate thermal draft. Engine 2 correlates simultaneous 2-sigma drops in temperature and CO2 to confirm natural window ventilation rather than an HVAC heating failure.'
   },
   FREEZING_WINTER_WINDOW: {
     title: 'Rule 3 — Freezing Winter Window (< 10 °C Emergency Draft)',
-    standard: 'ASHRAE Standard 55 (Thermal Environmental Limits) & International Building Code Pipe Freeze Protection',
+    standard: 'Engineering Basis: Building Freeze Protection Heuristics (< 10 °C Absolute Threshold) & Multi-Sensor CO2 Correlation',
     engine: 'Engine 1 (Absolute Threshold) & Engine 2 (Correlation Check)',
     formula: 'Current Temperature < 10 C AND CO2 < Rolling Average - (2 * CO2 Standard Deviation)',
     noiseFloor: 'Thermal Floor: ±0.2 °C | CO2 Floor: 100 ppm per Sensirion SCD41 Datasheet',
-    explanation: 'Per International Building Code and ASHRAE 55 guidelines, indoor spaces must remain above 10 °C to prevent water pipe freezing and severe cold strain. If a window is left open during sub-zero winter weather, Engine 1 immediately triggers a life-safety thermal warning, while Engine 2 correlates the thermal drop with CO2 dilution to direct staff to close the open window.'
+    explanation: 'To prevent indoor water pipes from freezing below 10 °C (50 °F), Engine 1 triggers a life-safety thermal warning when sub-zero temperatures coincide with a 2-sigma CO2 drop confirming an open exterior window.'
   },
   MOISTURE_EVENT: {
     title: 'Rule 4 — Hot Tea vs Human Breath (Moisture Event Without Exhalation)',
-    standard: 'Sensirion SCD41 / SHT Multi-Sensor Cross-Correlation Application Note',
+    standard: 'Engineering Basis: Sensirion Multi-Sensor Application Guidelines (SCD4x & SHT4x Cross-Correlation) & Statistical Variance Filtering',
     engine: 'Engine 2 — Statistical Heuristics & Multi-Sensor Variance Check',
     formula: 'Humidity Peak > Rolling Average + MAX ( 3 * Humidity Standard Deviation , 5 %RH Sensor Floor ) AND CO2 Variance remains flat (< 10 ppm)',
     noiseFloor: 'Clamped at 5.0 %RH per Sensirion SCD41 / SHT Datasheet',
-    explanation: 'Per Sensirion multi-sensor application guidelines, both hot tea and human breath cause a sharp relative humidity spike (> 3 Sigma). To separate them, Engine 2 monitors Carbon Dioxide variance during the moisture burst. Because CO2 variance remains flat under 10 ppm, our backend confirms the event is pure water vapor from a hot beverage rather than human exhalation.'
+    explanation: 'Hot beverage steam and human breath both cause a sharp jump in relative humidity (> 3 Sigma). Engine 2 confirms a non-exhalation moisture event (like hot tea) by verifying that simultaneous CO2 variance remains flat under 10 ppm.'
   },
   PARTICULATE_EVENT: {
     title: 'Rule 5 — Dust Sweeping vs Fire Hazard (Physical Particulate Disturbance)',
-    standard: 'WHO 2021 Particulate Matter Guidelines & NFPA 72 Combustion Alarm Protocols',
+    standard: 'Engineering Basis: Multi-Sensor Fire & Combustion Exclusion Heuristics (Optical PM2.5 vs Thermal & Gas Variance)',
     engine: 'Engine 2 — Statistical Heuristics & Combustion Exclusion Check',
     formula: 'PM2.5 Peak > Rolling Average + MAX ( 3 * PM2.5 Standard Deviation , 5 µg/m³ Particle Floor ) AND Gas & Temp remain flat',
     noiseFloor: 'Clamped at 5.0 µg/m³ per Sensirion SPS30 Optical Particle Counter Spec',
-    explanation: 'Per WHO air quality and NFPA 72 fire guidelines, particulate spikes (> 35 µg/m³) must be verified against combustion gases and heat. When a janitor sweeps dust or shakes fabric, PM2.5 jumps sharply above 3 Sigma. Because Engine 2 verifies that chemical TVOC and temperature variances remain flat, it confirms a physical dust disturbance and suppresses false fire alarms.'
+    explanation: 'Physical activities like sweeping dust or vacuuming cause sharp spikes in PM2.5 particle counts (> 3 Sigma). Engine 2 verifies that chemical TVOC and temperature remain flat before classifying the spike as benign physical dust rather than active fire.'
   },
   OCCUPANCY_EVENT: {
     title: 'Rule 6 — Camera-Free Occupancy Detection (Conference Room Occupancy)',
-    standard: 'ASHRAE Standard 62.1 Section 6.2.2.1 — Breathing Zone Continuous Occupancy Baseline',
+    standard: 'Engineering Basis: Indoor CO2 Mass-Balance Principles & Statistical Variance Stability (< 50 ppm σ)',
     engine: 'Engine 2 — Statistical Heuristics & Stable Variance Algorithm',
-    formula: 'CO2 Rolling Average > 800 ppm AND CO2 Standard Deviation < 50 ppm',
-    noiseFloor: 'CO2 Stability Threshold: < 50 ppm Standard Deviation',
-    explanation: 'Per ASHRAE 62.1 Section 6.2.2.1 ventilation guidelines, continuous human respiration inside an enclosed conference room raises ambient CO2 above the 800 ppm steady-state baseline. By checking that the 3-minute rolling average exceeds 800 ppm while standard deviation remains low and stable (< 50 ppm), Engine 2 confirms continuous human occupancy without requiring privacy-invasive cameras.'
+    formula: 'CO2 Rolling Average > Occupancy Threshold (Default: 800 ppm) AND CO2 Standard Deviation < 50 ppm',
+    noiseFloor: 'Configured occupancy threshold: 800 ppm (default); Stable variance criterion: σ < 50 ppm.',
+    explanation: 'Outdoor CO2 is typically around 420–450 ppm under normal ambient conditions. Continuous human respiration gradually increases indoor CO2 concentration in enclosed spaces. When the rolling average exceeds the configured occupancy threshold (default: 800 ppm, which can be adjusted for different building ventilation characteristics) while statistical variance remains low (σ < 50 ppm), Engine 2 statistically infers sustained occupancy rather than a transient CO2 event.'
   },
   TRANSIENT_VOC_EVENT: {
-    title: 'Rule 7 — Lighter Flick / Deodorant Spray (Transient Chemical Burst)',
-    standard: 'WELL v2 Building Standard Feature A01 — Fundamental Indoor Gas Thresholds',
+    title: 'Rule 7 — Deodorant Spray / Hand Sanitizer (Transient Chemical Burst)',
+    standard: 'Engineering Basis: Metal-Oxide Semiconductor (MOS) VOC Sensor Characteristics & Statistical Transient Detection',
     engine: 'Engine 2 — Statistical Heuristics & Anomaly Suppression Pipeline',
     formula: 'TVOC Peak > Rolling Average + MAX ( 1.5 * TVOC Standard Deviation , 25 ppb Metal-Oxide Floor ) AND Particulate < 35 µg/m³',
     noiseFloor: 'Clamped at 25.0 ppb per ScioSense CCS811 / SGP30 Baseline Spec',
-    explanation: 'Per WELL v2 indoor air quality guidelines, chemical VOC bursts from hand sanitizer, perfume, or a brief lighter flick exceed normal baselines (> 1.5 Sigma). Because metal-oxide sensors disperse rapidly and particulate smoke remains under safe limits (< 35 µg/m³), Engine 2 logs a harmless transient chemical burst and prevents false fire evacuation alarms.'
+    explanation: 'Short-lived chemical bursts from hand sanitizer, perfume, or deodorant spray cause rapid TVOC jumps (> 1.5 Sigma). Because localized chemical aerosols disperse quickly and produce no combustion soot (< 35 µg/m³ PM2.5), Engine 2 logs a harmless chemical burst.'
   },
   COMBUSTION_WARNING: {
     title: 'Rule 8 — Critical Combustion (Active Building Fire: Soot + Gas + Heat)',
-    standard: 'NFPA 72 National Fire Alarm Code & ASHRAE Life Safety Emergency Evacuation Protocol',
+    standard: 'Engineering Basis: Multi-Criteria Combustion Detection Principles (Simultaneous Particulate, Gas, and Heat Rise)',
     engine: 'Engine 1 (Critical Limits) & Engine 2 (Multi-Sensor Correlation)',
     formula: 'Current PM2.5 > 35 ug/m3 AND Current TVOC > 1000 ppb AND Temperature > Rolling Average + (2 * Temperature Standard Deviation)',
     noiseFloor: 'PM2.5: > 35 µg/m³ | TVOC: > 1000 ppb | Temp Jump: > 2.0 Sigma',
-    explanation: 'Per NFPA 72 National Fire Alarm guidelines, active building combustion produces a simultaneous triple-sensor breach: toxic particulate soot (PM2.5 > 35 µg/m³), chemical hydrocarbon gases (TVOC > 1000 ppb), and rapid thermal heat rise (+2 Sigma). Engine 2 immediately correlates all three metrics to trigger life-safety emergency evacuation protocols.'
+    explanation: 'Active building combustion generates a distinct triple-sensor breach: toxic particulate soot (> 35 µg/m³ PM2.5), chemical gases (> 1,000 ppb TVOC), and rapid thermal heat rise (+2 Sigma). Engine 2 requires simultaneous breach of all three parameters to trigger emergency fire alarms.'
   },
   AIR_QUALITY_POOR: {
     title: 'Composite Air Quality Index & Multi-Sensor Degradation',
-    standard: 'ASHRAE Standard 62.1 & WHO Combined Indoor Air Quality Health Index',
+    standard: 'Engineering Basis: Multi-Parameter Environmental Quality Thresholds (3-Minute Sustained Rolling Window)',
     engine: 'Engine 1 — Absolute Threshold Evaluation Engine',
     formula: 'CO2 > 1500 ppm OR PM2.5 > 35 ug/m3 OR TVOC > 1000 ppb over 3-Minute Window',
     noiseFloor: 'Enforces multi-parameter baseline floors across SCD41, SPS30, and CCS811',
-    explanation: 'Per ASHRAE 62.1 and WHO health exposure guidelines, overall air quality is classified as degraded when any individual environmental metric breaches safe life-safety limits over a sustained 3-minute rolling window.'
+    explanation: 'To prevent false alarms from temporary sensor spikes, Engine 1 classifies indoor air quality as degraded only when CO2 (> 1,500 ppm), PM2.5 (> 35 µg/m³), or TVOC (> 1,000 ppb) remains breached continuously throughout a 3-minute rolling window.'
   },
   HARDWARE_FAULT: {
     title: 'Sensor Hardware Fault & I2C Bus Disconnection (-999)',
-    standard: 'Sensirion SCD41 / SPS30 & ScioSense CCS811 I2C Digital Bus Communication Specification',
+    standard: 'Engineering Basis: IETF CoAP & I2C Digital Bus Communication Specifications (Sentinel Fault & CRC Error Detection)',
     engine: 'Engine 1 — Hardware Diagnostic & Sentinel Protection Pipeline',
     formula: 'Raw Sensor Reading == -999.0 OR CRC Checksum Error',
     noiseFloor: 'Fault sentinel threshold: -999.0',
-    explanation: 'Per I2C digital interface specifications, edge sensors return error code -999.0 or CRC checksum failures when physical wiring disconnects or bus faults occur. Engine 1 intercepts these sentinel values to exclude corrupted telemetry from rolling Z-score calculations.'
+    explanation: 'Digital I2C sensors return error code -999.0 or CRC checksum failures during wiring disconnects or hardware faults. Engine 1 intercepts these sentinel values immediately to isolate hardware faults and keep rolling averages clean.'
   },
   ML_ANOMALY: {
     title: 'Multi-Variable Behavioral Anomaly Detection',
-    standard: 'Statistical Signal Processing Standards (68-95-99.7 Bell Curve Confidence Boundaries)',
+    standard: 'Engineering Basis: Statistical Outlier Detection (Z-Score Rolling Thresholds & scikit-learn IsolationForest)',
     engine: 'Engine 2 (Rolling Z-Scores) & Engine 3 (scikit-learn IsolationForest)',
     formula: 'Peak Reading > Rolling Average + MAX ( Z * Standard Deviation , Datasheet Hardware Noise Floor )',
     noiseFloor: 'Multipliers: Z = 2.0 (95.4% Confidence for CO2/Drafts) | Z = 3.0 (99.7% Confidence for PM/Humidity)',
-    explanation: 'Per statistical signal processing laws (68-95-99.7 rule), readings exceeding Z = 2.0 or 3.0 standard deviations represent significant physical deviations. By clamping standard deviation to official datasheet accuracy limits (100 ppm CO2, 5 µg/m³ PM2.5, 25 ppb TVOC), Engine 2 guarantees zero false alarms during quiet electrical room states while instantly diagnosing real physical events.'
+    explanation: 'Engine 2 identifies statistical anomalies using rolling Z-Score thresholds (Z = 2.0 or 3.0 Standard Deviations above baseline). To prevent false triggers in quiet rooms, standard deviation is clamped to minimum hardware datasheet limits.'
   },
   FORECAST_WARNING: {
     title: 'Predictive AI Trend & Forecast Warning',
-    standard: 'Linear Regression & Rate-of-Rise Predictive Extrapolation Methodology',
+    standard: 'Engineering Basis: Linear Rate-of-Rise Derivative Extrapolation (Predictive Trend Algorithm)',
     engine: 'Engine 3 — Machine Learning & Linear Trend Engine',
     formula: 'Projected Value (t + 15m) = Current Reading + (Rolling Slope * 15m) > Threshold Limit',
     noiseFloor: 'Evaluated across 180-second rolling derivative window',
-    explanation: 'Per predictive health management guidelines, Engine 3 computes the real-time rate-of-rise derivative across a 180-second rolling window to warn facility managers 15 minutes before environmental parameters breach critical ASHRAE or WHO life-safety thresholds.'
+    explanation: 'Engine 3 computes the real-time rate-of-rise slope across a 180-second rolling window using linear regression. By extrapolating this slope 15 minutes ahead, the system warns facility managers before rapidly climbing parameters breach safety limits.'
   },
   NODE_OFFLINE: {
     title: 'nRF52840 Sensor Node Heartbeat & Connection Timeout',
-    standard: 'IETF RFC 7252 CoAP Protocol & Nordic nRF52840 Wireless Heartbeat Specification',
+    standard: 'Engineering Basis: CoAP UDP Keep-Alive Heartbeat Specification & Edge Mesh Timeout Detection',
     engine: 'Engine 1 — Edge Network & Gateway Diagnostic Pipeline',
     formula: 'Current Server Timestamp - Last Heartbeat Timestamp > 60.0 seconds',
     noiseFloor: 'Debounce timeout buffer: 60.0 seconds',
-    explanation: 'Per IETF RFC 7252 CoAP protocol specifications, wireless IoT nodes must transmit periodic UDP keep-alive heartbeats. If telemetry ceases for over 60.0 seconds, Engine 1 flags a mesh connectivity or node power failure.'
+    explanation: 'Wireless IoT sensors periodically transmit UDP keep-alive heartbeats to the gateway. If no packet arrives for over 60.0 seconds, Engine 1 flags the node as offline due to battery exhaustion or wireless mesh interference.'
   }
 };
 
@@ -256,7 +256,7 @@ export function ExplainFormulaButton({ alert, size = 'small' }) {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.8 }}>
               <MenuBookIcon sx={{ fontSize: 18, color: 'primary.main' }} />
               <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.85rem' }}>
-                Governing Standard & Reference
+                Engineering Basis & Reference
               </Typography>
             </Box>
             <Box sx={{ 
@@ -328,9 +328,11 @@ export function ExplainFormulaButton({ alert, size = 'small' }) {
                         </Typography>
                         <Chip 
                           label={
-                            typeKey.includes('TRANSIENT') || typeKey.includes('VENTILATION') || typeKey.includes('MOISTURE') || typeKey.includes('PARTICULATE') || typeKey.includes('ML_ANOMALY')
+                            typeKey.includes('OCCUPANCY')
+                              ? 'Configured Occupancy Threshold (Default: 800 ppm)'
+                              : typeKey.includes('TRANSIENT') || typeKey.includes('VENTILATION') || typeKey.includes('MOISTURE') || typeKey.includes('PARTICULATE') || typeKey.includes('ML_ANOMALY')
                               ? 'Dynamic 2σ / 3σ Limit (Rolling Average + Clamped Noise Floor)'
-                              : 'Absolute Health Threshold Limit'
+                              : 'Configured Detection Threshold'
                           } 
                           size="small" 
                           sx={{ 
