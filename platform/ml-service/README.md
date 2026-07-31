@@ -80,6 +80,11 @@ docker build -t thread-ml-service .
 docker run -p 8000:8000 -e BACKEND_URL=http://host.docker.internal:8080 thread-ml-service
 ```
 
+## Evaluation & Validation
+The live pipeline implements the mathematical anomaly and forecasting models for real-time edge processing. Formal offline statistical validation (to calculate metrics like TPR, FPR, RMSE, MAE, and Time-to-Detection) is currently **pending historical data collection**. 
+
+Once a substantial 30-day telemetry dataset is captured from the physical Thread nodes, the proposed **Forward-Chaining Time-Series Holdout** methodology (Days 1-14 train, 15-21 validation, 22-30 test) will be executed offline with synthetic anomaly injection to generate the final performance metrics.
+
 ## Example API / Alert Payload
 
 ### Incoming Telemetry (Processed by ML)
