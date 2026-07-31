@@ -11,7 +11,10 @@ The service leverages a **Robust-Scaled Isolation Forest** algorithm to learn th
 *   **4-Tier Data Imputation:** Cleanly handles dropped or missing sensor packets using short-term LOCF (Last Observation Carried Forward), medium-term exponential damped decay, long-term masking, and complete-frame fault rejection.
 *   **Multi-Variable Anomaly Detection:** Evaluates joint distributions using an `IsolationForest` (with `contamination="auto"`) and robust Median/IQR scaling to prevent single high-variance sensors from blinding the model.
 *   **Automated Drift Retraining:** Continuously monitors the Kolmogorov-Smirnov ($D_{KS}$) divergence. If the environment undergoes a seasonal baseline shift without high variance, the model autonomously rebuilds its tree ensemble.
-*   **R-Squared Gated Predictive Forecasting:** Projects CO2 and PM2.5 levels 30 minutes into the future. Suppresses false-positive projections if the linear fit is poor ($R^2 < 0.65$), filtering out random air turbulence. It also enforces physical saturation ceilings (e.g., 4000 ppm CO2 max).
+*   **R-Squared Gated Predictive Forecasting:** Projects CO2 and PM2.5 levels 30 minutes into the future, fixing the runaway alert issues of naive linear regression via three mechanisms:
+    *   **EMA Smoothing:** Applies an Exponential Moving Average shock-absorber *before* calculating the slope, preventing momentary breath spikes from throwing off the trajectory.
+    *   **$R^2$ Variance Gating:** Mathematically checks the goodness-of-fit. If $R^2 < 0.65$, it determines the trend is just random air turbulence and suppresses the forecast to prevent false alarms.
+    *   **Physical Saturation Clamping:** Enforces realistic mass-balance ceilings (e.g., capping CO2 at 4000 ppm) so the model cannot predict mathematically impossible concentrations.
 *   **Contextual Interpretability:** Computes robust Z-scores on the fly to explain *exactly why* an alert was triggered, naming the mathematical drivers.
 *   **Asynchronous Background Processing:** Polling and inference run without blocking API requests.
 *   **HTTP Alert Dispatch:** Automatically posts detected anomalies and forecast warnings back to the backend alert system, and autonomously resolves them when conditions normalize.
