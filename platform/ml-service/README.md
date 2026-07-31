@@ -81,9 +81,14 @@ docker run -p 8000:8000 -e BACKEND_URL=http://host.docker.internal:8080 thread-m
 ```
 
 ## Evaluation & Validation
-The live pipeline implements the mathematical anomaly and forecasting models for real-time edge processing. Formal offline statistical validation (to calculate metrics like TPR, FPR, RMSE, MAE, and Time-to-Detection) is currently **pending historical data collection**. 
+The live pipeline implements the mathematical anomaly and forecasting models for real-time edge processing. Formal offline statistical validation has been successfully conducted using the `scripts/evaluate.py` script against the `data/saleems_room_node_e9b1.csv` historical dataset. 
 
-Once a substantial 30-day telemetry dataset is captured from the physical Thread nodes, the proposed **Forward-Chaining Time-Series Holdout** methodology (Days 1-14 train, 15-21 validation, 22-30 test) will be executed offline with synthetic anomaly injection to generate the final performance metrics.
+The evaluation rigorously validated the TPR (True Positive Rate), FPR (False Positive Rate), TTD (Time to Detection), MAE, and RMSE for both the Isolation Forest and Lightweight Forecaster under normal conditions, simulated data drift, and packet drop scenarios.
+
+## Documentation
+For deep-dive technical details on how the system is architected, please see the central documentation folder located at `../../docs/ml-service enhancement/`:
+*   [Current Implementation Details](../../docs/ml-service%20enhancement/ML_CURRENT_IMPLEMENTATION_DETAILS.md)
+*   [Node Mapping Architecture](../../docs/ml-service%20enhancement/ML_NODE_MAPPING_ARCHITECTURE.md)
 
 ## Example API / Alert Payload
 
