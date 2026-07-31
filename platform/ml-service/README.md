@@ -15,7 +15,8 @@ The service leverages a **Robust-Scaled Isolation Forest** algorithm to learn th
     *   **EMA Smoothing:** Applies an Exponential Moving Average shock-absorber *before* calculating the slope, preventing momentary breath spikes from throwing off the trajectory.
     *   **$R^2$ Variance Gating:** Mathematically checks the goodness-of-fit. If $R^2 < 0.65$, it determines the trend is just random air turbulence and suppresses the forecast to prevent false alarms.
     *   **Physical Saturation Clamping:** Enforces realistic mass-balance ceilings (e.g., capping CO2 at 4000 ppm) so the model cannot predict mathematically impossible concentrations.
-*   **Contextual Interpretability:** Computes robust Z-scores on the fly to explain *exactly why* an alert was triggered, naming the mathematical drivers.
+*   **eXplainable AI (XAI) & Contextual Interpretability:** Computes robust Z-scores on the fly to explain *exactly why* an alert was triggered, naming the mathematical drivers (e.g., "Top Culprits: CO2_Rate +250%").
+*   **Autonomous Recommended Actions:** Beyond just detecting issues, the engine generates actionable mitigation strategies (e.g., "Proactively increase fresh air intake") embedded directly into the alert to assist human operators.
 *   **Asynchronous Background Processing:** Polling and inference run without blocking API requests.
 *   **HTTP Alert Dispatch:** Automatically posts detected anomalies and forecast warnings back to the backend alert system, and autonomously resolves them when conditions normalize.
 
