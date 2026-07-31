@@ -1,33 +1,34 @@
-# BLE Smart Monitoring ML Service
+# Thread Smart Monitoring ML Service
 
 ## Overview
-The `ble-smart-monitoring-ml-service` is a Python-based microservice that provides unsupervised anomaly detection for indoor environmental telemetry. It is a core component of the **BLE-Based Intelligent Indoor Environmental Monitoring System**, designed to move beyond conventional single-threshold alerting by identifying complex, multi-variable environmental anomalies.
+The `thread-smart-monitoring-ml-service` is a Python-based microservice that provides unsupervised anomaly detection and predictive forecasting for indoor environmental telemetry. It is a core component of the **Thread-Based Intelligent Indoor Environmental Monitoring System**, designed to move beyond conventional single-threshold alerting by identifying complex, multi-variable environmental anomalies.
 
-The service leverages the **Isolation Forest** algorithm to learn the normal operating baseline of an environment and detect deviations in real-time. It runs as a FastAPI application, interacting asynchronously with the system's backend to process telemetry and dispatch alerts.
-
-Key highlights:
-*   **Isolation Forest Anomaly Detection:** Unsupervised learning suitable for detecting rare and novel environmental events.
-*   **Real-Time Telemetry Analysis:** Continuous evaluation of incoming sensor data.
-*   **Decoupled Architecture:** Operates independently of the core telemetry ingestion pipeline to ensure system resilience.
-*   **Scalable Design:** Built to support independent models for multiple sensor nodes.
+The service leverages a **Robust-Scaled Isolation Forest** algorithm to learn the normal operating baseline of an environment and detect deviations in real-time, along with an **R-Squared Gated Linear Forecaster** to predict future gas and particulate accumulation. 
 
 ## Features
-*   **Real-Time Telemetry Polling:** Asynchronously fetches the latest sensor data from the Spring Boot backend.
-*   **Multi-Variable Anomaly Detection:** Evaluates joint distributions using Isolation Forest rather than treating parameters in isolation.
-*   **Predictive Forecasting:** Uses rolling-window linear regression to project CO2 and PM2.5 levels 30 minutes into the future.
-*   **Contextual Interpretability:** Computes Z-scores and trend slopes on the fly to explain *why* an alert was triggered.
+*   **Real-Time Telemetry Polling:** Asynchronously fetches the latest sensor data from the Spring Boot backend every 10 seconds.
+*   **12-Dimensional Core Feature Vector:** Distills raw telemetry into 5 core physical sensors (Temp, Humidity, CO2, TVOC, PM2.5), 5 per-minute rates of change, and 2 diurnal (time-of-day) sine/cosine markers.
+*   **4-Tier Data Imputation:** Cleanly handles dropped or missing sensor packets using short-term LOCF (Last Observation Carried Forward), medium-term exponential damped decay, long-term masking, and complete-frame fault rejection.
+*   **Multi-Variable Anomaly Detection:** Evaluates joint distributions using an `IsolationForest` (with `contamination="auto"`) and robust Median/IQR scaling to prevent single high-variance sensors from blinding the model.
+*   **Automated Drift Retraining:** Continuously monitors the Kolmogorov-Smirnov ($D_{KS}$) divergence. If the environment undergoes a seasonal baseline shift without high variance, the model autonomously rebuilds its tree ensemble.
+*   **R-Squared Gated Predictive Forecasting:** Projects CO2 and PM2.5 levels 30 minutes into the future. Suppresses false-positive projections if the linear fit is poor ($R^2 < 0.65$), filtering out random air turbulence. It also enforces physical saturation ceilings (e.g., 4000 ppm CO2 max).
+*   **Contextual Interpretability:** Computes robust Z-scores on the fly to explain *exactly why* an alert was triggered, naming the mathematical drivers.
 *   **Asynchronous Background Processing:** Polling and inference run without blocking API requests.
-*   **HTTP Alert Dispatch:** Automatically posts detected anomalies back to the backend alert system.
-*   **Model Persistence:** Uses `joblib` to save and restore trained models, avoiding re-calibration after restarts.
-*   **FastAPI REST Microservice:** Provides a lightweight, high-performance API for status checks and manual inference.
-*   **Docker-Compatible:** Fully containerised for deployment in a distributed environment.
+*   **HTTP Alert Dispatch:** Automatically posts detected anomalies and forecast warnings back to the backend alert system, and autonomously resolves them when conditions normalize.
+
+## Dashboard Control & Node-Specific Models
+The ML service operates entirely as a slave to the central Dashboard, retaining the following architectural relationships:
+*   **Dedicated Model Pairs Per Node:** The ML Engine dynamically manages a strict 1-to-1 mapping for *both* of its analytical engines (`NodeAnomalyDetectorManager` and `NodeForecasterManager`). This means a sensor node in a crowded conference room has its own isolated `IsolationForest` baseline and its own dedicated `LightweightForecaster` rolling window, entirely separate from a node in a quiet storage closet.
+*   **Dynamic Sensitivity:** Dashboard users can adjust the ML sensitivity slider. The poller passes this value into the engine to dynamically shift the `IsolationForest` decision boundary on the fly—no container restart required.
+*   **Calibration Control:** The `baselineWindowSize` defined by the dashboard strictly dictates the warm-up calibration phase for each node.
+*   **Autonomous Self-Healing:** While users can trigger manual recalibration, the newly implemented Kolmogorov-Smirnov ($D_{KS}$) drift detector makes this largely obsolete. If a room undergoes a permanent seasonal shift (e.g., Summer AC to Winter Heating), the model autonomously flushes its memory and recalibrates without dashboard user intervention.
 
 ## Architecture Role
 This service acts as a supplementary analytics layer within the broader monitoring platform:
-1.  **Ingestion:** The BLE Gateway forwards sensor data to the Spring Boot Backend.
+1.  **Ingestion:** The Thread Gateway forwards sensor data to the Spring Boot Backend.
 2.  **Polling:** This ML service periodically polls the backend for the latest readings.
-3.  **Inference:** It runs the data through the Isolation Forest model.
-4.  **Alerting:** If an anomaly is detected, it pushes an alert back to the Backend, which is then displayed on the React Dashboard.
+3.  **Inference:** It runs the data through the Anomaly Engine and Lightweight Forecaster.
+4.  **Alerting:** If an anomaly is detected or a breach is forecast, it pushes an alert back to the Backend, which is then displayed on the React Dashboard.
 
 > [!IMPORTANT]
 > **Safety and Reliability Disclaimer:** This ML subsystem provides supplementary analytical intelligence. It is **not** a safety-critical component. Deterministic threshold alerts evaluated directly by the backend remain fully operational and independent of this service's availability.
@@ -35,34 +36,17 @@ This service acts as a supplementary analytics layer within the broader monitori
 ## Technology Stack
 *   **Language:** Python 3.12
 *   **Framework:** FastAPI
-*   **ML Library:** scikit-learn (Isolation Forest)
+*   **ML Library:** scikit-learn (Isolation Forest), NumPy
 *   **HTTP Client:** httpx (async requests)
 *   **Persistence:** joblib (model serialisation)
 *   **Containerisation:** Docker
 
 ## Project Structure
 *   **`app/main.py`**: The entry point for the FastAPI application. Handles app lifecycle, configuration loading, and exposes health/status endpoints.
-*   **`app/ml/ml_engine.py`**: Contains the anomaly detection logic using `IsolationForest`. Manages model fitting, Z-score attribution, and persistence.
-*   **`app/ml/forecaster.py`**: Contains the predictive forecasting logic using `LinearRegression` over a rolling time window.
-*   **`app/services/poller.py`**: Implements the background task that periodically fetches telemetry from the backend, triggers inference, and dispatches alerts.
+*   **`app/ml/ml_engine.py`**: Contains the anomaly detection logic using robust Median/IQR scaling and `IsolationForest`. Manages data imputation, model fitting, drift retraining, and Z-score attribution.
+*   **`app/ml/forecaster.py`**: Contains the predictive forecasting logic using exact $R^2$-gated Linear Regression and saturation clamping.
+*   **`app/services/poller.py`**: Implements the background task that manages feature extraction (calculating rates of change and diurnal encoding), fetches telemetry, triggers inference, and dispatches/resolves alerts.
 *   **`requirements.txt`**: Lists the Python dependencies required to run the service.
-
-## Telemetry Processing Workflow
-1.  **Expose:** The Spring Boot backend exposes a REST endpoint for the latest telemetry.
-2.  **Fetch:** The async poller in this service requests the latest data every $N$ seconds.
-3.  **Process:** The `ml_engine` processes the feature vector through the corresponding node's model.
-4.  **Detect:** If the model score indicates an anomaly, the service generates an alert payload.
-5.  **Dispatch:** The alert is sent via HTTP POST to the backend's `/api/alerts` endpoint.
-
-## Model Behaviour
-*   **Unsupervised Learning:** Since environmental anomalies are rare and hard to catalogue, the anomaly model requires no labelled training data.
-*   **Baseline Calibration:** The anomaly model requires a "warm-up" period (e.g., the first 20 observations) to establish what "normal" looks like for a specific node.
-*   **Rolling Window Forecasting:** The forecaster maintains a rolling memory buffer of the last 60 readings (approx. 5 minutes) to calculate real-time gas accumulation slopes.
-*   **Node Specificity:** Models are managed per-node to account for the fact that different rooms have different baseline environments.
-*   **Persistence:** Once the anomaly baseline is established, the model is saved to disk so service restarts do not trigger a new warm-up phase.
-
-## Alerting Philosophy: Management by Exception
-This service strictly adheres to a **Management by Exception** design philosophy. While the linear regression algorithm mathematically projects both dangerous (rising) and safe (falling/improving) trends equally well, the alerting pipeline intentionally suppresses "positive" predictions (e.g., "CO2 returning to normal"). Alerts are exclusively emitted when negative threshold breaches are imminent. This prevents alert fatigue and ensures the dashboard only interrupts human operators when intervention is strictly required.
 
 ## Setup Instructions
 
@@ -87,13 +71,14 @@ This service strictly adheres to a **Management by Exception** design philosophy
 ### Docker Execution
 To run as part of the complete system, use the root directory's docker-compose file, or run standalone:
 ```bash
-docker build -t ble-ml-service .
-docker run -p 8000:8000 -e BACKEND_URL=http://host.docker.internal:8080 ble-ml-service
+docker build -t thread-ml-service .
+docker run -p 8000:8000 -e BACKEND_URL=http://host.docker.internal:8080 thread-ml-service
 ```
 
 ## Example API / Alert Payload
 
 ### Incoming Telemetry (Processed by ML)
+The poller fetches standard telemetry, but extracts only the core 5 physical variables to prevent collinearity dominance:
 ```json
 {
   "nodeId": "node-01",
@@ -101,13 +86,8 @@ docker run -p 8000:8000 -e BACKEND_URL=http://host.docker.internal:8080 ble-ml-s
   "humidity": 45.2,
   "co2": 450.0,
   "tvoc": 120.0,
-  "eco2": 460.0,
-  "pm1_0": 5.2,
   "pm2_5": 12.4,
-  "pm4_0": 15.1,
-  "pm10": 18.3,
-  "lightIntensity": 300.0,
-  "timestamp": "ISO-8601 string"
+  "timestamp": "2026-07-31T12:00:00+00:00"
 }
 ```
 
@@ -118,7 +98,8 @@ docker run -p 8000:8000 -e BACKEND_URL=http://host.docker.internal:8080 ble-ml-s
   "type": "ML_ANOMALY",
   "severity": "WARNING",
   "message": "IsolationForest detected unusual multi-variable behavior pattern on node-01",
-  "context": "Anomaly score: -0.05 | Key drivers: PM10 (+316% vs baseline), PM2.5 (+317% vs baseline)"
+  "context": "Anomaly score: -0.12 | Key drivers: CO2_Rate (+250% vs baseline), TVOC (+85% vs baseline)",
+  "recommendedAction": "Rapid change detected. Temporary activity or movement. No action needed unless it persists."
 }
 ```
 
@@ -129,14 +110,7 @@ docker run -p 8000:8000 -e BACKEND_URL=http://host.docker.internal:8080 ble-ml-s
   "type": "FORECAST_WARNING",
   "severity": "WARNING",
   "message": "CO2 projected to reach 1521ppm within 30 minutes.",
-  "context": "Projection in 30m | CO2: 1521 ppm (+25.3/min) | PM2.5: 28.4 µg/m³ (+0.79/min) | Based on 14 readings"
+  "context": "Projection in 30m | CO2: 1521 ppm (+25.3/min) | PM2.5: 28.4 µg/m³ (+0.79/min) | Based on 60 readings",
+  "recommendedAction": "Proactively increase fresh air intake to prevent CO2 breach."
 }
 ```
-
-## Future Extensions
-The following enhancements are identified as potential improvements outside the current implementation scope:
-*   **Multi-Node Scalability:** Enhancing the manager to handle dynamic scaling for hundreds of nodes.
-*   **Streaming Telemetry:** Moving from polling to a push-based streaming model (e.g., SSE or WebSockets).
-*   **Alternative Models:** Exploring LSTM autoencoders for better temporal analysis as more historical data is collected.
-*   **MQTT Integration:** Direct subscription to telemetry brokers.
-*   **Enhanced Dashboarding:** Visualising the model's decision boundaries and scores.

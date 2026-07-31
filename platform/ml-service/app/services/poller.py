@@ -2,17 +2,15 @@ import asyncio
 import logging
 import time
 import httpx
+import math
+from datetime import datetime
 from app.core.config import settings
 from app.ml.ml_engine import detector_manager
 from app.ml.forecaster import forecaster_manager
 
 logger = logging.getLogger(__name__)
 
-# Minimum seconds between ML_ANOMALY alerts for the same node.
-# Prevents alert floods when the model oscillates near the decision boundary
-# or when the poller restarts while a reading is still being scored.
 ALERT_COOLDOWN_SECONDS = 60
-
 
 async def start_polling_loop():
     logger.info(
@@ -21,21 +19,18 @@ async def start_polling_loop():
         f"(alert cooldown: {ALERT_COOLDOWN_SECONDS}s per node)"
     )
 
-    # Dedup guard 1: skip if we've already processed this exact reading timestamp.
     last_processed_timestamps: dict[str, str] = {}
-
-    # Dedup guard 2: cooldown — don't re-alert within ALERT_COOLDOWN_SECONDS.
     last_alert_time: dict[str, float] = {}
-    
-    # Dedup guard 3: cooldown for forecasts
     last_forecast_alert_time: dict[str, float] = {}
+    
+    # Store previous readings to calculate temporal rates of change
+    last_readings: dict[str, dict] = {}
 
     async with httpx.AsyncClient(base_url=settings.backend_url, timeout=10.0) as client:
         while True:
             try:
                 await asyncio.sleep(settings.poll_interval_seconds)
 
-                # 1. Discover active nodes
                 nodes_resp = await client.get("/api/nodes")
                 if nodes_resp.status_code != 200:
                     logger.error(f"Failed to fetch nodes: {nodes_resp.status_code}")
@@ -48,11 +43,9 @@ async def start_polling_loop():
                     if not node_id:
                         continue
                         
-                    # Skip if ML is disabled for this node
                     if node.get("mlEnabled") is False:
                         continue
 
-                    # 2. Fetch latest telemetry for each node
                     telemetry_resp = await client.get(f"/api/sensor-data/latest/{node_id}")
                     if telemetry_resp.status_code != 200:
                         continue
@@ -61,105 +54,82 @@ async def start_polling_loop():
                     if not data_list:
                         continue
 
-                    # Take the most recent reading (index 0 = latest)
                     latest_reading = data_list[0]
-                    timestamp = latest_reading.get("timestamp")
+                    timestamp_str = latest_reading.get("timestamp")
 
-                    # Guard 1: skip already-processed readings
-                    if last_processed_timestamps.get(node_id) == timestamp:
+                    if last_processed_timestamps.get(node_id) == timestamp_str:
                         continue
-                    last_processed_timestamps[node_id] = timestamp
+                    last_processed_timestamps[node_id] = timestamp_str
 
-                    # Current sensor readings (10 features)
+                    # 12-Dimensional Core Vector (5 Base + 5 Rates + 2 Diurnal)
                     current_fields = [
-                        "temperature", "humidity", "co2", "tvoc", "eco2",
-                        "pm1_0", "pm2_5", "pm4_0", "pm10", "lightIntensity"
+                        "temperature", "humidity", "co2", "tvoc", "pm2_5"
                     ]
                     
-                    # Statistical aggregation fields (27 features: 9 sensors × 3 stats)
-                    stats_fields = [
-                        "temperatureMean", "temperatureStd", "temperatureMax",
-                        "humidityMean", "humidityStd", "humidityMax",
-                        "co2Mean", "co2Std", "co2Max",
-                        "tvocMean", "tvocStd", "tvocMax",
-                        "eco2Mean", "eco2Std", "eco2Max",
-                        "pm1_0Mean", "pm1_0Std", "pm1_0Max",
-                        "pm2_5Mean", "pm2_5Std", "pm2_5Max",
-                        "pm4_0Mean", "pm4_0Std", "pm4_0Max",
-                        "pm10Mean", "pm10Std", "pm10Max",
-                    ]
-                    
-                    required_fields = current_fields + stats_fields
-                    if not all(k in latest_reading and latest_reading[k] is not None for k in required_fields):
-                        logger.debug(f"Missing required fields for node {node_id}")
+                    if not all(k in latest_reading and latest_reading[k] is not None for k in current_fields):
+                        logger.debug(f"Missing core fields for node {node_id}")
                         continue
+                        
+                    # Calculate temporal rates of change (Delta X / min)
+                    ts_str = timestamp_str.replace("Z", "+00:00")
+                    ts_sec = datetime.fromisoformat(ts_str).timestamp()
+                    
+                    rates = [0.0] * 5
+                    prev = last_readings.get(node_id)
+                    if prev is not None:
+                        dt = ts_sec - prev["timestamp"]
+                        if dt > 0:
+                            # Convert to per-minute rate
+                            dt_min = dt / 60.0
+                            rates[0] = (latest_reading["temperature"] - prev["temperature"]) / dt_min
+                            rates[1] = (latest_reading["humidity"] - prev["humidity"]) / dt_min
+                            rates[2] = (latest_reading["co2"] - prev["co2"]) / dt_min
+                            rates[3] = (latest_reading["tvoc"] - prev["tvoc"]) / dt_min
+                            rates[4] = (latest_reading["pm2_5"] - prev["pm2_5"]) / dt_min
+                    
+                    last_readings[node_id] = {
+                        "timestamp": ts_sec,
+                        "temperature": latest_reading["temperature"],
+                        "humidity": latest_reading["humidity"],
+                        "co2": latest_reading["co2"],
+                        "tvoc": latest_reading["tvoc"],
+                        "pm2_5": latest_reading["pm2_5"]
+                    }
+                    
+                    # Diurnal Time Encoding (Sine / Cosine Hour)
+                    dt_obj = datetime.fromisoformat(ts_str)
+                    hour_decimal = dt_obj.hour + (dt_obj.minute / 60.0)
+                    sin_hour = math.sin(2 * math.pi * hour_decimal / 24.0)
+                    cos_hour = math.cos(2 * math.pi * hour_decimal / 24.0)
 
-                    # Build 37-dimensional feature vector (10 current + 27 statistics)
                     features = [
-                        # Current readings (10)
                         latest_reading["temperature"],
                         latest_reading["humidity"],
                         latest_reading["co2"],
                         latest_reading["tvoc"],
-                        latest_reading["eco2"],
-                        latest_reading["pm1_0"],
                         latest_reading["pm2_5"],
-                        latest_reading["pm4_0"],
-                        latest_reading["pm10"],
-                        latest_reading["lightIntensity"],
-                        # Temperature statistics (3)
-                        latest_reading["temperatureMean"],
-                        latest_reading["temperatureStd"],
-                        latest_reading["temperatureMax"],
-                        # Humidity statistics (3)
-                        latest_reading["humidityMean"],
-                        latest_reading["humidityStd"],
-                        latest_reading["humidityMax"],
-                        # CO2 statistics (3)
-                        latest_reading["co2Mean"],
-                        latest_reading["co2Std"],
-                        latest_reading["co2Max"],
-                        # TVOC statistics (3)
-                        latest_reading["tvocMean"],
-                        latest_reading["tvocStd"],
-                        latest_reading["tvocMax"],
-                        # eCO2 statistics (3)
-                        latest_reading["eco2Mean"],
-                        latest_reading["eco2Std"],
-                        latest_reading["eco2Max"],
-                        # PM1.0 statistics (3)
-                        latest_reading["pm1_0Mean"],
-                        latest_reading["pm1_0Std"],
-                        latest_reading["pm1_0Max"],
-                        # PM2.5 statistics (3)
-                        latest_reading["pm2_5Mean"],
-                        latest_reading["pm2_5Std"],
-                        latest_reading["pm2_5Max"],
-                        # PM4.0 statistics (3)
-                        latest_reading["pm4_0Mean"],
-                        latest_reading["pm4_0Std"],
-                        latest_reading["pm4_0Max"],
-                        # PM10 statistics (3)
-                        latest_reading["pm10Mean"],
-                        latest_reading["pm10Std"],
-                        latest_reading["pm10Max"],
+                        rates[0],
+                        rates[1],
+                        rates[2],
+                        rates[3],
+                        rates[4],
+                        sin_hour,
+                        cos_hour
                     ]
 
-                    # Sanity Filter: Skip inference if any hardware fault placeholders (-999.0) are present
-                    if any(v <= -900.0 for v in features):
-                        logger.warning(f"Hardware fault detected for node {node_id}; skipping ML inference.")
+                    # Complete Frame Fault Rejection (Reject ONLY if all core are -999.0)
+                    if all(v <= -900.0 for v in features[:5]):
+                        logger.warning(f"Complete subsystem failure detected for node {node_id}; skipping ML inference.")
                         continue
 
                     window_size = node.get("baselineWindowSize", 20)
                     sensitivity = node.get("sensitivity", 5)
 
-                    # 3. Run ML inference (Anomaly Detection)
                     is_anomaly, anomaly_context, anomaly_action = detector_manager.process(
                         node_id, features, window_size=window_size, sensitivity=sensitivity
                     )
 
                     if is_anomaly:
-                        # Guard 2: cooldown — suppress repeated anomaly alerts
                         now = time.monotonic()
                         if now - last_alert_time.get(node_id, 0.0) >= ALERT_COOLDOWN_SECONDS:
                             last_alert_time[node_id] = now
@@ -180,14 +150,7 @@ async def start_polling_loop():
                             else:
                                 logger.error(f"Failed to dispatch anomaly alert for {node_id}: {alert_resp.text}")
 
-                    # 4. Run Forecasting
                     try:
-                        from datetime import datetime, timezone
-                        # Handle trailing 'Z' which fromisoformat (<3.11) might struggle with in some cases
-                        ts_str = timestamp.replace("Z", "+00:00")
-                        ts_sec = datetime.fromisoformat(ts_str).timestamp()
-                        
-                        # Extract forecast horizon from Java backend
                         horizon_min = node.get("forecastHorizonMin", 30)
                         
                         proj_co2, proj_pm25, forecast_context, forecast_action = forecaster_manager.process(
@@ -206,7 +169,6 @@ async def start_polling_loop():
                                 forecast_alerts.append(f"PM2.5 projected to reach {proj_pm25:.1f}µg/m³")
                                 
                             if forecast_alerts:
-                                # Guard 3: cooldown for forecast alerts
                                 now_f = time.monotonic()
                                 if now_f - last_forecast_alert_time.get(node_id, 0.0) >= ALERT_COOLDOWN_SECONDS:
                                     last_forecast_alert_time[node_id] = now_f
@@ -225,7 +187,6 @@ async def start_polling_loop():
                                     else:
                                         logger.error(f"Failed to dispatch forecast alert for {node_id}: {f_resp.text}")
                             else:
-                                # 5. Self-Healing: If both forecast and anomaly detection are safe, auto-resolve AI alerts
                                 if not is_anomaly:
                                     try:
                                         res_resp = await client.put("/api/alerts/resolve-all?category=ai")
