@@ -6,12 +6,12 @@ The `thread-smart-monitoring-ml-service` is a Python-based microservice that pro
 The service leverages a **Robust-Scaled Isolation Forest** algorithm to learn the normal operating baseline of an environment and detect deviations in real-time, along with an **R-Squared Gated Linear Forecaster** to predict future gas and particulate accumulation. 
 
 ## Features
-*   **Real-Time Telemetry Polling:** Asynchronously fetches the latest sensor data from the Spring Boot backend every 10 seconds.
+*   **Real-Time Telemetry Polling:** Asynchronously fetches the latest sensor data from the Spring Boot backend every 15 seconds (configurable via `poll_interval_seconds`).
 *   **12-Dimensional Core Feature Vector:** Distills raw telemetry into 5 core physical sensors (Temp, Humidity, CO2, TVOC, PM2.5), 5 per-minute rates of change, and 2 diurnal (time-of-day) sine/cosine markers.
 *   **4-Tier Data Imputation:** Cleanly handles dropped or missing sensor packets using short-term LOCF (Last Observation Carried Forward), medium-term exponential damped decay, long-term masking, and complete-frame fault rejection.
 *   **Multi-Variable Anomaly Detection:** Evaluates joint distributions using an `IsolationForest` (with `contamination="auto"`) and robust Median/IQR scaling to prevent single high-variance sensors from blinding the model.
 *   **Automated Drift Retraining:** Continuously monitors the Kolmogorov-Smirnov ($D_{KS}$) divergence. If the environment undergoes a seasonal baseline shift without high variance, the model autonomously rebuilds its tree ensemble.
-*   **R-Squared Gated Predictive Forecasting:** Projects CO2 and PM2.5 levels 30 minutes into the future, fixing the runaway alert issues of naive linear regression via three mechanisms:
+*   **R-Squared Gated Predictive Forecasting:** Projects CO2 and PM2.5 levels into the future (horizon configurable via Dashboard, defaults to 30 mins), fixing the runaway alert issues of naive linear regression via three mechanisms:
     *   **EMA Smoothing:** Applies an Exponential Moving Average shock-absorber *before* calculating the slope, preventing momentary breath spikes from throwing off the trajectory.
     *   **$R^2$ Variance Gating:** Mathematically checks the goodness-of-fit. If $R^2 < 0.65$, it determines the trend is just random air turbulence and suppresses the forecast to prevent false alarms.
     *   **Physical Saturation Clamping:** Enforces realistic mass-balance ceilings (e.g., capping CO2 at 4000 ppm) so the model cannot predict mathematically impossible concentrations.
@@ -24,6 +24,7 @@ The ML service operates entirely as a slave to the central Dashboard, retaining 
 *   **Dedicated Model Pairs Per Node:** The ML Engine dynamically manages a strict 1-to-1 mapping for *both* of its analytical engines (`NodeAnomalyDetectorManager` and `NodeForecasterManager`). This means a sensor node in a crowded conference room has its own isolated `IsolationForest` baseline and its own dedicated `LightweightForecaster` rolling window, entirely separate from a node in a quiet storage closet.
 *   **Dynamic Sensitivity:** Dashboard users can adjust the ML sensitivity slider. The poller passes this value into the engine to dynamically shift the `IsolationForest` decision boundary on the fly—no container restart required.
 *   **Calibration Control:** The `baselineWindowSize` defined by the dashboard strictly dictates the warm-up calibration phase for each node.
+*   **Alert Rate-Limiting:** To prevent alert fatigue, the ML engine enforces a strict cooldown period (`ALERT_COOLDOWN_SECONDS`, default 60s). It will never spam the dashboard with more than 1 alert per minute per node, regardless of how often the poller runs.
 *   **Autonomous Self-Healing:** While users can trigger manual recalibration, the newly implemented Kolmogorov-Smirnov ($D_{KS}$) drift detector makes this largely obsolete. If a room undergoes a permanent seasonal shift (e.g., Summer AC to Winter Heating), the model autonomously flushes its memory and recalibrates without dashboard user intervention.
 
 ## Architecture Role
