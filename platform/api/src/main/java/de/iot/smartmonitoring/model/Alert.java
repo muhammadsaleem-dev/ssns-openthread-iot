@@ -51,6 +51,8 @@ public class Alert {
     public enum AlertType {
         TEMPERATURE_HIGH,
         TEMPERATURE_LOW,
+        HUMIDITY_HIGH,
+        HUMIDITY_LOW,
         HIGH_CO2,
         HIGH_PARTICULATES,
         HIGH_VOC,

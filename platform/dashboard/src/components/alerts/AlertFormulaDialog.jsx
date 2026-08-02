@@ -31,6 +31,20 @@ const FORMULA_METADATA = {
     noiseFloor: 'Hardware Drift Tolerance: ±0.2 °C (Sensirion SCD41/SHT Datasheet)',
     explanation: 'Protects building infrastructure against freezing water pipes while preventing severe cold strain on occupants. If correlated with a simultaneous CO2 drop, Engine 2 diagnoses the exact cause as an open exterior window during winter (Rule 3 Winter Draft).'
   },
+  HUMIDITY_HIGH: {
+    title: 'Humidity High (Mold & Condensation Risk Alarm)',
+    standard: 'ASHRAE Standard 55 (Thermal Environmental Conditions for Human Occupancy)',
+    formula: 'Current Humidity > 70.0 %RH',
+    noiseFloor: 'Hardware Drift Tolerance: ±3% RH (Sensirion SCD41 Datasheet)',
+    explanation: 'Triggers an immediate warning via Engine 1 Life Safety checks when relative humidity exceeds the upper comfort/condensation-risk limit (70% RH). Sustained high humidity promotes mold growth and structural condensation damage.'
+  },
+  HUMIDITY_LOW: {
+    title: 'Humidity Low (Dry Air & Static Discomfort Warning)',
+    standard: 'ASHRAE Standard 55 (Thermal Environmental Conditions for Human Occupancy)',
+    formula: 'Current Humidity < 20.0 %RH',
+    noiseFloor: 'Hardware Drift Tolerance: ±3% RH (Sensirion SCD41 Datasheet)',
+    explanation: 'Flags excessively dry indoor air (below 20% RH), which can cause respiratory irritation, increased static electricity risk, and accelerated deterioration of sensitive materials.'
+  },
   HIGH_PARTICULATES: {
     title: 'PM2.5 Particulate (Active Fire / Smoke Warning)',
     standard: 'WHO (World Health Organization) & EPA Air Quality Standards',

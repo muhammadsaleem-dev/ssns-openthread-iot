@@ -7,6 +7,7 @@ import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 
 export const OPERATIONAL_TYPES = new Set([
   'TEMPERATURE_HIGH', 'TEMPERATURE_LOW',
+  'HUMIDITY_HIGH', 'HUMIDITY_LOW',
   'HIGH_CO2', 'HIGH_PARTICULATES', 'HIGH_VOC',
   'AIR_QUALITY_POOR', 'LIGHT_INTENSITY_HIGH',        // legacy DB compat
   'HARDWARE_FAULT',
@@ -26,6 +27,8 @@ export const SEVERITY_COLOR = { CRITICAL: 'error', WARNING: 'warning', INFO: 'in
 export const OPERATIONAL_LABELS = {
   TEMPERATURE_HIGH: 'Temp High',
   TEMPERATURE_LOW: 'Temp Low',
+  HUMIDITY_HIGH: 'Humidity High',
+  HUMIDITY_LOW: 'Humidity Low',
   HIGH_CO2: 'High CO2',
   HIGH_PARTICULATES: 'High PM2.5',
   HIGH_VOC: 'High TVOC',

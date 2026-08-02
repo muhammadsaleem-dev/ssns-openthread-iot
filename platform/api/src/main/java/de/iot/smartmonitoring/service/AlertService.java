@@ -30,6 +30,12 @@ public class AlertService {
     @Value("${app.alerts.temperature-min:10.0}")
     private double temperatureMin;
 
+    @Value("${app.alerts.humidity-max:70.0}")
+    private double humidityMax;
+
+    @Value("${app.alerts.humidity-min:20.0}")
+    private double humidityMin;
+
     @Value("${app.alerts.co2-max:1500.0}")
     private double co2Max;
 
@@ -213,6 +219,26 @@ public class AlertService {
                         data.getTemperature(), temperatureMin);
             }
         }
+
+        // Legacy Checks (Humidity High/Low)
+        if (data.getHumidity() != null && data.getHumidity() > -900.0) {
+            if (data.getHumidity() > humidityMax) {
+                createAlert(data.getNodeId(), Alert.AlertType.HUMIDITY_HIGH,
+                        Alert.AlertSeverity.WARNING,
+                        String.format("Humidity %.1f%% exceeds maximum threshold %.1f%%",
+                                data.getHumidity(), humidityMax),
+                        "Check for water leaks or inspect dehumidifier/ventilation.",
+                        data.getHumidity(), humidityMax);
+            }
+            if (data.getHumidity() < humidityMin) {
+                createAlert(data.getNodeId(), Alert.AlertType.HUMIDITY_LOW,
+                        Alert.AlertSeverity.WARNING,
+                        String.format("Humidity %.1f%% below minimum threshold %.1f%%",
+                                data.getHumidity(), humidityMin),
+                        "Check heating/HVAC dryness; consider a humidifier.",
+                        data.getHumidity(), humidityMin);
+            }
+        }
     }
 
     /**
@@ -266,6 +292,7 @@ public class AlertService {
 
     private static final List<Alert.AlertType> OPERATIONAL_TYPES = List.of(
             Alert.AlertType.TEMPERATURE_HIGH, Alert.AlertType.TEMPERATURE_LOW,
+            Alert.AlertType.HUMIDITY_HIGH, Alert.AlertType.HUMIDITY_LOW,
             Alert.AlertType.HIGH_CO2, Alert.AlertType.HIGH_PARTICULATES, Alert.AlertType.HIGH_VOC,
             Alert.AlertType.AIR_QUALITY_POOR, Alert.AlertType.LIGHT_INTENSITY_HIGH,
             Alert.AlertType.HARDWARE_FAULT
