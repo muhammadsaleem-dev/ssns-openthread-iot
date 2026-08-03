@@ -5,6 +5,8 @@ import { formatExtAddr } from '../../utils/format';
 function BorderRouterCard({ topology }) {
   const theme = useTheme();
   const isOffline = topology.gatewayHealth?.status === 'offline';
+  const selfNode = topology.nodes?.find(n => n.extAddr === topology.gatewayId);
+  const isLeader = selfNode?.role?.toLowerCase() === 'leader';
 
   return (
     <Card sx={{
@@ -85,8 +87,8 @@ function BorderRouterCard({ topology }) {
           </Grid>
           <Grid item xs={6}>
             <Typography variant="caption" color="text.secondary" display="block">Mesh Role</Typography>
-            <Typography variant="body2" fontWeight="bold" color={isOffline ? 'text.disabled' : 'warning.main'}>
-              👑 Leader
+            <Typography variant="body2" fontWeight="bold" color={isOffline ? 'text.disabled' : (isLeader ? 'warning.main' : 'primary.main')}>
+              {isLeader ? '👑 Leader' : '📡 Router'}
             </Typography>
           </Grid>
         </Grid>

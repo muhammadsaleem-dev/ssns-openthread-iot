@@ -13,46 +13,70 @@ function computeGraph(topologyList, registeredNodes) {
   let routerX = 100;
   let childX = 50;
 
+  function addNode(node) {
+    // Self-entries always hardcode parentRloc16="0xffff" (topology_monitor.sh),
+    // regardless of real role, so leader status must come from `role` alone --
+    // a border router reporting itself as "router" is not the mesh Leader.
+    const isLeader = node.role?.toLowerCase() === 'leader';
+    const isRouter = isLeader || node.role?.toLowerCase() === 'router';
+
+    const cleanExtAddr = node.extAddr ? node.extAddr.replace(/:/g, '').toLowerCase() : '';
+    const last4 = cleanExtAddr ? cleanExtAddr.substring(cleanExtAddr.length - 4) : node.rloc16;
+    const calculatedNodeId = `node-${last4}`;
+
+    const matchedNode = registeredNodes?.find(n => n.meshId === calculatedNodeId || n.nodeId === calculatedNodeId);
+
+    const primaryLabel = matchedNode?.location || matchedNode?.nodeId || calculatedNodeId;
+    const hardwareId = matchedNode?.nodeId || 'Unknown';
+
+    nodesMap.set(node.rloc16, {
+      id: node.rloc16,
+      type: isRouter ? 'router' : 'endDevice',
+      position: { x: isRouter ? routerX : childX, y: isRouter ? 100 : 250 },
+      data: {
+        nodeId: calculatedNodeId,
+        hardwareId,
+        label: primaryLabel,
+        rloc16: node.rloc16,
+        role: isLeader ? 'leader' : node.role,
+        parentRloc16: node.parentRloc16,
+        status: matchedNode?.status || 'UNKNOWN',
+        lastSeenAt: matchedNode?.lastSeenAt,
+        ipv6Address: matchedNode?.ipv6Address,
+        extAddr: node.extAddr,
+        linkQualityIn: node.linkQualityIn,
+        linkQualityOut: node.linkQualityOut,
+      },
+    });
+
+    if (isRouter) routerX += 200;
+    if (!isRouter) childX += 150;
+  }
+
+  // Pass 1: each topology's own self-entry (extAddr === that topology's
+  // gatewayId) is authoritative for its own identity and always wins --
+  // otherwise a different border router's stale, generically-"router"
+  // mention of the same node (from its router table) could claim that
+  // node's slot first and hide the node's own accurate self-report.
+  topologyList.forEach((topology) => {
+    if (topology.gatewayHealth?.status === 'offline') return;
+    if (!topology.nodes) return;
+
+    const selfNode = topology.nodes.find(n => n.extAddr === topology.gatewayId);
+    if (selfNode) addNode(selfNode);
+  });
+
+  // Pass 2: fill in remaining nodes (routers/children seen only from another
+  // border router's tables) without overwriting an established self-report,
+  // and wire up edges.
   topologyList.forEach((topology) => {
     if (topology.gatewayHealth?.status === 'offline') return;
     if (!topology.nodes) return;
 
     topology.nodes.forEach((node) => {
-      const isLeader = node.role?.toLowerCase() === 'leader' || node.parentRloc16 === '0xffff';
-      const isRouter = isLeader || node.role?.toLowerCase() === 'router';
-
-      const cleanExtAddr = node.extAddr.replace(/:/g, '').toLowerCase();
-      const last4 = cleanExtAddr.substring(cleanExtAddr.length - 4);
-      const calculatedNodeId = `node-${last4}`;
-
-      const matchedNode = registeredNodes?.find(n => n.meshId === calculatedNodeId || n.nodeId === calculatedNodeId);
-
-      const primaryLabel = matchedNode?.location || matchedNode?.nodeId || calculatedNodeId;
-      const hardwareId = matchedNode?.nodeId || 'Unknown';
-
-      if (!nodesMap.has(node.rloc16)) {
-        nodesMap.set(node.rloc16, {
-          id: node.rloc16,
-          type: isRouter ? 'router' : 'endDevice',
-          position: { x: isRouter ? routerX : childX, y: isRouter ? 100 : 250 },
-          data: {
-            nodeId: calculatedNodeId,
-            hardwareId,
-            label: primaryLabel,
-            rloc16: node.rloc16,
-            role: isLeader ? 'leader' : node.role,
-            parentRloc16: node.parentRloc16,
-            status: matchedNode?.status || 'UNKNOWN',
-            lastSeenAt: matchedNode?.lastSeenAt,
-            ipv6Address: matchedNode?.ipv6Address,
-            extAddr: node.extAddr,
-            linkQualityIn: node.linkQualityIn,
-            linkQualityOut: node.linkQualityOut,
-          },
-        });
-
-        if (isRouter) routerX += 200;
-        if (!isRouter) childX += 150;
+      const isSelf = node.extAddr === topology.gatewayId;
+      if (!isSelf && !nodesMap.has(node.rloc16)) {
+        addNode(node);
       }
 
       if (node.parentRloc16 && node.parentRloc16 !== '0xffff' && node.parentRloc16 !== node.rloc16) {

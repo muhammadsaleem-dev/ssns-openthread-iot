@@ -3,7 +3,7 @@ import { Handle, Position } from '@xyflow/react';
 import { formatExtAddr } from '../../utils/format';
 
 export function RouterNode({ data }) {
-  const isLeader = data.role?.toLowerCase() === 'leader' || data.parentRloc16 === '0xffff';
+  const isLeader = data.role?.toLowerCase() === 'leader';
   const roleLabel = isLeader ? 'LEADER' : 'ROUTER';
   const roleColor = isLeader ? '#F59E0B' : '#3B82F6';
 

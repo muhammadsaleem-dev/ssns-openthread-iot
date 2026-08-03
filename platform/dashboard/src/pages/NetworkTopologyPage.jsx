@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Box, Card, CardContent, Typography, CircularProgress, alpha, useTheme } from '@mui/material';
-import { ReactFlow, Background, Controls, MiniMap, applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, applyNodeChanges, applyEdgeChanges, useReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import usePolling from '../hooks/usePolling';
 import { fetchNetworkTopology, fetchNodes } from '../services/api';
@@ -12,6 +12,18 @@ import NetworkStats from './topology/NetworkStats';
 import BorderRouterCards from './topology/BorderRouterCards';
 import TerminologyTable from './topology/TerminologyTable';
 import NodeDetailsDrawer from './topology/NodeDetailsDrawer';
+
+function FitViewOnDataChange({ nodeCount }) {
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    if (nodeCount > 0) {
+      fitView({ padding: 0.2, duration: 300 });
+    }
+  }, [nodeCount, fitView]);
+
+  return null;
+}
 
 export default function NetworkTopologyPage() {
   const theme = useTheme();
@@ -66,6 +78,7 @@ export default function NetworkTopologyPage() {
           <Background color="#333" gap={16} />
           <Controls />
           <MiniMap nodeStrokeColor="#fff" nodeColor="#222" />
+          <FitViewOnDataChange nodeCount={nodes.length} />
         </ReactFlow>
       </Card>
 
