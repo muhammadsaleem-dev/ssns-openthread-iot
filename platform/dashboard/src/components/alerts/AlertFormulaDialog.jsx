@@ -12,38 +12,38 @@ import ScienceIcon from '@mui/icons-material/Science';
 const FORMULA_METADATA = {
   HIGH_CO2: {
     title: 'Carbon Dioxide (CO2) High Stuffiness Alarm',
-    standard: 'ASHRAE Standard 62.1 (Indoor Air Quality & Ventilation)',
+    standard: 'ASHRAE Position Document on Indoor Carbon Dioxide (2025)',
     formula: 'Current CO2 > 1500.0 ppm AND Rolling Average > 1200.0 ppm AND CO2 Variance < 150.0 ppm',
-    noiseFloor: 'Hardware Noise Floor Clamped at 100.0 ppm (Sensirion SCD41 Datasheet: ±40 ppm + 5%)',
-    explanation: 'Evaluates instantaneous room stuffiness against fixed ASHRAE 62.1 health limits while validating 3-minute rolling stability (Variance < 150 ppm). This dual check guarantees the alert represents true sustained room stuffiness and automatically filters out brief transient breath exhalations (Rule 1 Breath Check).'
+    noiseFloor: 'Sensirion SCD4x CO2 accuracy: ±(50 ppm + 3% of reading)',
+    explanation: 'Evaluates instantaneous room stuffiness against a fixed 1500 ppm limit — the upper end of the ~1000-1500 ppm international CO2 guideline range documented in ASHRAE\'s official position statement (ASHRAE 62.1 itself sets no CO2 limit) — while validating 3-minute rolling stability (Variance < 150 ppm). This dual check guarantees the alert represents true sustained room stuffiness and automatically filters out brief transient breath exhalations (Rule 1 Breath Check).'
   },
   TEMPERATURE_HIGH: {
     title: 'Temperature High (HVAC Overheating Alarm)',
     standard: 'ASHRAE Standard 55 (Thermal Environmental Conditions for Human Occupancy)',
     formula: 'Current Temperature > 35.0 °C',
-    noiseFloor: 'Hardware Drift Tolerance: ±0.2 °C (Sensirion SCD41/SHT Datasheet)',
+    noiseFloor: 'Sensirion SCD4x Temperature accuracy: ±0.8 °C (15–35°C range)',
     explanation: 'Triggers an immediate thermal warning via Engine 1 Life Safety checks when ambient room temperature exceeds the upper human thermal comfort limit (35.0 °C). Protects occupants from heat stress and indicates potential HVAC cooling failure.'
   },
   TEMPERATURE_LOW: {
     title: 'Temperature Low (Cold & Pipe Freeze Emergency)',
     standard: 'ASHRAE Standard 55 & Building Pipe Freeze Protection Guidelines',
     formula: 'Current Temperature < 10.0 °C',
-    noiseFloor: 'Hardware Drift Tolerance: ±0.2 °C (Sensirion SCD41/SHT Datasheet)',
+    noiseFloor: 'Sensirion SCD4x Temperature accuracy: ±0.8 °C (15–35°C range)',
     explanation: 'Protects building infrastructure against freezing water pipes while preventing severe cold strain on occupants. If correlated with a simultaneous CO2 drop, Engine 2 diagnoses the exact cause as an open exterior window during winter (Rule 3 Winter Draft).'
   },
   HUMIDITY_HIGH: {
     title: 'Humidity High (Mold & Condensation Risk Alarm)',
-    standard: 'ASHRAE Standard 55 (Thermal Environmental Conditions for Human Occupancy)',
-    formula: 'Current Humidity > 70.0 %RH',
-    noiseFloor: 'Hardware Drift Tolerance: ±3% RH (Sensirion SCD41 Datasheet)',
-    explanation: 'Triggers an immediate warning via Engine 1 Life Safety checks when relative humidity exceeds the upper comfort/condensation-risk limit (70% RH). Sustained high humidity promotes mold growth and structural condensation damage.'
+    standard: 'OSHA Technical Manual, Section III: Chapter 2 (Indoor Air Quality Recommendations)',
+    formula: 'Current Humidity > 60.0 %RH',
+    noiseFloor: 'Hardware Drift Tolerance: ±6% RH (Sensirion SCD4x Datasheet)',
+    explanation: 'Triggers an immediate warning via Engine 1 Life Safety checks when relative humidity exceeds the upper limit recommended by OSHA and EPA mold-prevention guidance (60% RH). Sustained high humidity promotes mold growth and structural condensation damage.'
   },
   HUMIDITY_LOW: {
     title: 'Humidity Low (Dry Air & Static Discomfort Warning)',
-    standard: 'ASHRAE Standard 55 (Thermal Environmental Conditions for Human Occupancy)',
+    standard: 'OSHA Technical Manual, Section III: Chapter 2 (Indoor Air Quality Recommendations)',
     formula: 'Current Humidity < 20.0 %RH',
-    noiseFloor: 'Hardware Drift Tolerance: ±3% RH (Sensirion SCD41 Datasheet)',
-    explanation: 'Flags excessively dry indoor air (below 20% RH), which can cause respiratory irritation, increased static electricity risk, and accelerated deterioration of sensitive materials.'
+    noiseFloor: 'Hardware Drift Tolerance: ±6% RH (Sensirion SCD4x Datasheet)',
+    explanation: 'Flags excessively dry indoor air (below the OSHA-recommended 20% RH floor), which can cause respiratory irritation, increased static electricity risk, and accelerated deterioration of sensitive materials.'
   },
   HIGH_PARTICULATES: {
     title: 'PM2.5 Particulate (Active Fire / Smoke Warning)',
@@ -64,7 +64,7 @@ const FORMULA_METADATA = {
     standard: 'Engineering Basis: Statistical Anomaly Detection & Sensirion SCD41 Sensor Specifications',
     engine: 'Engine 2 — Statistical Heuristics & Rolling Window Algorithm',
     formula: 'CO2 Peak > Rolling Average + MAX ( 2 * CO2 Standard Deviation , 100 ppm Hardware Noise Floor ) AND CO2 Reading returns toward Rolling Average within 3 minutes',
-    noiseFloor: 'Hardware Noise Floor Clamped at 100.0 ppm per Sensirion SCD41 Datasheet ±40 ppm + 5% accuracy',
+    noiseFloor: 'Hardware Noise Floor Clamped at 100.0 ppm; sensor accuracy per Sensirion SCD4x Datasheet: ±(50 ppm + 3% of reading)',
     explanation: 'Direct human breath (~38,000 ppm CO2) near the sensor causes a sudden localized spike > 2 Standard Deviations. Because room-wide CO2 concentration changes gradually across the monitored space, a sharp localized spike that recovers within the configured 3-minute observation window is statistically classified by Engine 2 as a transient human-breath event.'
   },
   VENTILATION_EVENT: {
@@ -72,7 +72,7 @@ const FORMULA_METADATA = {
     standard: 'Engineering Basis: Multi-Sensor Correlation Heuristics (2-Sigma Rolling Window) & ASHRAE Standard 55 Thermal Draft Principles',
     engine: 'Engine 2 — Statistical Heuristics & Cross-Sensor Correlation',
     formula: 'Temperature < Rolling Average - (2 * Temperature Standard Deviation) AND CO2 < Rolling Average - (2 * CO2 Standard Deviation)',
-    noiseFloor: 'Thermal Floor: ±0.2 °C | CO2 Floor: 100 ppm per Sensirion SCD41 Datasheet',
+    noiseFloor: 'Thermal Floor: ±0.8 °C | CO2 Floor: 50 ppm + 3% of reading, per Sensirion SCD4x Datasheet',
     explanation: 'Opening an exterior window causes rapid outdoor air dilution and an immediate thermal draft. Engine 2 correlates simultaneous 2-sigma drops in temperature and CO2 to confirm natural window ventilation rather than an HVAC heating failure.'
   },
   FREEZING_WINTER_WINDOW: {
@@ -80,15 +80,15 @@ const FORMULA_METADATA = {
     standard: 'Engineering Basis: Building Freeze Protection Heuristics (< 10 °C Absolute Threshold) & Multi-Sensor CO2 Correlation',
     engine: 'Engine 1 (Absolute Threshold) & Engine 2 (Correlation Check)',
     formula: 'Current Temperature < 10 C AND CO2 < Rolling Average - (2 * CO2 Standard Deviation)',
-    noiseFloor: 'Thermal Floor: ±0.2 °C | CO2 Floor: 100 ppm per Sensirion SCD41 Datasheet',
+    noiseFloor: 'Thermal Floor: ±0.8 °C | CO2 Floor: 50 ppm + 3% of reading, per Sensirion SCD4x Datasheet',
     explanation: 'To prevent indoor water pipes from freezing below 10 °C (50 °F), Engine 1 triggers a life-safety thermal warning when sub-zero temperatures coincide with a 2-sigma CO2 drop confirming an open exterior window.'
   },
   MOISTURE_EVENT: {
     title: 'Rule 4 — Hot Tea vs Human Breath (Moisture Event Without Exhalation)',
     standard: 'Engineering Basis: Sensirion Multi-Sensor Application Guidelines (SCD4x & SHT4x Cross-Correlation) & Statistical Variance Filtering',
     engine: 'Engine 2 — Statistical Heuristics & Multi-Sensor Variance Check',
-    formula: 'Humidity Peak > Rolling Average + MAX ( 3 * Humidity Standard Deviation , 5 %RH Sensor Floor ) AND CO2 Variance remains flat (< 10 ppm)',
-    noiseFloor: 'Clamped at 5.0 %RH per Sensirion SCD41 / SHT Datasheet',
+    formula: 'Humidity Peak > Rolling Average + MAX ( 3 * Humidity Standard Deviation , 6 %RH Sensor Floor ) AND CO2 Variance remains flat (< 10 ppm)',
+    noiseFloor: 'Clamped at 6.0 %RH per Sensirion SCD4x Datasheet',
     explanation: 'Hot beverage steam and human breath both cause a sharp jump in relative humidity (> 3 Sigma). Engine 2 confirms a non-exhalation moisture event (like hot tea) by verifying that simultaneous CO2 variance remains flat under 10 ppm.'
   },
   PARTICULATE_EVENT: {

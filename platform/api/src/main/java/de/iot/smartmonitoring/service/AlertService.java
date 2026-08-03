@@ -30,7 +30,7 @@ public class AlertService {
     @Value("${app.alerts.temperature-min:10.0}")
     private double temperatureMin;
 
-    @Value("${app.alerts.humidity-max:70.0}")
+    @Value("${app.alerts.humidity-max:60.0}")
     private double humidityMax;
 
     @Value("${app.alerts.humidity-min:20.0}")
@@ -120,7 +120,7 @@ public class AlertService {
             boolean isCo2Spike = data.getCo2Max() != null && 
                                  data.getCo2Max() > data.getCo2Mean() + Math.max(2.0 * data.getCo2Std(), 100.0);
             
-            if (isCo2Spike && data.getCo2() < data.getCo2Mean() + Math.max(data.getCo2Std(), 30.0)) {
+            if (isCo2Spike && data.getCo2() < data.getCo2Mean() + Math.max(data.getCo2Std(), 50.0 + 0.03 * data.getCo2Mean())) {
                 createAlert(data.getNodeId(), Alert.AlertType.TRANSIENT_CO2_EVENT,
                         Alert.AlertSeverity.INFO,
                         "Transient CO2 spike detected and recovered.",
@@ -148,9 +148,9 @@ public class AlertService {
         boolean isTempValid = data.getTemperature() != null && data.getTemperature() > -900.0;
         if (isTempValid && isCo2Valid && data.getTemperatureMean() != null && data.getTemperatureStd() != null &&
             data.getCo2Mean() != null && data.getCo2Std() != null) {
-            // Apply hardware noise floors: SCD41 Temp accuracy +/- 0.4C, CO2 accuracy +/- 40ppm
-            if (data.getTemperature() < data.getTemperatureMean() - Math.max(2 * data.getTemperatureStd(), 0.2) &&
-                data.getCo2() < data.getCo2Mean() - Math.max(2 * data.getCo2Std(), 30.0)) {
+            // Apply hardware noise floors: SCD41 Temp accuracy +/- 0.8C (Sensirion SCD4x datasheet, 15-35C typ.), CO2 accuracy +/- (50ppm + 3% of reading)
+            if (data.getTemperature() < data.getTemperatureMean() - Math.max(2 * data.getTemperatureStd(), 0.8) &&
+                data.getCo2() < data.getCo2Mean() - Math.max(2 * data.getCo2Std(), 50.0 + 0.03 * data.getCo2Mean())) {
                 createAlert(data.getNodeId(), Alert.AlertType.VENTILATION_EVENT,
                         Alert.AlertSeverity.INFO,
                         "Rapid ventilation detected (Temp & CO2 dropping).",
@@ -176,8 +176,8 @@ public class AlertService {
         // 8. Moisture Event
         if (data.getHumidity() != null && data.getHumidityMean() != null && data.getHumidityStd() != null &&
             data.getCo2Std() != null) {
-            // Apply hardware noise floor: SCD41 Humidity accuracy +/- 3% RH
-            if (data.getHumidity() > data.getHumidityMean() + Math.max(3 * data.getHumidityStd(), 5.0) &&
+            // Apply hardware noise floor: SCD41 Humidity accuracy +/- 6% RH (Sensirion SCD4x datasheet, 15-35C typ.)
+            if (data.getHumidity() > data.getHumidityMean() + Math.max(3 * data.getHumidityStd(), 6.0) &&
                 data.getCo2Std() < 10) {
                 createAlert(data.getNodeId(), Alert.AlertType.MOISTURE_EVENT,
                         Alert.AlertSeverity.INFO,
