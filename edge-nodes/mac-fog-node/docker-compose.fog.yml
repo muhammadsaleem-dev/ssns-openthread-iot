@@ -23,17 +23,6 @@ services:
       - net.ipv6.conf.all.forwarding=1
     
     environment:
-      # --- Thread Mesh Network Configuration ---
-      # Hardcoding these prevents Border Routers from booting up and
-      # automatically forming isolated "Ghost Partitions" when they lose
-      # connection to each other or when containers restart.
-      OT_NETWORK_NAME: "SSNS_Mesh"
-      OT_PANID: "0x1234"
-      OT_EXTPANID: "deadbeefdeadbeef"
-      OT_NETWORK_KEY: "00112233445566778899aabbccddeeff"
-      OT_CHANNEL: "26"
-      OT_MESH_LOCAL_PREFIX: "fd11:22::"
-      OT_ACTIVE_TIMESTAMP: "1"
       OT_RCP_DEVICE: "spinel+hdlc+uart:///dev/ttyACM0"
       OT_INFRA_IF: "eth0"
       OT_WEB_LISTEN_ADDR: "0.0.0.0"
@@ -44,7 +33,6 @@ services:
       - ./scripts/topology_monitor.sh:/usr/local/bin/topology_monitor.sh
       - ./scripts/mac_startup.sh:/usr/local/bin/mac_startup.sh
       - ./.hardware_id:/hardware_id:ro
-      - "./otbr-data:/data"
       
     entrypoint: /usr/local/bin/mac_startup.sh
     restart: unless-stopped

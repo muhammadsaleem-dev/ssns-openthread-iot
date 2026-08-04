@@ -25,22 +25,10 @@ services:
       - "/lib/modules:/lib/modules:ro"
       - "./scripts/topology_monitor.sh:/usr/local/bin/topology_monitor.sh:ro"
       - "./scripts/linux_startup.sh:/usr/local/bin/linux_startup.sh:ro"
-      - "./otbr-data:/data"
     
     network_mode: "host"
     
     environment:
-      # --- Thread Mesh Network Configuration ---
-      # Hardcoding these prevents Border Routers from booting up and
-      # automatically forming isolated "Ghost Partitions" when they lose
-      # connection to each other or when containers restart.
-      OT_NETWORK_NAME: "SSNS_Mesh"
-      OT_PANID: "0x1234"
-      OT_EXTPANID: "deadbeefdeadbeef"
-      OT_NETWORK_KEY: "00112233445566778899aabbccddeeff"
-      OT_CHANNEL: "26"
-      OT_MESH_LOCAL_PREFIX: "fd11:22::"
-      OT_ACTIVE_TIMESTAMP: "1"
       OT_RCP_DEVICE: "spinel+hdlc+uart:///dev/ttyACM0"
       NAT64: "0"
       DNS64: "0"

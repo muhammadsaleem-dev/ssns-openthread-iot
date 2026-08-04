@@ -114,25 +114,13 @@ while true; do
   )
 
   # 2. Parse Router Table
-  # Extract the true Leader ID from the mesh by querying OpenThread's leaderdata.
-  # This ensures the dashboard explicitly highlights the node that is acting as the network leader.
-  LEADER_ROUTER_ID=$(ot-ctl leaderdata 2>/dev/null | grep 'Leader Router ID:' | awk '{print $4}' | tr -d '\r')
-
   # Example line: | 11 | 0x2c00 | 63 | 1 | 3 | 3 | 0 | aa11bb22cc33dd44 | 1 |
   while read -r line; do
     if [[ "$line" == *"|"* ]] && [[ "$line" != *"ID"* ]]; then
       # Extract using awk (fields separated by | and spaces)
-      R_ID=$(echo "$line" | awk -F'|' '{print $2}' | tr -d ' ' | tr -d '\r')
       R_RLOC16=$(echo "$line" | awk -F'|' '{print $3}' | tr -d ' ' | tr -d '\r')
       R_LQIN=$(echo "$line" | awk -F'|' '{print $6}' | tr -d ' ' | tr -d '\r')
       R_EXTMAC=$(echo "$line" | awk -F'|' '{print $9}' | tr -d ' ' | tr -d '\r')
-
-      # Determine if this router is the true Leader
-      if [ "$R_ID" == "$LEADER_ROUTER_ID" ] && [ -n "$R_ID" ]; then
-        R_ROLE="leader"
-      else
-        R_ROLE="router"
-      fi
 
       # Map Link Quality (0-3) to a rough percentage (0=0%, 1=33%, 2=66%, 3=100%)
       LQ_PCT=$(( R_LQIN * 33 ))
@@ -141,13 +129,12 @@ while true; do
       PAYLOAD=$(echo "$PAYLOAD" | jq \
         --arg extAddr "$R_EXTMAC" \
         --arg rloc16 "$R_RLOC16" \
-        --arg role "$R_ROLE" \
         --argjson lqin "$LQ_PCT" \
         --arg gwRloc "0x$RLOC16" \
         '.nodes += [{
           extAddr: $extAddr,
           rloc16: $rloc16,
-          role: $role,
+          role: "router",
           parentRloc16: $gwRloc,
           linkQualityIn: $lqin,
           linkQualityOut: $lqin
