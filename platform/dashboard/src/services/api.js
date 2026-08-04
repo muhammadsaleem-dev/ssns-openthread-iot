@@ -112,4 +112,10 @@ export const fetchNetworkTopology = async () => {
   return data;
 };
 
-export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertCounts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation, updateMlConfig, fetchMlStatus, fetchNetworkTopology };
+/** Fetch historical OpenThread Network Topology timeline for a specific Border Router */
+export const fetchNetworkTopologyHistory = async (hardwareId) => {
+  const { data } = await client.get('/api/network/topology/history', { params: { hardwareId } });
+  return data;
+};
+
+export default { fetchSensorData, fetchSensorDataPage, fetchNodes, fetchAlerts, fetchAlertCounts, fetchAlertsPage, resolveAllAlerts, resolveAlert, updateNodeLocation, updateMlConfig, fetchMlStatus, fetchNetworkTopology, fetchNetworkTopologyHistory };

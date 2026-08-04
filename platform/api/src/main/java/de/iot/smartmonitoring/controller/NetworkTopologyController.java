@@ -32,4 +32,11 @@ public class NetworkTopologyController {
         log.info("POST /api/network/topology received update");
         return ResponseEntity.ok(topologyService.saveTopology(topology));
     }
+
+    @GetMapping("/history")
+    @Operation(summary = "Get historical topology snapshots for a specific Border Router")
+    public ResponseEntity<List<de.iot.smartmonitoring.model.NetworkTopologyHistory>> getTopologyHistory(
+            @RequestParam String hardwareId) {
+        return ResponseEntity.ok(topologyService.getTopologyHistory(hardwareId));
+    }
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Box, Card, CardContent, Typography, CircularProgress, alpha, useTheme } from '@mui/material';
 import { ReactFlow, Background, Controls, MiniMap, applyNodeChanges, applyEdgeChanges, useReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -12,6 +12,7 @@ import NetworkStats from './topology/NetworkStats';
 import BorderRouterCards from './topology/BorderRouterCards';
 import TerminologyTable from './topology/TerminologyTable';
 import NodeDetailsDrawer from './topology/NodeDetailsDrawer';
+import TopologyScrubber from './topology/TopologyScrubber';
 
 function FitViewOnDataChange({ nodeCount }) {
   const { fitView } = useReactFlow();
@@ -29,7 +30,16 @@ export default function NetworkTopologyPage() {
   const theme = useTheme();
   const { data: topologyList, loading: loadingTopo } = usePolling(fetchNetworkTopology, API.POLL_INTERVAL);
   const { data: registeredNodes } = usePolling(fetchNodes, API.POLL_INTERVAL);
-  const { nodes, edges, setNodes, setEdges } = useTopologyGraph(topologyList, registeredNodes);
+  
+  const [selectedHistoricalSnapshot, setSelectedHistoricalSnapshot] = useState(null);
+
+  // If a historical snapshot is selected, use it instead of the LIVE topology list
+  // Note: we inject it as a single-item array because useTopologyGraph expects a list of topologies
+  const activeTopologyList = useMemo(() => {
+    return selectedHistoricalSnapshot ? [selectedHistoricalSnapshot] : topologyList;
+  }, [selectedHistoricalSnapshot, topologyList]);
+
+  const { nodes, edges, setNodes, setEdges } = useTopologyGraph(activeTopologyList, registeredNodes);
   const [selectedNode, setSelectedNode] = useState(null);
 
   const onNodesChange = useCallback((changes) => setNodes((nds) => applyNodeChanges(changes, nds)), [setNodes]);
@@ -83,16 +93,17 @@ export default function NetworkTopologyPage() {
       </Card>
 
       <Box sx={{ mt: 4, mb: 2 }}>
-        <SectionHeader title="Recent Network Events" subtitle="Historical Thread mesh transitions and recovery logs" />
-        <Card sx={{ bgcolor: alpha(theme.palette.background.paper, 0.5) }}>
-          <CardContent>
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'center', py: 3 }}>
-              Network event history (Node Joins, Role Changes, Partition Merges) is currently running in-memory.
-              <br />
-              Backend integration for persistent Thread event logging is planned for Future Work.
-            </Typography>
-          </CardContent>
-        </Card>
+        <SectionHeader title="Time Travel" subtitle="Replay historical network events and routing transitions" />
+        {/* We find the active Border Router for the scrubber, or fallback to the first one */}
+        {topologyList && topologyList.length > 0 && (() => {
+          const activeTopo = topologyList.find(t => t.gatewayHealth?.status === 'active') || topologyList[0];
+          return (
+            <TopologyScrubber 
+              borderRouterId={activeTopo.hardwareId} 
+              onHistorySelected={setSelectedHistoricalSnapshot} 
+            />
+          );
+        })()}
       </Box>
 
       <TerminologyTable />

@@ -4,9 +4,9 @@ import { keyframes } from '@mui/system';
 import { formatExtAddr } from '../../utils/format';
 
 const pulseAnimation = keyframes`
-  0% { box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.9), 0 0 20px 5px rgba(245, 158, 11, 0.8); }
-  50% { box-shadow: 0 0 0 25px rgba(255, 255, 255, 0), 0 0 35px 15px rgba(245, 158, 11, 0); }
-  100% { box-shadow: 0 0 0 0px rgba(255, 255, 255, 0), 0 0 20px 5px rgba(245, 158, 11, 0.8); }
+  0% { box-shadow: 0 0 0 0px rgba(255, 0, 0, 0.9), 0 0 20px 5px rgba(220, 38, 38, 0.8); }
+  50% { box-shadow: 0 0 0 25px rgba(255, 0, 0, 0), 0 0 35px 15px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(255, 0, 0, 0), 0 0 20px 5px rgba(220, 38, 38, 0.8); }
 `;
 
 export function RouterNode({ data }) {
@@ -22,7 +22,7 @@ export function RouterNode({ data }) {
   return (
     <Box sx={{
       background: roleColor,
-      border: `2px solid ${alpha('#fff', 0.2)}`,
+      border: isLeader ? '2px solid #ef4444' : `2px solid ${alpha('#fff', 0.2)}`,
       borderRadius: '12px',
       padding: '10px 20px',
       color: '#fff',

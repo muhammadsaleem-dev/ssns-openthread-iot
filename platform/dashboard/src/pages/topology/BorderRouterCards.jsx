@@ -127,12 +127,15 @@ function BorderRouterCard({ topology }) {
 }
 
 export default function BorderRouterCards({ topologyList }) {
+  // Filter out offline border routers to keep the UI clean, as they don't contribute to the current mesh
+  const activeTopologies = topologyList?.filter(t => t.gatewayHealth?.status !== 'offline') || [];
+
   return (
     <>
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Border Routers</Typography>
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {topologyList && topologyList.length > 0 ? (
-          topologyList.map((topology) => (
+        {activeTopologies.length > 0 ? (
+          activeTopologies.map((topology) => (
             <Grid size={{ xs: 12, md: 6, lg: 4 }} key={topology.hardwareId || topology.id}>
               <BorderRouterCard topology={topology} />
             </Grid>

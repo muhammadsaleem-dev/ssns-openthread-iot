@@ -1,7 +1,9 @@
 package de.iot.smartmonitoring.service;
 
 import de.iot.smartmonitoring.model.NetworkTopology;
+import de.iot.smartmonitoring.model.NetworkTopologyHistory;
 import de.iot.smartmonitoring.repository.NetworkTopologyRepository;
+import de.iot.smartmonitoring.repository.NetworkTopologyHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 public class NetworkTopologyService {
 
     private final NetworkTopologyRepository topologyRepository;
+    private final NetworkTopologyHistoryRepository historyRepository;
 
     // The @Scheduled prune job has been removed. 
     // We now keep historical routers in the database permanently and just flag them as OFFLINE.
@@ -77,6 +80,23 @@ public class NetworkTopologyService {
                  saved.getGatewayId(),
                  saved.getNodes() != null ? saved.getNodes().size() : 0);
         
+        // Save historical snapshot for time-travel scrubber
+        NetworkTopologyHistory history = NetworkTopologyHistory.builder()
+                .hardwareId(saved.getHardwareId())
+                .gatewayId(saved.getGatewayId())
+                .gatewayHealth(saved.getGatewayHealth())
+                .nodes(saved.getNodes())
+                .recordedAt(Instant.now())
+                .build();
+        historyRepository.save(history);
+        
         return saved;
+    }
+
+    /**
+     * Gets the timeline of topology snapshots for a specific Border Router hardwareId.
+     */
+    public List<NetworkTopologyHistory> getTopologyHistory(String hardwareId) {
+        return historyRepository.findByHardwareIdOrderByRecordedAtAsc(hardwareId);
     }
 }
