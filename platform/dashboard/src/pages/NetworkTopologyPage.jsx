@@ -52,7 +52,7 @@ export default function NetworkTopologyPage() {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 2, md: 3 } }}>
       <SectionHeader title="Network Overview" subtitle="Thread Mesh Topology (Distributed)" />
 
       <NetworkStats

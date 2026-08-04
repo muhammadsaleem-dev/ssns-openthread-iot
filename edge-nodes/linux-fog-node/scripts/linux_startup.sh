@@ -4,6 +4,9 @@
 # Survives dongle unplug/replug without container restart.
 # ============================================================
 
+# Ensure all background jobs (like topology_monitor and socat) are killed when this script exits
+trap 'kill $(jobs -p) 2>/dev/null; exit' EXIT INT TERM
+
 # ── One-time system initialization ──────────────────────
 rm -f /var/run/dbus/pid
 service dbus start

@@ -1,4 +1,37 @@
 import { useState, useEffect } from 'react';
+import dagre from '@dagrejs/dagre';
+
+const NODE_WIDTH = 200;
+const NODE_HEIGHT = 110;
+
+// Auto-layout the graph top-to-bottom using dagre instead of hand-placed
+// coordinates, so the mesh hierarchy (Leader at the root, routers/children
+// fanning out below) arranges itself instead of needing manual dragging.
+function layoutWithDagre(nodes, edges) {
+  if (nodes.length === 0) return nodes;
+
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: 'TB', nodesep: 70, ranksep: 100 });
+
+  nodes.forEach((node) => {
+    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+  edges.forEach((edge) => {
+    g.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(g);
+
+  return nodes.map((node) => {
+    const pos = g.node(node.id);
+    return {
+      ...node,
+      // dagre positions are node centers; React Flow expects top-left.
+      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+    };
+  });
+}
 
 function computeGraph(topologyList, registeredNodes) {
   const nodes = [];
@@ -10,15 +43,28 @@ function computeGraph(topologyList, registeredNodes) {
 
   const nodesMap = new Map();
   const edgesMap = new Map();
-  let routerX = 100;
-  let childX = 50;
 
-  function addNode(node) {
+  // A node's own self-entry hardcodes linkQualityIn/Out to 100 (topology_monitor.sh
+  // always writes 100 for the self row -- not a real measurement). Another border
+  // router's router-table mention of that same node carries a genuinely measured
+  // link quality, so build a lookup of those real, foreign-observed values.
+  const peerLinkQuality = new Map();
+  topologyList.forEach((topology) => {
+    if (!topology.nodes) return;
+    topology.nodes.forEach((node) => {
+      if (node.extAddr !== topology.gatewayId && !peerLinkQuality.has(node.extAddr)) {
+        peerLinkQuality.set(node.extAddr, { linkQualityIn: node.linkQualityIn, linkQualityOut: node.linkQualityOut });
+      }
+    });
+  });
+
+  function addNode(node, topology) {
     // Self-entries always hardcode parentRloc16="0xffff" (topology_monitor.sh),
     // regardless of real role, so leader status must come from `role` alone --
     // a border router reporting itself as "router" is not the mesh Leader.
     const isLeader = node.role?.toLowerCase() === 'leader';
     const isRouter = isLeader || node.role?.toLowerCase() === 'router';
+    const isSelf = Boolean(topology) && node.extAddr === topology.gatewayId;
 
     const cleanExtAddr = node.extAddr ? node.extAddr.replace(/:/g, '').toLowerCase() : '';
     const last4 = cleanExtAddr ? cleanExtAddr.substring(cleanExtAddr.length - 4) : node.rloc16;
@@ -26,13 +72,25 @@ function computeGraph(topologyList, registeredNodes) {
 
     const matchedNode = registeredNodes?.find(n => n.meshId === calculatedNodeId || n.nodeId === calculatedNodeId);
 
+    // Border routers report their own identity via /api/network/topology, not
+    // /api/nodes (the sensor-telemetry registry), so matchedNode never resolves
+    // for a self-entry -- use the topology document's own fields instead.
     const primaryLabel = matchedNode?.location || matchedNode?.nodeId || calculatedNodeId;
-    const hardwareId = matchedNode?.nodeId || 'Unknown';
+    const hardwareId = isSelf ? (topology.hardwareId || 'Unknown') : (matchedNode?.nodeId || 'Unknown');
+    const status = isSelf
+      ? (topology.gatewayHealth?.status === 'active' ? 'ONLINE' : topology.gatewayHealth?.status === 'offline' ? 'OFFLINE' : 'UNKNOWN')
+      : (matchedNode?.status || 'UNKNOWN');
+
+    const peerQuality = peerLinkQuality.get(node.extAddr);
+    const linkQualityIn = isSelf && peerQuality ? peerQuality.linkQualityIn : node.linkQualityIn;
+    const linkQualityOut = isSelf && peerQuality ? peerQuality.linkQualityOut : node.linkQualityOut;
+    const hasRealLinkQuality = isSelf ? Boolean(peerQuality) : true;
+    const lastSeenAt = isSelf ? topology.lastUpdatedAt : matchedNode?.lastSeenAt;
 
     nodesMap.set(node.rloc16, {
       id: node.rloc16,
       type: isRouter ? 'router' : 'endDevice',
-      position: { x: isRouter ? routerX : childX, y: isRouter ? 100 : 250 },
+      position: { x: 0, y: 0 }, // placeholder -- layoutWithDagre computes the real position
       data: {
         nodeId: calculatedNodeId,
         hardwareId,
@@ -40,17 +98,15 @@ function computeGraph(topologyList, registeredNodes) {
         rloc16: node.rloc16,
         role: isLeader ? 'leader' : node.role,
         parentRloc16: node.parentRloc16,
-        status: matchedNode?.status || 'UNKNOWN',
-        lastSeenAt: matchedNode?.lastSeenAt,
+        status,
+        lastSeenAt,
         ipv6Address: matchedNode?.ipv6Address,
         extAddr: node.extAddr,
-        linkQualityIn: node.linkQualityIn,
-        linkQualityOut: node.linkQualityOut,
+        linkQualityIn,
+        linkQualityOut,
+        hasRealLinkQuality,
       },
     });
-
-    if (isRouter) routerX += 200;
-    if (!isRouter) childX += 150;
   }
 
   // Pass 1: each topology's own self-entry (extAddr === that topology's
@@ -63,7 +119,7 @@ function computeGraph(topologyList, registeredNodes) {
     if (!topology.nodes) return;
 
     const selfNode = topology.nodes.find(n => n.extAddr === topology.gatewayId);
-    if (selfNode) addNode(selfNode);
+    if (selfNode) addNode(selfNode, topology);
   });
 
   // Pass 2: fill in remaining nodes (routers/children seen only from another
@@ -76,7 +132,7 @@ function computeGraph(topologyList, registeredNodes) {
     topology.nodes.forEach((node) => {
       const isSelf = node.extAddr === topology.gatewayId;
       if (!isSelf && !nodesMap.has(node.rloc16)) {
-        addNode(node);
+        addNode(node, topology);
       }
 
       if (node.parentRloc16 && node.parentRloc16 !== '0xffff' && node.parentRloc16 !== node.rloc16) {
@@ -95,9 +151,12 @@ function computeGraph(topologyList, registeredNodes) {
     });
   });
 
+  const rawNodes = Array.from(nodesMap.values());
+  const rawEdges = Array.from(edgesMap.values());
+
   return {
-    nodes: Array.from(nodesMap.values()),
-    edges: Array.from(edgesMap.values()),
+    nodes: layoutWithDagre(rawNodes, rawEdges),
+    edges: rawEdges,
   };
 }
 

@@ -20,23 +20,15 @@ public class NetworkTopologyService {
 
     private final NetworkTopologyRepository topologyRepository;
 
-    /**
-     * Scheduled job to prune stale Border Router records that haven't reported in 10 minutes.
-     * Runs every minute.
-     */
-    @Scheduled(fixedRate = 60000)
-    public void pruneStaleTopologies() {
-        Instant cutoff = Instant.now().minus(Duration.ofMinutes(10));
-        log.info("Pruning network topologies older than {}", cutoff);
-        topologyRepository.deleteByLastUpdatedAtBefore(cutoff);
-    }
+    // The @Scheduled prune job has been removed. 
+    // We now keep historical routers in the database permanently and just flag them as OFFLINE.
 
     /**
      * Gets all known network topology snapshots.
      * If a snapshot hasn't been updated in the last 2 minutes, its status is forced to "offline".
      */
     public List<NetworkTopology> getAllTopologies() {
-        Instant cutoff = Instant.now().minus(Duration.ofMinutes(2));
+        Instant cutoff = Instant.now().minus(Duration.ofMinutes(1));
         
         return topologyRepository.findAll().stream()
                 .filter(t -> t.getHardwareId() != null)

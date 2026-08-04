@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Ensure all background jobs (like topology_monitor and socat) are killed when this script exits
+trap 'kill $(jobs -p) 2>/dev/null; exit' EXIT INT TERM
+
 # Install dependencies required for bridging and monitoring
 apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends socat iproute2 curl jq
 
@@ -8,7 +11,7 @@ apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install
 service dbus start || true
 
 # Bridge the physical serial port to a TCP socket for Docker
-(while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000,nodelay 2>/dev/null; sleep 1; done) &
+(while true; do socat pty,link=/dev/ttyACM0,raw,echo=0 tcp:host.docker.internal:2000,nodelay 2>/dev/null || true; sleep 1; done) &
 
 # Bridge CoAP UDP traffic from Thread IPv6 to Gateway's IPv4
 socat UDP6-LISTEN:5683,fork,reuseaddr UDP4:gateway:5683 &

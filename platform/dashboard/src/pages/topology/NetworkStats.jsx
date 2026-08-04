@@ -8,7 +8,7 @@ import StatCard from '../../components/StatCard';
 export default function NetworkStats({ totalNodes, routerNodes, onlineNodes, stability }) {
   return (
     <Grid container spacing={3} sx={{ mb: 4 }}>
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <StatCard
           title="Total Nodes in Mesh"
           value={totalNodes}
@@ -16,7 +16,7 @@ export default function NetworkStats({ totalNodes, routerNodes, onlineNodes, sta
           color="#10B981"
         />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <StatCard
           title="Router Nodes"
           value={routerNodes}
@@ -24,7 +24,7 @@ export default function NetworkStats({ totalNodes, routerNodes, onlineNodes, sta
           color="#3B82F6"
         />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <StatCard
           title="Online Sensors"
           value={onlineNodes}
@@ -32,7 +32,7 @@ export default function NetworkStats({ totalNodes, routerNodes, onlineNodes, sta
           color="#8B5CF6"
         />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
         <StatCard
           title="Network Stability"
           value={`${stability}%`}

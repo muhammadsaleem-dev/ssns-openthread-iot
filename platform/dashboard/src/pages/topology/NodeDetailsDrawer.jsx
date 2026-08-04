@@ -1,6 +1,7 @@
 import { Box, Typography, Drawer, IconButton, Chip, alpha, useTheme } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { formatExtAddr } from '../../utils/format';
+import { NodeInfoExplainerButton } from './NodeInfoExplainerDialog';
 
 const roleColors = {
   leader: '#F59E0B',
@@ -111,6 +112,7 @@ export default function NodeDetailsDrawer({ node, onClose }) {
                 color: node.data.status === 'ONLINE' ? 'success.main' : node.data.status === 'OFFLINE' ? 'error.main' : 'text.secondary',
               }}
             />
+            <NodeInfoExplainerButton />
             <IconButton onClick={onClose} size="small" sx={{ color: 'text.secondary', ml: -0.5 }}>
               <CloseIcon sx={{ fontSize: '1rem' }} />
             </IconButton>
@@ -124,9 +126,17 @@ export default function NodeDetailsDrawer({ node, onClose }) {
             <PropRow label="RLOC16" value={node.data.rloc16} mono />
 
             <SectionHeader label="NETWORK" />
-            <PropRow label="Parent" value={node.data.parentRloc16 === '0xffff' ? 'None (Root)' : node.data.parentRloc16} mono />
-            <PropRow label="Link Quality" value={node.data.parentRloc16 === '0xffff' ? 'N/A' : `${node.data.linkQualityIn || 0}% / ${node.data.linkQualityOut || 0}%`} />
-            <PropRow label="IPv6" value={node.data.ipv6Address || 'Hidden by macOS Bridge'} mono={!!node.data.ipv6Address} />
+            <PropRow
+              label="Parent"
+              value={
+                role === 'leader' ? 'None (Root)'
+                : role === 'router' ? 'N/A (mesh-routed)'
+                : node.data.parentRloc16
+              }
+              mono
+            />
+            <PropRow label="Link Quality" value={node.data.hasRealLinkQuality ? `${node.data.linkQualityIn || 0}% / ${node.data.linkQualityOut || 0}%` : 'N/A'} />
+            <PropRow label="IPv6" value={node.data.ipv6Address || 'Not reported by mesh telemetry'} mono={!!node.data.ipv6Address} />
 
             <SectionHeader label="STATUS" />
             <PropRow label="Last Seen" value={node.data.lastSeenAt ? new Date(node.data.lastSeenAt).toLocaleString() : 'N/A'} />

@@ -78,15 +78,27 @@ while true; do
   PAYLOAD+=$(printf '{"extAddr":"%s","rloc16":"0x%s","role":"%s","parentRloc16":"0xffff","linkQualityIn":100,"linkQualityOut":100}' "$GW_EXTADDR" "$GW_RLOC16" "$STATE")
   
   # Add Routers
+  # Extract the true Leader ID from the mesh by querying OpenThread's leaderdata.
+  # This ensures the dashboard explicitly highlights the node that is acting as the network leader.
+  LEADER_ROUTER_ID=$(ot-ctl leaderdata 2>/dev/null | grep 'Leader Router ID:' | awk '{print $4}' | tr -d '\r')
+
   while read -r line; do
     if [[ "$line" == *"|"* ]] && [[ "$line" != *"ID"* ]]; then
+      R_ID=$(echo "$line" | awk -F'|' '{print $2}' | tr -d ' ' | tr -d '\r')
       R_RLOC16=$(echo "$line" | awk -F'|' '{print $3}' | tr -d '[:space:]')
       R_LQIN=$(echo "$line" | awk -F'|' '{print $6}' | tr -d '[:space:]')
       R_EXTMAC=$(echo "$line" | awk -F'|' '{print $9}' | tr -d '[:space:]')
+
+      if [ "$R_ID" == "$LEADER_ROUTER_ID" ] && [ -n "$R_ID" ]; then
+        R_ROLE="leader"
+      else
+        R_ROLE="router"
+      fi
+
       LQ_PCT=$(( R_LQIN * 33 ))
       if [ "$LQ_PCT" -gt 100 ]; then LQ_PCT=100; fi
       
-      PAYLOAD+=$(printf ',{"extAddr":"%s","rloc16":"%s","role":"router","parentRloc16":"0x%s","linkQualityIn":%d,"linkQualityOut":%d}' "$R_EXTMAC" "$R_RLOC16" "$GW_RLOC16" "$LQ_PCT" "$LQ_PCT")
+      PAYLOAD+=$(printf ',{"extAddr":"%s","rloc16":"%s","role":"%s","parentRloc16":"0x%s","linkQualityIn":%d,"linkQualityOut":%d}' "$R_EXTMAC" "$R_RLOC16" "$R_ROLE" "$GW_RLOC16" "$LQ_PCT" "$LQ_PCT")
     fi
   done <<< "$(ot-ctl router table 2>/dev/null)"
 
