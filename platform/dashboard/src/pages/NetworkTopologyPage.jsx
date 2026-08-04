@@ -73,11 +73,11 @@ export default function NetworkTopologyPage() {
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}
           fitView
-          colorMode="dark"
+          colorMode={theme.palette.mode}
         >
-          <Background color="#333" gap={16} />
+          <Background color={theme.palette.divider} gap={16} />
           <Controls />
-          <MiniMap nodeStrokeColor="#fff" nodeColor="#222" />
+          <MiniMap />
           <FitViewOnDataChange nodeCount={nodes.length} />
         </ReactFlow>
       </Card>

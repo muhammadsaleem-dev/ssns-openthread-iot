@@ -20,4 +20,7 @@ public class ThreadRouteNode {
     private Integer linkQualityIn;
     private Integer linkQualityOut;
     private Integer routeCost;
+    private Integer age;
+    private Integer timeout;
+    private String linkType;
 }

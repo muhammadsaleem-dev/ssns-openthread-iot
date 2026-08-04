@@ -87,6 +87,21 @@ function computeGraph(topologyList, registeredNodes) {
     const hasRealLinkQuality = isSelf ? Boolean(peerQuality) : true;
     const lastSeenAt = isSelf ? topology.lastUpdatedAt : matchedNode?.lastSeenAt;
 
+    // Determine if the node is a ghost (stale)
+    // For children: age is close to timeout (give 10s buffer)
+    // For routers: age > 90 seconds (standard router timeout is ~120s)
+    const age = node.age || 0;
+    const timeout = node.timeout || 0;
+    let isGhost = false;
+    
+    if (!isSelf) {
+      if (node.role === 'child' && timeout > 0 && age >= timeout - 15) {
+        isGhost = true;
+      } else if (isRouter && age > 90) {
+        isGhost = true;
+      }
+    }
+
     nodesMap.set(node.rloc16, {
       id: node.rloc16,
       type: isRouter ? 'router' : 'endDevice',
@@ -97,6 +112,7 @@ function computeGraph(topologyList, registeredNodes) {
         label: primaryLabel,
         rloc16: node.rloc16,
         role: isLeader ? 'leader' : node.role,
+        isBorderRouter: isSelf,
         parentRloc16: node.parentRloc16,
         status,
         lastSeenAt,
@@ -105,6 +121,9 @@ function computeGraph(topologyList, registeredNodes) {
         linkQualityIn,
         linkQualityOut,
         hasRealLinkQuality,
+        age,
+        timeout,
+        isGhost,
       },
     });
   }
@@ -129,22 +148,57 @@ function computeGraph(topologyList, registeredNodes) {
     if (topology.gatewayHealth?.status === 'offline') return;
     if (!topology.nodes) return;
 
+    const selfNode = topology.nodes.find(n => n.extAddr === topology.gatewayId);
+
     topology.nodes.forEach((node) => {
       const isSelf = node.extAddr === topology.gatewayId;
-      if (!isSelf && !nodesMap.has(node.rloc16)) {
-        addNode(node, topology);
+      
+      // If this is a direct neighbor of the BR (Next Hop was '-'), its parentRloc16 is '0xffff'.
+      // If the node's Next Hop is itself (parentRloc16 === rloc16), it also means it's a direct neighbor.
+      // We should map it to the BR's rloc16 to correctly draw the edge to the Border Router!
+      let effectiveParentRloc16 = node.parentRloc16;
+      if (!isSelf && selfNode && (effectiveParentRloc16 === '0xffff' || effectiveParentRloc16 === node.rloc16)) {
+        effectiveParentRloc16 = selfNode.rloc16;
+      }
+      
+      const nodeToProcess = { ...node, parentRloc16: effectiveParentRloc16 };
+
+      if (!isSelf && !nodesMap.has(nodeToProcess.rloc16)) {
+        addNode(nodeToProcess, topology);
       }
 
-      if (node.parentRloc16 && node.parentRloc16 !== '0xffff' && node.parentRloc16 !== node.rloc16) {
-        const edgeId = `e-${node.rloc16}-${node.parentRloc16}`;
+      if (effectiveParentRloc16 && effectiveParentRloc16 !== '0xffff' && effectiveParentRloc16 !== nodeToProcess.rloc16) {
+        const edgeId = `e-${nodeToProcess.rloc16}-${effectiveParentRloc16}`;
+        const isEndDeviceLink = nodeToProcess.role === 'child';
         if (!edgesMap.has(edgeId)) {
+          let edgeLabel = nodeToProcess.linkType 
+            ? `${nodeToProcess.linkType} (${nodeToProcess.linkQualityIn}%)`
+            : `${nodeToProcess.linkQualityIn}%`;
+            
+          if (nodeToProcess.routeCost !== undefined && nodeToProcess.routeCost > 0) {
+            edgeLabel += ` • Cost: ${nodeToProcess.routeCost}`;
+          }
+
+          let strokeColor = '#4b5563'; // Default fallback
+          if (nodeToProcess.linkQualityIn >= 66) {
+            strokeColor = '#10b981'; // Green - Healthy
+          } else if (nodeToProcess.linkQualityIn >= 33) {
+            strokeColor = '#f59e0b'; // Amber - Degraded
+          } else {
+            strokeColor = '#ef4444'; // Red - Critical
+          }
+
           edgesMap.set(edgeId, {
             id: edgeId,
-            source: node.parentRloc16,
-            target: node.rloc16,
-            label: `${node.linkQualityIn}%`,
-            style: { stroke: '#888', strokeWidth: 2 },
-            animated: true,
+            source: effectiveParentRloc16,
+            target: nodeToProcess.rloc16,
+            label: edgeLabel,
+            style: { 
+              stroke: strokeColor, 
+              strokeWidth: isEndDeviceLink ? 2 : 3,
+            },
+            animated: isEndDeviceLink, // Animate packets to end devices, keep backbone solid
+            strokeDasharray: isEndDeviceLink ? '5,5' : 'none', // Dashed for End Devices, Solid for Backbone
           });
         }
       }
@@ -153,6 +207,29 @@ function computeGraph(topologyList, registeredNodes) {
 
   const rawNodes = Array.from(nodesMap.values());
   const rawEdges = Array.from(edgesMap.values());
+
+  // Inject Internet Cloud node if we have any border routers
+  const borderRouters = rawNodes.filter(n => n.data.isBorderRouter);
+  if (borderRouters.length > 0) {
+    const cloudNodeId = 'internet-cloud';
+    rawNodes.push({
+      id: cloudNodeId,
+      type: 'cloud',
+      position: { x: 0, y: 0 },
+      data: { label: 'Internet' },
+    });
+    
+    borderRouters.forEach((br) => {
+      rawEdges.push({
+        id: `e-${cloudNodeId}-${br.id}`,
+        source: cloudNodeId,
+        target: br.id,
+        label: 'IPv6 / Ethernet',
+        style: { stroke: '#0ea5e9', strokeWidth: 4 },
+        animated: true,
+      });
+    });
+  }
 
   return {
     nodes: layoutWithDagre(rawNodes, rawEdges),

@@ -121,7 +121,9 @@ while true; do
       role: $role,
       parentRloc16: "0xffff",
       linkQualityIn: 100,
-      linkQualityOut: 100
+      linkQualityOut: 100,
+      age: 0,
+      timeout: 0
     }]'
   )
 
@@ -134,29 +136,81 @@ while true; do
   echo "ROUTER TABLE:"
   echo "$ROUTER_TABLE"
   
+  # Get the Leader RLOC16 so we can properly identify the leader
+  LEADER_ID=$(ot-ctl leaderdata 2>/dev/null | grep 'Leader Router ID' | awk '{print $4}' | tr -d '\r')
+  if [ -n "$LEADER_ID" ]; then
+    LEADER_RLOC16=$(printf "0x%04x" $(( LEADER_ID * 1024 )))
+  else
+    LEADER_RLOC16=""
+  fi
+
+  # Store gateway RLOC16 and EXTADDR for comparison
+  GW_RLOC16="$RLOC16"
+  GW_EXTADDR="$EXTADDR"
+
   while read -r line; do
     if [[ "$line" == *"|"* ]] && [[ "$line" != *"ID"* ]]; then
       # Extract using awk (fields separated by | and spaces)
       R_RLOC16=$(echo "$line" | awk -F'|' '{print $3}' | tr -d ' ' | tr -d '\r')
+      R_NEXT_HOP=$(echo "$line" | awk -F'|' '{print $4}' | tr -d ' ' | tr -d '\r')
+      R_PATH_COST=$(echo "$line" | awk -F'|' '{print $5}' | tr -d ' ' | tr -d '\r')
       R_LQIN=$(echo "$line" | awk -F'|' '{print $6}' | tr -d ' ' | tr -d '\r')
-      R_EXTMAC=$(echo "$line" | awk -F'|' '{print $9}' | tr -d ' ' | tr -d '\r')
+      R_AGE=$(echo "$line" | awk -F'|' '{print $8}' | tr -d '[:space:]')
+      R_EXTMAC=$(echo "$line" | awk -F'|' '{print $(NF-2)}' | tr -d '[:space:]')
+      R_LINK=$(echo "$line" | awk -F'|' '{print $(NF-1)}' | tr -d '[:space:]')
+      
+      # Skip the Border Router itself, as we already added it at the top of the payload
+      if [ "$R_EXTMAC" = "$GW_EXTADDR" ] || [ "$R_RLOC16" = "0x$GW_RLOC16" ]; then
+        continue
+      fi
+
+      # Determine proper role
+      R_ROLE="router"
+      if [ "$R_RLOC16" = "$LEADER_RLOC16" ]; then
+        R_ROLE="leader"
+      fi
+
+      # Determine Next Hop RLOC16 for the topology graph
+      # If Link == 1, they are direct physical radio neighbors of the Border Router!
+      if [ "$R_LINK" = "1" ]; then
+        R_PARENT_RLOC16="0x$GW_RLOC16"
+        R_LINK_TYPE="Direct"
+      elif [[ "$R_NEXT_HOP" =~ ^[0-9]+$ ]]; then
+        R_PARENT_RLOC16=$(printf "0x%04x" $(( R_NEXT_HOP * 1024 )))
+        R_LINK_TYPE="Multi-hop"
+      else
+        R_PARENT_RLOC16="0x$GW_RLOC16"
+        R_LINK_TYPE="Direct"
+      fi
 
       # Map Link Quality (0-3) to a rough percentage (0=0%, 1=33%, 2=66%, 3=100%)
       LQ_PCT=$(( R_LQIN * 33 ))
       if [ "$LQ_PCT" -gt 100 ]; then LQ_PCT=100; fi
+      
+      # Default timeout for routers isn't explicitly in the table, set to 0
+      R_TIMEOUT=0
 
       PAYLOAD=$(echo "$PAYLOAD" | jq \
         --arg extAddr "$R_EXTMAC" \
         --arg rloc16 "$R_RLOC16" \
         --argjson lqin "$LQ_PCT" \
-        --arg gwRloc "0x$RLOC16" \
+        --arg role "$R_ROLE" \
+        --arg parentRloc "$R_PARENT_RLOC16" \
+        --arg linkType "$R_LINK_TYPE" \
+        --argjson age "${R_AGE:-0}" \
+        --argjson timeout "$R_TIMEOUT" \
+        --argjson routeCost "${R_PATH_COST:-0}" \
         '.nodes += [{
           extAddr: $extAddr,
           rloc16: $rloc16,
-          role: "router",
-          parentRloc16: $gwRloc,
+          role: $role,
+          parentRloc16: $parentRloc,
+          linkType: $linkType,
           linkQualityIn: $lqin,
-          linkQualityOut: $lqin
+          linkQualityOut: $lqin,
+          age: $age,
+          timeout: $timeout,
+          routeCost: $routeCost
         }]'
       )
     fi
@@ -173,26 +227,38 @@ while true; do
   while read -r line; do
     if [[ "$line" == *"|"* ]] && [[ "$line" != *"ID"* ]]; then
       C_RLOC16=$(echo "$line" | awk -F'|' '{print $3}' | tr -d ' ' | tr -d '\r')
+      C_TIMEOUT=$(echo "$line" | awk -F'|' '{print $4}' | tr -d ' ' | tr -d '\r')
+      C_AGE=$(echo "$line" | awk -F'|' '{print $5}' | tr -d ' ' | tr -d '\r')
       C_LQIN=$(echo "$line" | awk -F'|' '{print $6}' | tr -d ' ' | tr -d '\r')
-      C_EXTMAC=$(echo "$line" | awk -F'|' '{print $11}' | tr -d ' ' | tr -d '\r')
-
-      LQ_PCT=$(( C_LQIN * 33 ))
-      if [ "$LQ_PCT" -gt 100 ]; then LQ_PCT=100; fi
+      C_EXTMAC=$(echo "$line" | awk -F'|' '{print $(NF-1)}' | tr -d ' ' | tr -d '\r')
 
       # We assume children of the BR have the BR as parent. 
-      # (If it's a child of another router, we'd need more complex parsing, but for simple topology this works)
+      # Map Link Quality (0-3) to a rough percentage (0=0%, 1=33%, 2=66%, 3=100%)
+      C_LQ_PCT=$(( C_LQIN * 33 ))
+      if [ "$C_LQ_PCT" -gt 100 ]; then C_LQ_PCT=100; fi
+      
+      C_LINK_TYPE="Child"
+
       PAYLOAD=$(echo "$PAYLOAD" | jq \
         --arg extAddr "$C_EXTMAC" \
-        --arg rloc16 "$C_RLOC16" \
-        --argjson lqin "$LQ_PCT" \
-        --arg gwRloc "0x$RLOC16" \
+        --arg rloc16 "0x$C_RLOC16" \
+        --arg parentRloc "0x$GW_RLOC16" \
+        --arg linkType "$C_LINK_TYPE" \
+        --argjson lqin "$C_LQ_PCT" \
+        --argjson age "${C_AGE:-0}" \
+        --argjson timeout "${C_TIMEOUT:-0}" \
+        --argjson routeCost 0 \
         '.nodes += [{
           extAddr: $extAddr,
           rloc16: $rloc16,
           role: "child",
-          parentRloc16: $gwRloc,
+          parentRloc16: $parentRloc,
+          linkType: $linkType,
           linkQualityIn: $lqin,
-          linkQualityOut: $lqin
+          linkQualityOut: $lqin,
+          age: $age,
+          timeout: $timeout,
+          routeCost: $routeCost
         }]'
       )
     fi

@@ -75,39 +75,103 @@ while true; do
   PAYLOAD+=$(printf '"nodes":[')
 
   # Add self (Border Router) as the first node
-  PAYLOAD+=$(printf '{"extAddr":"%s","rloc16":"0x%s","role":"%s","parentRloc16":"0xffff","linkQualityIn":100,"linkQualityOut":100}' "$GW_EXTADDR" "$GW_RLOC16" "$STATE")
+  PAYLOAD+=$(printf '{"extAddr":"%s","rloc16":"0x%s","role":"%s","parentRloc16":"0xffff","linkQualityIn":100,"linkQualityOut":100,"age":0,"timeout":0}' "$GW_EXTADDR" "$GW_RLOC16" "$STATE")
   
+  ROUTER_TABLE=$(ot-ctl router table 2>/dev/null)
+  echo "---"
+  echo "ROLE: $STATE"
+  echo "ROUTER TABLE:"
+  echo "$ROUTER_TABLE"
+  
+  # Get the Leader RLOC16 so we can properly identify the leader
+  LEADER_ID=$(ot-ctl leaderdata 2>/dev/null | grep 'Leader Router ID' | awk '{print $4}' | tr -d '[:space:]')
+  if [ -n "$LEADER_ID" ]; then
+    LEADER_RLOC16=$(printf "0x%04x" $(( LEADER_ID * 1024 )))
+  else
+    LEADER_RLOC16=""
+  fi
+
   # Add Routers
   while read -r line; do
     if [[ "$line" == *"|"* ]] && [[ "$line" != *"ID"* ]]; then
       R_RLOC16=$(echo "$line" | awk -F'|' '{print $3}' | tr -d '[:space:]')
+      R_NEXT_HOP=$(echo "$line" | awk -F'|' '{print $4}' | tr -d '[:space:]')
       R_LQIN=$(echo "$line" | awk -F'|' '{print $6}' | tr -d '[:space:]')
-      R_EXTMAC=$(echo "$line" | awk -F'|' '{print $9}' | tr -d '[:space:]')
+      R_AGE=$(echo "$line" | awk -F'|' '{print $8}' | tr -d '[:space:]')
+      R_EXTMAC=$(echo "$line" | awk -F'|' '{print $(NF-2)}' | tr -d '[:space:]')
+      R_LINK=$(echo "$line" | awk -F'|' '{print $(NF-1)}' | tr -d '[:space:]')
+      
+      # Skip the Border Router itself, as we already added it at the top of the payload
+      if [ "$R_EXTMAC" = "$GW_EXTADDR" ] || [ "$R_RLOC16" = "0x$GW_RLOC16" ]; then
+        continue
+      fi
+
+      # Determine proper role
+      R_ROLE="router"
+      if [ "$R_RLOC16" = "$LEADER_RLOC16" ]; then
+        R_ROLE="leader"
+      fi
+
+      # Determine Next Hop RLOC16 for the topology graph
+      # If Link == 1, they are direct physical radio neighbors of the Border Router!
+      if [ "$R_LINK" = "1" ]; then
+        R_PARENT_RLOC16="0x$GW_RLOC16"
+        R_LINK_TYPE="Direct"
+      elif [[ "$R_NEXT_HOP" =~ ^[0-9]+$ ]]; then
+        R_PARENT_RLOC16=$(printf "0x%04x" $(( R_NEXT_HOP * 1024 )))
+        R_LINK_TYPE="Multi-hop"
+      else
+        R_PARENT_RLOC16="0x$GW_RLOC16"
+        R_LINK_TYPE="Direct"
+      fi
+
       LQ_PCT=$(( R_LQIN * 33 ))
       if [ "$LQ_PCT" -gt 100 ]; then LQ_PCT=100; fi
       
-      PAYLOAD+=$(printf ',{"extAddr":"%s","rloc16":"%s","role":"router","parentRloc16":"0x%s","linkQualityIn":%d,"linkQualityOut":%d}' "$R_EXTMAC" "$R_RLOC16" "$GW_RLOC16" "$LQ_PCT" "$LQ_PCT")
+      R_TIMEOUT=0
+      
+      PAYLOAD+=$(printf ',{"extAddr":"%s","rloc16":"%s","role":"%s","parentRloc16":"%s","linkType":"%s","linkQualityIn":%d,"linkQualityOut":%d,"age":%d,"timeout":%d,"routeCost":%d}' "$R_EXTMAC" "$R_RLOC16" "$R_ROLE" "$R_PARENT_RLOC16" "$R_LINK_TYPE" "$LQ_PCT" "$LQ_PCT" "${R_AGE:-0}" "$R_TIMEOUT" "${R_PATH_COST:-0}")
     fi
-  done <<< "$(ot-ctl router table 2>/dev/null)"
+  done <<< "$ROUTER_TABLE"
 
+  CHILD_TABLE=$(ot-ctl child table 2>/dev/null)
+  echo "CHILD TABLE:"
+  echo "$CHILD_TABLE"
+  echo "---"
+  
   # Add Children
   while read -r line; do
     if [[ "$line" == *"|"* ]] && [[ "$line" != *"ID"* ]]; then
       C_RLOC16=$(echo "$line" | awk -F'|' '{print $3}' | tr -d '[:space:]')
+      C_TIMEOUT=$(echo "$line" | awk -F'|' '{print $4}' | tr -d '[:space:]')
+      C_AGE=$(echo "$line" | awk -F'|' '{print $5}' | tr -d '[:space:]')
       C_LQIN=$(echo "$line" | awk -F'|' '{print $6}' | tr -d '[:space:]')
-      C_EXTMAC=$(echo "$line" | awk -F'|' '{print $11}' | tr -d '[:space:]')
-      LQ_PCT=$(( C_LQIN * 33 ))
-      if [ "$LQ_PCT" -gt 100 ]; then LQ_PCT=100; fi
+      C_EXTMAC=$(echo "$line" | awk -F'|' '{print $(NF-1)}' | tr -d '[:space:]')
+      C_LQ_PCT=$(( C_LQIN * 33 ))
+      if [ "$C_LQ_PCT" -gt 100 ]; then C_LQ_PCT=100; fi
       
-      PAYLOAD+=$(printf ',{"extAddr":"%s","rloc16":"%s","role":"child","parentRloc16":"0x%s","linkQualityIn":%d,"linkQualityOut":%d}' "$C_EXTMAC" "$C_RLOC16" "$GW_RLOC16" "$LQ_PCT" "$LQ_PCT")
+      C_LINK_TYPE="Child"
+      
+      PAYLOAD+=$(printf ',{"extAddr":"%s","rloc16":"0x%s","role":"child","parentRloc16":"0x%s","linkType":"%s","linkQualityIn":%d,"linkQualityOut":%d,"age":%d,"timeout":%d,"routeCost":0}' "$C_EXTMAC" "$C_RLOC16" "$GW_RLOC16" "$C_LINK_TYPE" "$C_LQ_PCT" "$C_LQ_PCT" "${C_AGE:-0}" "${C_TIMEOUT:-0}")
     fi
-  done <<< "$(ot-ctl child table 2>/dev/null)"
+  done <<< "$CHILD_TABLE"
 
   # Close the JSON
   PAYLOAD+=$(printf ']}')
 
   # --- 3. POST to Backend ---
-  curl -s -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$API_ENDPOINT" > /dev/null
+  HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$API_ENDPOINT")
+  
+  if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+    # Only log success on first poll or after failures
+    if [ "$LAST_STATUS" != "success" ]; then
+      echo "✓ Topology data forwarded successfully (HTTP $HTTP_CODE)"
+      LAST_STATUS="success"
+    fi
+  else
+    echo "✗ Failed to forward topology data (HTTP $HTTP_CODE)"
+    LAST_STATUS="failed"
+  fi
 
   sleep "$POLL_INTERVAL"
 done
