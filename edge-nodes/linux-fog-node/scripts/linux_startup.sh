@@ -22,7 +22,16 @@ while true; do
   echo "══════════════════════════════════════════════════════"
 
   # 1. Wait for dongle to appear (dynamic detection, checking for OpenThread to avoid J-Link/other devices)
-  until DEVICE=$(for d in /dev/ttyACM*; do if [ -e "$d" ] && udevadm info --name="$d" 2>/dev/null | grep -q "OpenThread"; then echo "$d"; break; fi; done) && [ -n "$DEVICE" ]; do
+  until DEVICE=$(for d in /dev/ttyACM*; do 
+    if [ -e "$d" ]; then 
+      # Method A: Try udevadm (fails if container udev version is incompatible with host)
+      if udevadm info --name="$d" 2>/dev/null | grep -q "OpenThread"; then echo "$d"; break; fi
+      
+      # Method B: Direct Kernel SysFS read (bulletproof, bypasses Docker udev issues)
+      SYSFS_PORT=$(basename "$d")
+      if cat /sys/class/tty/$SYSFS_PORT/device/../product 2>/dev/null | grep -q "OpenThread"; then echo "$d"; break; fi
+    fi
+  done) && [ -n "$DEVICE" ]; do
     echo "STATION: Waiting for nRF52840 OpenThread device... (Plug in the dongle)"
     sleep 2
   done
@@ -40,20 +49,6 @@ while true; do
 
   # 3. Launch Thread Identity Manager in background
   (
-    # Wait for wpan0 to be created by the agent
-    until ip link show wpan0 >/dev/null 2>&1; do
-      sleep 1
-    done
-
-    # Bring it up so the kernel generates the IPv6 link-local address
-    ip link set wpan0 up 2>/dev/null || true
-
-    # Wait for wpan0 to get a link-local address to avoid IPV6_JOIN_GROUP ENODEV crash
-    echo "SYNC: Waiting for wpan0 interface to be ready..."
-    until ip -6 addr show dev wpan0 2>/dev/null | grep -q 'fe80::'; do
-      sleep 1
-    done
-
     # Wait for agent to start (no fixed delay)
     until STATE=$(ot-ctl state 2>/dev/null) && [ -n "$STATE" ]; do 
       echo "SYNC: Waiting for Agent..."
@@ -113,7 +108,21 @@ while true; do
 
   # 5. Launch otbr-agent (blocks here until it exits/crashes)
   echo "STATION: Launching OTBR Agent (Cycle #${CYCLE})..."
-  # Reduced log level from -d7 to -d1 (errors + warnings only)
+  
+  # ── Docker USB Unplug Watchdog ──────────────────────────
+  # When passing /dev through Docker, unplugging the device on the host deletes the /dev node,
+  # but processes holding the file descriptor (like otbr-agent) can hang indefinitely in poll() 
+  # without realizing the device is gone. This watchdog guarantees unplug detection.
+  (
+    while [ -e "$DEVICE" ]; do
+      sleep 2
+    done
+    echo "WATCHDOG: Device $DEVICE physically unplugged! Terminating agent..."
+    pkill -x otbr-agent 2>/dev/null || true
+  ) &
+  WATCHDOG_PID=$!
+
+  # Reduced log level from -d1 (errors + warnings only)
   # Filter out repetitive noise
   if ! /usr/sbin/otbr-agent -I wpan0 -B "$BACKBONE_IFACE" -d1 "spinel+hdlc+uart://$DEVICE" 2>&1 | \
       grep -v "ipset v6.34" | \
@@ -127,9 +136,13 @@ while true; do
   # 6. Agent exited — dongle was unplugged or fatal error
   echo ""
   echo "⚠ SUPERVISOR: Agent exited (dongle removed?). Cleaning up..."
-  kill -- -$IDENTITY_PID 2>/dev/null || true
-  wait $IDENTITY_PID 2>/dev/null || true
-
+  
+  # Explicitly kill the background processes we started
+  pkill -f "socat UDP6-LISTEN" 2>/dev/null || true
+  pkill -f "topology_monitor.sh" 2>/dev/null || true
+  kill -9 $IDENTITY_PID 2>/dev/null || true
+  kill -9 $WATCHDOG_PID 2>/dev/null || true
+  
   # Brief cooldown before next cycle
   echo "SUPERVISOR: Cooldown 1s before next cycle..."
   sleep 1

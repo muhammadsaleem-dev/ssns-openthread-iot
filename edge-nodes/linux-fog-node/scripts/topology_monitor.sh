@@ -53,8 +53,20 @@ while true; do
         PREV_HARDWARE_ID="$HARDWARE_ID"
       fi
     else
-      echo "WARNING: Could not query USB serial from $DEVICE_PATH"
-      HARDWARE_ID="legacy-$EXTADDR"
+      # Fallback to direct Kernel SysFS read because Docker udev is broken
+      SYSFS_PORT=$(basename "$DEVICE_PATH")
+      SYSFS_SERIAL=$(cat /sys/class/tty/$SYSFS_PORT/device/../serial 2>/dev/null | tr -d '\n' | tr -d '\r')
+      
+      if [ -n "$SYSFS_SERIAL" ]; then
+        HARDWARE_ID="nrf52-$SYSFS_SERIAL"
+        if [ "$HARDWARE_ID" != "$PREV_HARDWARE_ID" ]; then
+          echo "Hardware ID: $HARDWARE_ID (from $DEVICE_PATH via SysFS)"
+          PREV_HARDWARE_ID="$HARDWARE_ID"
+        fi
+      else
+        echo "WARNING: Could not query USB serial from $DEVICE_PATH"
+        HARDWARE_ID="legacy-$EXTADDR"
+      fi
     fi
   else
     if [ -z "$UDEVADM_WARNING_SHOWN" ]; then
@@ -115,6 +127,13 @@ while true; do
 
   # 2. Parse Router Table
   # Example line: | 11 | 0x2c00 | 63 | 1 | 3 | 3 | 0 | aa11bb22cc33dd44 | 1 |
+  ROUTER_TABLE=$(ot-ctl router table 2>/dev/null)
+  
+  echo "---"
+  echo "ROLE: $STATE"
+  echo "ROUTER TABLE:"
+  echo "$ROUTER_TABLE"
+  
   while read -r line; do
     if [[ "$line" == *"|"* ]] && [[ "$line" != *"ID"* ]]; then
       # Extract using awk (fields separated by | and spaces)
@@ -141,10 +160,16 @@ while true; do
         }]'
       )
     fi
-  done <<< "$(ot-ctl router table 2>/dev/null)"
+  done <<< "$ROUTER_TABLE"
 
   # 3. Parse Child Table
   # Example line: | 1 | 0x2c01 | 240 | 0 | 3 | 11 |1|0|0| ee11ff22aa33bb44 |
+  CHILD_TABLE=$(ot-ctl child table 2>/dev/null)
+  
+  echo "CHILD TABLE:"
+  echo "$CHILD_TABLE"
+  echo "---"
+  
   while read -r line; do
     if [[ "$line" == *"|"* ]] && [[ "$line" != *"ID"* ]]; then
       C_RLOC16=$(echo "$line" | awk -F'|' '{print $3}' | tr -d ' ' | tr -d '\r')
@@ -171,7 +196,7 @@ while true; do
         }]'
       )
     fi
-  done <<< "$(ot-ctl child table 2>/dev/null)"
+  done <<< "$CHILD_TABLE"
 
   # 4. POST to Backend
   HTTP_CODE=$(curl -s -w "%{http_code}" -o /dev/null -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "$API_ENDPOINT")
