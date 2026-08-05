@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Slider, Typography, IconButton, Tooltip, CircularProgress } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -10,6 +10,43 @@ export default function TopologyScrubber({ borderRouterId, onHistorySelected }) 
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Calculate markers for significant network events (node changes, leader changes, etc.)
+  const eventMarks = useMemo(() => {
+    if (!historyTimeline || historyTimeline.length < 2) return [];
+    
+    const marks = [];
+    for (let i = 1; i < historyTimeline.length; i++) {
+      const prev = historyTimeline[i - 1];
+      const curr = historyTimeline[i];
+      
+      let isEvent = false;
+
+      // Check node count change
+      const prevNodes = prev.nodes || [];
+      const currNodes = curr.nodes || [];
+      if (prevNodes.length !== currNodes.length) {
+        isEvent = true;
+      }
+      
+      // Check leader change
+      const prevLeader = prevNodes.find(n => n.role?.toLowerCase() === 'leader')?.extAddr;
+      const currLeader = currNodes.find(n => n.role?.toLowerCase() === 'leader')?.extAddr;
+      if (prevLeader !== currLeader) {
+        isEvent = true;
+      }
+      
+      // Gateway offline status change
+      if (prev.gatewayHealth?.status !== curr.gatewayHealth?.status) {
+        isEvent = true;
+      }
+
+      if (isEvent) {
+        marks.push({ value: i });
+      }
+    }
+    return marks;
+  }, [historyTimeline]);
 
   useEffect(() => {
     if (!borderRouterId) return;
@@ -140,9 +177,21 @@ export default function TopologyScrubber({ borderRouterId, onHistorySelected }) 
           max={historyTimeline.length - 1}
           onChange={handleSliderChange}
           step={1}
-          marks={historyTimeline.length <= 20} // Only show tick marks if few items
+          marks={eventMarks}
           valueLabelDisplay="off"
-          sx={{ flexGrow: 1 }}
+          sx={{ 
+            flexGrow: 1,
+            '& .MuiSlider-mark': {
+              backgroundColor: '#ef4444',
+              height: 8,
+              width: 3,
+              mt: -0.5,
+              borderRadius: 1
+            },
+            '& .MuiSlider-markActive': {
+              backgroundColor: '#ef4444',
+            }
+          }}
         />
 
         <Tooltip title="Reset to Live">
