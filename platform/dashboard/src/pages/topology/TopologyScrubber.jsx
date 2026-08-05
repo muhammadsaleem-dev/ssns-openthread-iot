@@ -20,29 +20,52 @@ export default function TopologyScrubber({ borderRouterId, onHistorySelected }) 
       const prev = historyTimeline[i - 1];
       const curr = historyTimeline[i];
       
-      let isEvent = false;
+      let eventType = null;
+      let eventColor = '';
+      let eventLabel = '';
 
-      // Check node count change
       const prevNodes = prev.nodes || [];
       const currNodes = curr.nodes || [];
-      if (prevNodes.length !== currNodes.length) {
-        isEvent = true;
-      }
-      
-      // Check leader change
       const prevLeader = prevNodes.find(n => n.role?.toLowerCase() === 'leader')?.extAddr;
       const currLeader = currNodes.find(n => n.role?.toLowerCase() === 'leader')?.extAddr;
-      if (prevLeader !== currLeader) {
-        isEvent = true;
-      }
-      
-      // Gateway offline status change
+
+      // Check Gateway offline status change (highest priority)
       if (prev.gatewayHealth?.status !== curr.gatewayHealth?.status) {
-        isEvent = true;
+        eventType = 'gateway';
+        eventColor = '#ef4444'; // Red
+        eventLabel = `Gateway ${curr.gatewayHealth?.status === 'ONLINE' ? 'Online' : 'Offline'}`;
+      }
+      // Check leader change
+      else if (prevLeader !== currLeader) {
+        eventType = 'leader';
+        eventColor = '#f59e0b'; // Orange
+        eventLabel = 'Leader Changed';
+      }
+      // Check node count change
+      else if (prevNodes.length !== currNodes.length) {
+        eventType = 'node';
+        eventColor = '#3b82f6'; // Blue
+        eventLabel = prevNodes.length < currNodes.length ? 'Node Joined' : 'Node Left';
       }
 
-      if (isEvent) {
-        marks.push({ value: i });
+      if (eventType) {
+        marks.push({ 
+          value: i, 
+          label: (
+            <Tooltip title={eventLabel} placement="top" arrow>
+              <Box 
+                sx={{
+                  width: 4,
+                  height: 10,
+                  bgcolor: eventColor,
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  zIndex: 10
+                }}
+              />
+            </Tooltip>
+          )
+        });
       }
     }
     return marks;
@@ -182,14 +205,11 @@ export default function TopologyScrubber({ borderRouterId, onHistorySelected }) 
           sx={{ 
             flexGrow: 1,
             '& .MuiSlider-mark': {
-              backgroundColor: '#ef4444',
-              height: 8,
-              width: 3,
-              mt: -0.5,
-              borderRadius: 1
+              display: 'none',
             },
-            '& .MuiSlider-markActive': {
-              backgroundColor: '#ef4444',
+            '& .MuiSlider-markLabel': {
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
             }
           }}
         />
