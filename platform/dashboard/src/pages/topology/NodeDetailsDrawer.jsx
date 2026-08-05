@@ -1,7 +1,10 @@
-import { Box, Typography, Drawer, IconButton, Chip, alpha, useTheme } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Box, Typography, Drawer, IconButton, Chip, alpha, useTheme, CircularProgress } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip as RechartsTooltip, XAxis } from 'recharts';
 import { formatExtAddr } from '../../utils/format';
 import { NodeInfoExplainerButton } from './NodeInfoExplainerDialog';
+import API from '../../config/api';
 
 const roleColors = {
   leader: '#F59E0B',
@@ -73,6 +76,28 @@ export default function NodeDetailsDrawer({ node, onClose }) {
   const role = node?.data?.role || 'endDevice';
   const color = roleColors[role] || roleColors.endDevice;
 
+  const [history, setHistory] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (node?.data?.extAddr) {
+      setLoading(true);
+      fetch(`${API.BASE_URL}/api/network/topology/node-history/${node.data.extAddr}`)
+        .then(res => res.json())
+        .then(data => {
+          const formatted = data.map(d => ({
+             ...d,
+             time: new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }));
+          setHistory(formatted);
+        })
+        .catch(err => console.error(err))
+        .finally(() => setLoading(false));
+    } else {
+      setHistory(null);
+    }
+  }, [node]);
+
   return (
     <Drawer
       anchor="right"
@@ -140,7 +165,34 @@ export default function NodeDetailsDrawer({ node, onClose }) {
 
             <SectionHeader label="STATUS" />
             <PropRow label="Last Seen" value={node.data.lastSeenAt ? new Date(node.data.lastSeenAt).toLocaleString() : 'N/A'} />
-            <PropRow label="RSSI" value="Requires CLI extraction (Phase 2)" />
+            
+            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0.5, mb: 1, display: 'block' }}>
+                SIGNAL QUALITY (LINK-IN)
+              </Typography>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}><CircularProgress size={20} /></Box>
+              ) : history && history.length > 0 ? (
+                <Box sx={{ height: 60, width: '100%', mt: 1 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={history}>
+                      <YAxis domain={[0, 100]} hide />
+                      <XAxis dataKey="time" hide />
+                      <RechartsTooltip 
+                        contentStyle={{ fontSize: '10px', padding: '4px 8px', borderRadius: '4px', backgroundColor: theme.palette.background.paper }}
+                        labelStyle={{ display: 'none' }}
+                        itemStyle={{ color: theme.palette.primary.main }}
+                        formatter={(value) => [`LQI: ${value}`, '']}
+                      />
+                      <Line type="stepAfter" dataKey="linkQualityIn" stroke={theme.palette.primary.main} strokeWidth={2} dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>No historical data available</Typography>
+              )}
+            </Box>
+
             <PropRow label="Firmware" value="Not reported in current CBOR payload" />
           </Box>
         </Box>

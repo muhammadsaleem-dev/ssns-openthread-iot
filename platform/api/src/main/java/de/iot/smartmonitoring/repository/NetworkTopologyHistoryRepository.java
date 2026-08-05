@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface NetworkTopologyHistoryRepository extends MongoRepository<NetworkTopologyHistory, String> {
     List<NetworkTopologyHistory> findByHardwareIdOrderByRecordedAtAsc(String hardwareId);
+    void deleteByRecordedAtBefore(java.time.Instant cutoff);
 }

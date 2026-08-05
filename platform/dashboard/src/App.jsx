@@ -14,6 +14,7 @@ import NodesPage from './pages/NodesPage';
 import AlertsPage from './pages/AlertsPage';
 import AnomalyDetectionSettingsPage from './pages/AnomalyDetectionSettingsPage';
 import NetworkTopologyPage from './pages/NetworkTopologyPage';
+import NodeMetricsPage from './pages/NodeMetricsPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 
@@ -23,6 +24,7 @@ const PAGES = {
   alerts: AlertsPage,
   ml: AnomalyDetectionSettingsPage,
   topology: NetworkTopologyPage,
+  metrics: NodeMetricsPage,
 };
 
 export const ThemeModeContext = createContext({ toggleColorMode: () => {} });

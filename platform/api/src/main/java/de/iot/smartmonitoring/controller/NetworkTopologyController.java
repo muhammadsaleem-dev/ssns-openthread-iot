@@ -39,4 +39,11 @@ public class NetworkTopologyController {
             @RequestParam String hardwareId) {
         return ResponseEntity.ok(topologyService.getTopologyHistory(hardwareId));
     }
+
+    @GetMapping("/node-history/{extAddr}")
+    @Operation(summary = "Get historical link quality metrics for a specific node")
+    public ResponseEntity<List<java.util.Map<String, Object>>> getNodeHistory(
+            @PathVariable String extAddr) {
+        return ResponseEntity.ok(topologyService.getNodeLinkQualityHistory(extAddr));
+    }
 }

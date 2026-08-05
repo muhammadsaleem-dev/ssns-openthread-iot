@@ -31,6 +31,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import HubIcon from '@mui/icons-material/Hub';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
@@ -43,6 +44,7 @@ const navItems = [
   { label: 'Dashboard', icon: <DashboardIcon />, id: 'dashboard' },
   { label: 'Nodes', icon: <SensorsIcon />, id: 'nodes' },
   { label: 'Network', icon: <HubIcon />, id: 'topology' },
+  { label: 'Node Metrics', icon: <TimelineIcon />, id: 'metrics' },
   { label: 'Alerts', icon: <NotificationsActiveIcon />, id: 'alerts' },
   { label: 'ML Settings', icon: <PsychologyIcon />, id: 'ml' },
 ];
