@@ -110,6 +110,12 @@ public class AlertService {
                         "Transient particulate disturbance detected.",
                         "No action required.",
                         data.getPm2_5Max(), data.getPm2_5Mean());
+            } else if (data.getPm2_5() > pm25Max && data.getPm2_5Mean() > pm25Max * 0.8 && data.getPm2_5Std() < 20.0) {
+                createAlert(data.getNodeId(), Alert.AlertType.HIGH_PARTICULATES,
+                        Alert.AlertSeverity.WARNING,
+                        String.format("PM2.5 %.1f ug/m3 exceeds threshold %.1f ug/m3", data.getPm2_5(), pm25Max),
+                        "Improve air filtration or investigate dust source.",
+                        data.getPm2_5(), pm25Max);
             }
         }
 

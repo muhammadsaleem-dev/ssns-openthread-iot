@@ -206,7 +206,13 @@ function computeGraph(topologyList, registeredNodes) {
   });
 
   const rawNodes = Array.from(nodesMap.values());
-  const rawEdges = Array.from(edgesMap.values());
+  
+  // Filter edges to ensure we only pass valid edges to React Flow.
+  // During transient routing updates, a node might mention a parent that 
+  // has already dropped off the network, which would cause React Flow to crash.
+  const rawEdges = Array.from(edgesMap.values()).filter(
+    (edge) => nodesMap.has(edge.source) && nodesMap.has(edge.target)
+  );
 
   // Inject Internet Cloud node if we have any border routers
   const borderRouters = rawNodes.filter(n => n.data.isBorderRouter);
