@@ -43,9 +43,26 @@ export default function TopologyScrubber({ borderRouterId, onHistorySelected }) 
       }
       // Check node count change
       else if (prevNodes.length !== currNodes.length) {
+        const isJoined = prevNodes.length < currNodes.length;
         eventType = 'node';
-        eventColor = '#3b82f6'; // Blue
-        eventLabel = prevNodes.length < currNodes.length ? 'Node Joined' : 'Node Left';
+        eventColor = isJoined ? '#10b981' : '#6b7280'; // Green for Joined, Grey for Offline
+        eventLabel = isJoined ? 'Node Joined' : 'Node Offline';
+      }
+      // Check role change (Self-Healing Promotion/Demotion)
+      else {
+        for (const currNode of currNodes) {
+          const prevNode = prevNodes.find(n => n.extAddr === currNode.extAddr);
+          if (prevNode && prevNode.role && currNode.role && prevNode.role.toLowerCase() !== currNode.role.toLowerCase()) {
+            // Ignore leader changes as they are handled by the orange dot above
+            if (prevNode.role.toLowerCase() !== 'leader' && currNode.role.toLowerCase() !== 'leader') {
+              eventType = 'role_change';
+              eventColor = '#8b5cf6'; // Purple
+              const formatRole = (r) => r.charAt(0).toUpperCase() + r.slice(1).toLowerCase();
+              eventLabel = `Self-Healing: ${formatRole(prevNode.role)} → ${formatRole(currNode.role)}`;
+              break;
+            }
+          }
+        }
       }
 
       if (eventType) {
