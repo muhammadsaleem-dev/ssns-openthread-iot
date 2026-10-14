@@ -7,10 +7,12 @@ Replays authentic physical hardware sensor telemetry from the immutable master c
 
 Guarantees:
 1. `sensor_data_master_original` is strictly READ-ONLY and is NEVER modified or deleted.
-2. Replayed readings update node status to ONLINE, trigger alerts, feed ML anomaly models,
+2. Round-robin streaming multiplexes authentic records across all 6 physical nodes, ensuring
+   all nodes stay continuously ONLINE (reporting every ~15 seconds).
+3. Replayed readings update node status to ONLINE, trigger alerts, feed ML anomaly models,
    and stream over WebSockets to https://ssns-iot.com.
-3. Network topology snapshots are periodically pushed to populate the Historical Topology Scrubber.
-4. An automated rolling retention cap ensures the live `sensor_data` collection remains
+4. Periodic network topology frames maintain active mesh routing and populate historical snapshots.
+5. An automated rolling retention cap ensures the live `sensor_data` collection remains
    under a controlled size (~20 MB) without unbounded disk growth.
 """
 
@@ -18,8 +20,8 @@ import os
 import sys
 import time
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List
+from datetime import datetime, timezone
+from typing import Dict, Any, List, Optional
 import requests
 from pymongo import MongoClient
 
@@ -31,42 +33,91 @@ logger = logging.getLogger("telemetry-replayer")
 
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://mongodb:27017/ssns_monitoring")
 API_URL = os.getenv("API_URL", "http://dashboard:80").rstrip("/")
-INTERVAL_SECONDS = float(os.getenv("INTERVAL_SECONDS", "10.0"))
+STEP_INTERVAL_SECONDS = float(os.getenv("STEP_INTERVAL_SECONDS", "2.5"))
 TOPOLOGY_INTERVAL_SECONDS = float(os.getenv("TOPOLOGY_INTERVAL_SECONDS", "30.0"))
 MAX_LIVE_RECORDS = int(os.getenv("MAX_LIVE_RECORDS", "50000"))
+
+PHYSICAL_NODES: List[str] = [
+    "node-e9b1",
+    "node-0587",
+    "node-40a7",
+    "node-598c",
+    "node-f2a1",
+    "node-8f2f"
+]
 
 NODE_METADATA_MAP: Dict[str, Dict[str, str]] = {
     "node-e9b1": {
         "meshId": "node-953f",
         "ipv6Address": "fdde:ad00:beef:0:e9b1",
+        "extAddr": "5ecc3002e71e953f",
         "location": "Lecture Hall 2"
     },
     "node-0587": {
         "meshId": "node-4422",
         "ipv6Address": "::ffff:127.0.0.1",
+        "extAddr": "0688bb2aef5e4422",
         "location": "Lecture Hall"
     },
     "node-40a7": {
         "meshId": "node-427a",
         "ipv6Address": "::ffff:127.0.0.1",
+        "extAddr": "7e80ce8de6fd427a",
         "location": "node-2"
+    },
+    "node-598c": {
+        "meshId": "node-291d",
+        "ipv6Address": "::ffff:127.0.0.1",
+        "extAddr": "e69bcd8b4030291d",
+        "location": "Sensor Node 5"
     },
     "node-f2a1": {
         "meshId": "node-22b2",
         "ipv6Address": "::ffff:172.19.0.3",
+        "extAddr": "1e99203f70aeb34a",
         "location": "node-1"
     },
     "node-8f2f": {
         "meshId": "node-f269",
         "ipv6Address": "::ffff:172.19.0.3",
+        "extAddr": "36e48bb95369f269",
         "location": "node-3"
-    },
-    "node-598c": {
-        "meshId": "node-291d",
-        "ipv6Address": "::ffff:127.0.0.1",
-        "location": "Sensor Node 5"
     }
 }
+
+
+class NodeRecordStream:
+    """Manages a circular, streaming cursor over a specific node's authentic records."""
+
+    def __init__(self, collection, node_id: str, base_query: Dict[str, Any]):
+        self.col = collection
+        self.node_id = node_id
+        self.query = {**base_query, "nodeId": node_id}
+        self.cursor = None
+        self.total = self.col.count_documents(self.query)
+        self.replayed_in_cycle = 0
+        self._init_cursor()
+
+    def _init_cursor(self):
+        self.cursor = self.col.find(self.query).sort("timestamp", 1).batch_size(200)
+        self.replayed_in_cycle = 0
+
+    def next_record(self) -> Optional[Dict[str, Any]]:
+        if self.total == 0:
+            return None
+        try:
+            record = next(self.cursor)
+            self.replayed_in_cycle += 1
+            return record
+        except (StopIteration, Exception):
+            # End of records for this node reached; loop cleanly back to the beginning
+            self._init_cursor()
+            try:
+                record = next(self.cursor)
+                self.replayed_in_cycle += 1
+                return record
+            except Exception:
+                return None
 
 
 def wait_for_services(client: MongoClient, db_name: str, target_api_url: str):
@@ -82,7 +133,6 @@ def wait_for_services(client: MongoClient, db_name: str, target_api_url: str):
                 logger.info("Connected to MongoDB. Master authentic records available: %d", master_count)
                 break
             elif "sensor_data" in collections:
-                # If master collection hasn't been cloned yet, clone it now as immutable backup
                 count = db["sensor_data"].count_documents({})
                 logger.info("Creating sensor_data_master_original backup from %d records...", count)
                 db["sensor_data"].aggregate([{"$out": "sensor_data_master_original"}])
@@ -145,6 +195,18 @@ def send_topology_heartbeat(api_url: str):
                 "linkType": "Direct"
             },
             {
+                "extAddr": "0688bb2aef5e4422",
+                "rloc16": "0xf000",
+                "role": "router",
+                "parentRloc16": "0xac00",
+                "linkQualityIn": 99,
+                "linkQualityOut": 97,
+                "routeCost": 1,
+                "age": 4,
+                "timeout": 0,
+                "linkType": "Direct"
+            },
+            {
                 "extAddr": "7e80ce8de6fd427a",
                 "rloc16": "0xcc00",
                 "role": "router",
@@ -157,14 +219,38 @@ def send_topology_heartbeat(api_url: str):
                 "linkType": "Direct"
             },
             {
-                "extAddr": "0688bb2aef5e4422",
-                "rloc16": "0xf000",
+                "extAddr": "e69bcd8b4030291d",
+                "rloc16": "0x7400",
                 "role": "router",
                 "parentRloc16": "0xac00",
-                "linkQualityIn": 99,
-                "linkQualityOut": 97,
+                "linkQualityIn": 97,
+                "linkQualityOut": 98,
+                "routeCost": 1,
+                "age": 5,
+                "timeout": 0,
+                "linkType": "Direct"
+            },
+            {
+                "extAddr": "1e99203f70aeb34a",
+                "rloc16": "0x0000",
+                "role": "router",
+                "parentRloc16": "0xac00",
+                "linkQualityIn": 98,
+                "linkQualityOut": 96,
                 "routeCost": 1,
                 "age": 6,
+                "timeout": 0,
+                "linkType": "Direct"
+            },
+            {
+                "extAddr": "36e48bb95369f269",
+                "rloc16": "0x3400",
+                "role": "router",
+                "parentRloc16": "0xac00",
+                "linkQualityIn": 96,
+                "linkQualityOut": 97,
+                "routeCost": 1,
+                "age": 7,
                 "timeout": 0,
                 "linkType": "Direct"
             }
@@ -193,7 +279,6 @@ def prune_live_records_if_needed(db):
             excess = count - MAX_LIVE_RECORDS
             logger.info("Live sensor_data count (%d) exceeds limit (%d). Pruning oldest %d records...",
                         count, MAX_LIVE_RECORDS, excess)
-            # Find the timestamp cutoff for the oldest excess records
             oldest_cursor = live_col.find({}, {"_id": 1}).sort("timestamp", 1).limit(excess)
             ids_to_delete = [doc["_id"] for doc in oldest_cursor]
             if ids_to_delete:
@@ -214,38 +299,33 @@ def run_replayer():
     # Initial topology broadcast
     send_topology_heartbeat(API_URL)
 
-    # Load authentic records from master collection (READ-ONLY)
-    logger.info("Loading authentic records from sensor_data_master_original...")
+    # Setup per-node streaming readers from immutable master collection
     master_col = db["sensor_data_master_original"]
-    
-    # Query valid readings where temperature and co2 are non-fault (> -900)
-    query = {"temperature": {"$gt": -900}, "co2": {"$gt": -900}}
-    total_valid = master_col.count_documents(query)
-    logger.info("Found %d valid authentic sensor readings in master collection.", total_valid)
+    base_query = {"temperature": {"$gt": -900}, "co2": {"$gt": -900}}
 
-    if total_valid == 0:
-        logger.error("No valid authentic records found in sensor_data_master_original. Exiting.")
-        sys.exit(1)
+    node_streams: Dict[str, NodeRecordStream] = {}
+    for node_id in PHYSICAL_NODES:
+        stream = NodeRecordStream(master_col, node_id, base_query)
+        logger.info("Node %s: %d authentic records ready for playback.", node_id, stream.total)
+        node_streams[node_id] = stream
 
-    # Monotonic sequence counter per node
-    seq_counters: Dict[str, int] = {k: 100000 for k in NODE_METADATA_MAP.keys()}
+    seq_counters: Dict[str, int] = {k: 100000 for k in PHYSICAL_NODES}
 
     last_topology_time = time.time()
     last_prune_time = time.time()
-    replayed_count = 0
+    total_replayed = 0
 
     while True:
-        # Cursor streams through authentic records chronologically
-        cursor = master_col.find(query).sort("timestamp", 1).batch_size(1000)
-        
-        for record in cursor:
-            node_id = record.get("nodeId")
-            if not node_id:
+        # Round-robin through each physical node
+        for node_id in PHYSICAL_NODES:
+            stream = node_streams.get(node_id)
+            if not stream:
                 continue
 
-            # Update sequence counter
-            if node_id not in seq_counters:
-                seq_counters[node_id] = 100000
+            record = stream.next_record()
+            if not record:
+                continue
+
             seq_counters[node_id] += 1
             seq = seq_counters[node_id]
 
@@ -254,7 +334,6 @@ def run_replayer():
             ipv6_addr = record.get("ipv6Address") or meta.get("ipv6Address") or "fdde:ad00:beef:0:1"
             now_iso = datetime.now(timezone.utc).isoformat()
 
-            # Construct clean SensorDataRequest payload with real hardware values
             payload: Dict[str, Any] = {
                 "nodeId": node_id,
                 "meshId": mesh_id,
@@ -303,20 +382,18 @@ def run_replayer():
                 "pm10Max": record.get("pm10Max")
             }
 
-            # Strip None values
             payload = {k: v for k, v in payload.items() if v is not None}
 
             try:
                 resp = requests.post(f"{API_URL}/api/sensor-data", json=payload, timeout=5)
                 if resp.status_code in (200, 201):
-                    replayed_count += 1
-                    if replayed_count % 10 == 0:
-                        logger.info("Replayed %d telemetry records. Latest: %s (temp=%.1f, co2=%.0f, tvoc=%.0f)",
-                                    replayed_count, node_id, payload["temperature"], payload["co2"], payload["tvoc"])
+                    total_replayed += 1
+                    if total_replayed % 24 == 0:
+                        logger.info("Multiplexed %d readings. Active nodes: %s", total_replayed, list(PHYSICAL_NODES))
                 else:
-                    logger.warning("POST /api/sensor-data returned HTTP %d: %s", resp.status_code, resp.text)
+                    logger.warning("POST /api/sensor-data (%s) returned HTTP %d: %s", node_id, resp.status_code, resp.text)
             except Exception as exc:
-                logger.warning("Telemetry POST failed: %s", exc)
+                logger.warning("Telemetry POST failed for %s: %s", node_id, exc)
 
             # Check if topology heartbeat is due
             now_sec = time.time()
@@ -329,9 +406,7 @@ def run_replayer():
                 prune_live_records_if_needed(db)
                 last_prune_time = now_sec
 
-            time.sleep(INTERVAL_SECONDS)
-
-        logger.info("Completed full cycle of authentic records. Looping seamlessly to beginning.")
+            time.sleep(STEP_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":
