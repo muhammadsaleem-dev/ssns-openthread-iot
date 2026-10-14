@@ -21,6 +21,7 @@ import {
   Tooltip,
   useMediaQuery,
   useTheme,
+  Button,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -37,6 +38,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { ThemeModeContext } from '../App';
 import { useAuth } from '../context/AuthContext';
+import AdminLoginDialog from '../components/auth/AdminLoginDialog';
 
 const DRAWER_WIDTH = 240;
 
@@ -54,7 +56,7 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const colorMode = useContext(ThemeModeContext);
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, openLoginModal } = useAuth();
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -130,7 +132,7 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
             )}
             <Box sx={{ overflow: 'hidden' }}>
               <Typography variant="body2" noWrap sx={{ fontWeight: 700, fontSize: '0.8rem', lineHeight: 1.2 }}>
-                {user?.username || 'User'}
+                {isAdmin ? 'Administrator' : 'Public Viewer'}
               </Typography>
               <Chip
                 label={isAdmin ? 'ADMIN' : 'VISITOR'}
@@ -140,12 +142,56 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
               />
             </Box>
           </Box>
-          <Tooltip title="Sign Out">
-            <IconButton size="small" onClick={logout} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
-              <LogoutIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {isAdmin ? (
+            <Tooltip title="Exit Admin Mode">
+              <IconButton size="small" onClick={logout} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                <LogoutIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip title="Admin Sign In">
+              <IconButton
+                size="small"
+                onClick={openLoginModal}
+                color="primary"
+                sx={{
+                  color: 'primary.main',
+                  bgcolor: 'rgba(59, 130, 246, 0.08)',
+                  '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.2)' },
+                }}
+              >
+                <AdminPanelSettingsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
+
+        {!isAdmin && (
+          <Button
+            fullWidth
+            size="small"
+            variant="outlined"
+            color="primary"
+            startIcon={<AdminPanelSettingsIcon fontSize="small" />}
+            onClick={openLoginModal}
+            sx={{
+              mb: 1.5,
+              py: 0.6,
+              fontSize: '0.75rem',
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              borderColor: 'rgba(59, 130, 246, 0.35)',
+              '&:hover': {
+                borderColor: 'primary.main',
+                bgcolor: 'rgba(59, 130, 246, 0.08)',
+              },
+            }}
+          >
+            Admin Sign In
+          </Button>
+        )}
+
         <Chip
           label="Fog Node Active"
           size="small"
@@ -176,11 +222,19 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
           <Typography variant="h6" noWrap sx={{ fontWeight: 700, flexGrow: 1 }}>
             SSNS Dashboard
           </Typography>
-          <Tooltip title="Sign Out">
-            <IconButton onClick={logout} color="inherit" size="small" sx={{ mr: 1 }}>
-              <LogoutIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {isAdmin ? (
+            <Tooltip title="Exit Admin Mode">
+              <IconButton onClick={logout} color="inherit" size="small" sx={{ mr: 1 }}>
+                <LogoutIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip title="Admin Sign In">
+              <IconButton onClick={openLoginModal} color="inherit" size="small" sx={{ mr: 1 }}>
+                <AdminPanelSettingsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           <IconButton onClick={colorMode.toggleColorMode} color="inherit">
             {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
@@ -229,6 +283,9 @@ export default function DashboardLayout({ children, activePage, onNavigate }) {
       >
         {children}
       </Box>
+
+      {/* Global Administrator Sign-In Modal */}
+      <AdminLoginDialog />
     </Box>
   );
 }

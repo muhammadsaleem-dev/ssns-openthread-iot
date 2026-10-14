@@ -192,7 +192,37 @@ export default function LoginPage() {
                   boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.35)}`,
                 }}
               >
-                {loading ? 'Authenticating...' : 'Sign In'}
+                {loading ? 'Authenticating...' : 'Sign In as Admin'}
+              </Button>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', my: 2, width: '100%' }}>
+                <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
+                <Typography variant="caption" sx={{ px: 1.5, color: 'text.secondary', fontWeight: 600 }}>
+                  OR
+                </Typography>
+                <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
+              </Box>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                color="inherit"
+                size="large"
+                onClick={() => logout()}
+                sx={{
+                  py: 1.2,
+                  borderRadius: 3,
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  textTransform: 'none',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: alpha(theme.palette.primary.main, 0.06),
+                  },
+                }}
+              >
+                Explore as Visitor (No Login Required)
               </Button>
             </Box>
 
