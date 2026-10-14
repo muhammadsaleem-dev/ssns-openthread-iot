@@ -20,7 +20,7 @@ import os
 import sys
 import time
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 import requests
 from pymongo import MongoClient
@@ -161,8 +161,172 @@ def wait_for_services(client: MongoClient, db_name: str, target_api_url: str):
         time.sleep(3)
 
 
-def send_topology_heartbeat(api_url: str):
+BASE_LEADER = {
+    "extAddr": "9adc29d70eac6263",
+    "rloc16": "0xac00",
+    "role": "leader",
+    "parentRloc16": "0xffff",
+    "linkQualityIn": 100,
+    "linkQualityOut": 100,
+    "age": 0,
+    "timeout": 0,
+}
+
+BASE_ROUTER_NODES = [
+    {
+        "extAddr": "5ecc3002e71e953f",
+        "rloc16": "0xa400",
+        "role": "router",
+        "parentRloc16": "0xac00",
+        "linkQualityIn": 99,
+        "linkQualityOut": 99,
+        "routeCost": 1,
+        "age": 2,
+        "timeout": 0,
+        "linkType": "Direct",
+    },
+    {
+        "extAddr": "0688bb2aef5e4422",
+        "rloc16": "0xf000",
+        "role": "router",
+        "parentRloc16": "0xac00",
+        "linkQualityIn": 99,
+        "linkQualityOut": 97,
+        "routeCost": 1,
+        "age": 4,
+        "timeout": 0,
+        "linkType": "Direct",
+    },
+    {
+        "extAddr": "7e80ce8de6fd427a",
+        "rloc16": "0xcc00",
+        "role": "router",
+        "parentRloc16": "0xac00",
+        "linkQualityIn": 98,
+        "linkQualityOut": 99,
+        "routeCost": 1,
+        "age": 4,
+        "timeout": 0,
+        "linkType": "Direct",
+    },
+    {
+        "extAddr": "e69bcd8b4030291d",
+        "rloc16": "0x7400",
+        "role": "router",
+        "parentRloc16": "0xac00",
+        "linkQualityIn": 97,
+        "linkQualityOut": 98,
+        "routeCost": 1,
+        "age": 5,
+        "timeout": 0,
+        "linkType": "Direct",
+    },
+    {
+        "extAddr": "1e99203f70aeb34a",
+        "rloc16": "0x0000",
+        "role": "router",
+        "parentRloc16": "0xac00",
+        "linkQualityIn": 98,
+        "linkQualityOut": 96,
+        "routeCost": 1,
+        "age": 6,
+        "timeout": 0,
+        "linkType": "Direct",
+    },
+    {
+        "extAddr": "36e48bb95369f269",
+        "rloc16": "0x3400",
+        "role": "router",
+        "parentRloc16": "0xac00",
+        "linkQualityIn": 96,
+        "linkQualityOut": 97,
+        "routeCost": 1,
+        "age": 7,
+        "timeout": 0,
+        "linkType": "Direct",
+    },
+]
+
+
+def generate_topology_nodes(tick: int) -> List[Dict[str, Any]]:
+    """
+    Generates a dynamic multi-node OpenThread topology state with periodic
+    self-healing role transitions and join/leave events.
+
+    Repeating 40-step cycle:
+    - Phase 00-14: Full 7-node stable mesh
+    - Phase 15-19: Node 36e48bb95369f269 demoted to 'child' (Triggers 'Self-Healing: Router -> Child' [Purple])
+    - Phase 20-24: Node 36e48bb95369f269 promoted back to 'router' (Triggers 'Self-Healing: Child -> Router' [Purple])
+    - Phase 25-27: Node 0688bb2aef5e4422 temporarily offline (Triggers 'Node Offline' [Grey])
+    - Phase 28-39: Node 0688bb2aef5e4422 rejoins mesh (Triggers 'Node Joined' [Green])
+    """
+    phase = tick % 40
+    nodes = [dict(BASE_LEADER)]
+
+    for r in BASE_ROUTER_NODES:
+        node_copy = dict(r)
+
+        # Self-Healing: child role transition
+        if node_copy["extAddr"] == "36e48bb95369f269":
+            if 15 <= phase < 20:
+                node_copy["role"] = "child"
+                node_copy["timeout"] = 240
+                node_copy["age"] = 12
+            else:
+                node_copy["role"] = "router"
+                node_copy["timeout"] = 0
+
+        # Node Offline / Rejoin
+        if node_copy["extAddr"] == "0688bb2aef5e4422":
+            if 25 <= phase < 28:
+                continue
+
+        nodes.append(node_copy)
+
+    return nodes
+
+
+def seed_topology_history(db):
+    """
+    Seeds a rich historical timeline spanning the past ~2.6 hours (80 snapshots at 2-min steps)
+    into network_topology_history so the Historical Scrubber timeline immediately displays
+    dynamic event markers (self-healing role transitions, node join/leave) across time.
+    """
+    try:
+        col = db["network_topology_history"]
+        col.delete_many({"hardwareId": "nrf52-E60C3F7BD826"})
+        logger.info("Pre-seeding 80 historical topology snapshots across past ~2.6 hours...")
+
+        now = datetime.now(timezone.utc)
+        snapshots = []
+        for i in range(80):
+            recorded_at = now - timedelta(minutes=2 * (80 - i))
+            nodes = generate_topology_nodes(i)
+            doc = {
+                "hardwareId": "nrf52-E60C3F7BD826",
+                "gatewayId": "9adc29d70eac6263",
+                "gatewayHealth": {
+                    "panId": "0x1235",
+                    "extPanId": "1111111122222222",
+                    "channel": 26,
+                    "networkName": "WSN01",
+                    "status": "active",
+                    "uptime": "active",
+                },
+                "nodes": nodes,
+                "recordedAt": recorded_at,
+            }
+            snapshots.append(doc)
+
+        col.insert_many(snapshots)
+        logger.info("Successfully seeded %d historical snapshots with self-healing and join/leave events.", len(snapshots))
+    except Exception as exc:
+        logger.warning("Failed to pre-seed topology history: %s", exc)
+
+
+def send_topology_heartbeat(api_url: str, tick: int = 0):
     """Publish an active network topology state to populate graphs and historical scrubber snapshots."""
+    nodes = generate_topology_nodes(tick)
     topology_payload = {
         "hardwareId": "nrf52-E60C3F7BD826",
         "gatewayId": "9adc29d70eac6263",
@@ -172,97 +336,14 @@ def send_topology_heartbeat(api_url: str):
             "channel": 26,
             "networkName": "WSN01",
             "status": "active",
-            "uptime": "active"
+            "uptime": "active",
         },
-        "nodes": [
-            {
-                "extAddr": "9adc29d70eac6263",
-                "rloc16": "0xac00",
-                "role": "leader",
-                "parentRloc16": "0xffff",
-                "linkQualityIn": 100,
-                "linkQualityOut": 100,
-                "age": 0,
-                "timeout": 0
-            },
-            {
-                "extAddr": "5ecc3002e71e953f",
-                "rloc16": "0xa400",
-                "role": "router",
-                "parentRloc16": "0xac00",
-                "linkQualityIn": 99,
-                "linkQualityOut": 99,
-                "routeCost": 1,
-                "age": 2,
-                "timeout": 0,
-                "linkType": "Direct"
-            },
-            {
-                "extAddr": "0688bb2aef5e4422",
-                "rloc16": "0xf000",
-                "role": "router",
-                "parentRloc16": "0xac00",
-                "linkQualityIn": 99,
-                "linkQualityOut": 97,
-                "routeCost": 1,
-                "age": 4,
-                "timeout": 0,
-                "linkType": "Direct"
-            },
-            {
-                "extAddr": "7e80ce8de6fd427a",
-                "rloc16": "0xcc00",
-                "role": "router",
-                "parentRloc16": "0xac00",
-                "linkQualityIn": 98,
-                "linkQualityOut": 99,
-                "routeCost": 1,
-                "age": 4,
-                "timeout": 0,
-                "linkType": "Direct"
-            },
-            {
-                "extAddr": "e69bcd8b4030291d",
-                "rloc16": "0x7400",
-                "role": "router",
-                "parentRloc16": "0xac00",
-                "linkQualityIn": 97,
-                "linkQualityOut": 98,
-                "routeCost": 1,
-                "age": 5,
-                "timeout": 0,
-                "linkType": "Direct"
-            },
-            {
-                "extAddr": "1e99203f70aeb34a",
-                "rloc16": "0x0000",
-                "role": "router",
-                "parentRloc16": "0xac00",
-                "linkQualityIn": 98,
-                "linkQualityOut": 96,
-                "routeCost": 1,
-                "age": 6,
-                "timeout": 0,
-                "linkType": "Direct"
-            },
-            {
-                "extAddr": "36e48bb95369f269",
-                "rloc16": "0x3400",
-                "role": "router",
-                "parentRloc16": "0xac00",
-                "linkQualityIn": 96,
-                "linkQualityOut": 97,
-                "routeCost": 1,
-                "age": 7,
-                "timeout": 0,
-                "linkType": "Direct"
-            }
-        ]
+        "nodes": nodes,
     }
     try:
         resp = requests.post(f"{api_url}/api/network/topology", json=topology_payload, timeout=5)
         if resp.status_code in (200, 201):
-            logger.debug("Topology heartbeat posted successfully.")
+            logger.debug("Topology heartbeat posted successfully (tick %d, %d nodes).", tick, len(nodes))
         else:
             logger.warning("Topology POST returned HTTP %d: %s", resp.status_code, resp.text)
     except Exception as exc:
@@ -299,8 +380,10 @@ def run_replayer():
 
     wait_for_services(client, db_name, API_URL)
 
-    # Initial topology broadcast
-    send_topology_heartbeat(API_URL)
+    # Seed historical snapshots so the scrubber timeline has multi-event history immediately
+    seed_topology_history(db)
+    topology_tick = 80
+    send_topology_heartbeat(API_URL, topology_tick)
 
     # Setup streaming readers from immutable master collection
     master_col = db["sensor_data_master_original"]
@@ -416,7 +499,8 @@ def run_replayer():
             # Check if topology heartbeat is due
             now_sec = time.time()
             if now_sec - last_topology_time >= TOPOLOGY_INTERVAL_SECONDS:
-                send_topology_heartbeat(API_URL)
+                topology_tick += 1
+                send_topology_heartbeat(API_URL, topology_tick)
                 last_topology_time = now_sec
 
             # Check if rolling retention prune is due (every 6 hours)
