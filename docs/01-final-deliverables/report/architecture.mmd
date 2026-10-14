@@ -1,0 +1,60 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'primaryBorderColor': '#333333', 'primaryTextColor': '#333333', 'lineColor': '#2b78e4', 'fontFamily': 'arial'}}}%%
+graph LR
+    classDef edgeLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef fogLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef platformLayer fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#e65100
+    classDef dbLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+    
+    subgraph Edge[Edge Layer: Mesh Network]
+        direction TB
+        S1([Sensor Node 1]):::edgeLayer
+        S2([Sensor Node 2]):::edgeLayer
+        S3([Sensor Node 3]):::edgeLayer
+        S1 -.->|Thread| S2
+        S2 -.->|Thread| S3
+        S3 -.->|Thread| S1
+    end
+
+    subgraph Fog[Fog Layer: Gateways]
+        direction TB
+        subgraph F1[Linux Fog Node]
+            O1[OTBR]:::fogLayer --> C1[CoAP Gateway]:::fogLayer
+            C1 <--> R1[(Redis Queue)]:::fogLayer
+        end
+        subgraph F2[Mac Fog Node]
+            O2[OTBR]:::fogLayer --> C2[CoAP Gateway]:::fogLayer
+            C2 <--> R2[(Redis Queue)]:::fogLayer
+        end
+        O1 <.->|Mesh Sync| O2
+    end
+
+    subgraph Platform[Platform Layer: Backend Core]
+        direction TB
+        C0[[Caddy SSL Proxy]]:::platformLayer
+        LB[[Nginx Load Balancer]]:::platformLayer
+        API1[Spring Boot API 1]:::platformLayer
+        API2[Spring Boot API 2]:::platformLayer
+        DB[(MongoDB Timeseries)]:::dbLayer
+        ML[ML Analytics Service]:::platformLayer
+    end
+
+    subgraph Operator[Operator Layer]
+        UI([Web Dashboard]):::edgeLayer
+    end
+
+    %% Routing
+    S1 -.->|CoAP Anycast| O1
+    S2 -.->|CoAP Anycast| O2
+    S3 -.->|CoAP Anycast| O1
+
+    C1 ==>|HTTP POST| LB
+    C2 ==>|HTTP POST| LB
+
+    C0 -->|HTTP| LB
+    LB --> API1
+    LB --> API2
+    API1 --> DB
+    API2 --> DB
+    ML <-->|HTTP Read/Write| LB
+
+    UI ===|HTTPS / WebSocket| C0

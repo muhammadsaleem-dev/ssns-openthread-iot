@@ -1,0 +1,1473 @@
+\documentclass[11pt,a4paper]{article}
+
+% --------------------
+% Packages
+% --------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{cite}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{float}
+\usepackage[most]{tcolorbox}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=black,
+    urlcolor=blue,
+    pdftitle={Software Project Plan}
+}
+
+% --------------------
+% Title
+% --------------------
+\title{
+BLE-Based Indoor Environmental Monitoring System \\
+using Nordic nRF52840 Boards
+}
+
+\author{
+Group Project \\
+Safety Critical Systems \\
+Summer Semester 2026
+}
+
+\date{\today}
+
+% --------------------
+% Document Start
+% --------------------
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\begin{document}
+
+\maketitle
+
+
+
+\newpage
+
+
+
+
+\section{Introduction}
+
+Indoor air quality directly affects human health, cognitive performance, and occupational safety. Because traditional monitoring approaches often rely on periodic manual inspection or single-parameter threshold alarms, they are typically spatially limited and analytically shallow. Reliable, intelligent indoor monitoring systems have become increasingly important for modern indoor environments.
+
+To address these challenges, this project proposes a Bluetooth Low Energy (BLE)-Based Indoor Environmental Monitoring System. Built on a distributed IoT architecture, the system utilizes Nordic nRF52840 development boards and an advanced environmental sensor suite (SCD41, SPS30, CCS811) to continuously monitor CO$_2$, particulate matter, VOCs, temperature, and humidity.
+
+Sensor nodes periodically gather multi-dimensional environmental measurements and transmit them via BLE advertising to a gateway. The data is then ingested by a containerized microservices backend, processed through an unsupervised machine learning anomaly detection layer, and visualized on a real-time user dashboard.
+
+\subsection{Project Scope}
+
+This project focuses on the end-to-end design and implementation of a distributed intelligent indoor environmental monitoring network. The scope encompasses the following core development areas:
+
+\begin{itemize}
+    \item \textbf{Embedded Systems:} Firmware development for Nordic nRF52840-based sensor nodes responsible for multi-dimensional environmental data acquisition and BLE Advertising.
+    \item \textbf{Gateway Integration:} Implementation of a Python-based BLE-to-HTTP gateway to bridge wireless sensor telemetry into the software backend.
+    \item \textbf{Software and Data Processing:} Development of a containerized Spring Boot backend for data ingestion and a MongoDB database for persistent storage.
+    \item \textbf{Machine Learning Analytics:} Integration of an unsupervised anomaly detection service (Isolation Forest) to identify complex behavioral anomalies in the telemetry stream.
+    \item \textbf{Presentation:} Development of a real-time React-based dashboard for data visualization and unified alert management.
+\end{itemize}
+
+The architecture is designed to support multiple BLE sensor nodes operating across different indoor locations. Due to current hardware availability constraints, the initial implementation and validation phase will use one fully instrumented sensor node while preserving multi-node scalability at the communication, backend, and dashboard layers. The project emphasizes reliable communication, robust microservice design, and the application of software engineering best practices throughout the development life cycle.
+
+
+
+
+
+
+\subsection{Major Software Functions}
+
+The system software architecture is distributed across five primary components: the sensor nodes, the BLE gateway, the backend REST API, the machine learning analytics service, and the monitoring dashboard. Each component operates as an isolated containerized service (except the physical sensor nodes) and is responsible for a specific set of software functions.
+
+\begin{itemize}
+
+    \item \textbf{Sensor Node Firmware (Nordic nRF52840 DK):}  
+    Responsible for periodic environmental data acquisition using a five-sensor suite (SCD41, SPS30, CCS811, MCP9808, KY-018). The firmware handles BLE packet generation, sensor data formatting, and wireless transmission via BLE Advertising.
+
+    \item \textbf{BLE Gateway Subsystem (Python / Bleak):}  
+    Acts as the central communication bridge. The gateway continuously scans for BLE telemetry packets from distributed sensor nodes and forwards the collected environmental data to the backend server via HTTP REST requests.
+
+    \item \textbf{Backend Server (Spring Boot):}  
+    Handles data ingestion, persistent storage in MongoDB, and evaluates deterministic safety thresholds. The backend system also manages node status tracking and provides the primary API for the dashboard.
+
+    \item \textbf{Machine Learning Analytics Service (FastAPI):}  
+    Operates asynchronously on the live telemetry stream. It applies an Isolation Forest anomaly detection model to identify statistically anomalous multi-variable patterns and dispatches alerts to the backend.
+
+    \item \textbf{Frontend Dashboard (React):}  
+    Provides a graphical monitoring interface for administrators. The dashboard visualizes real-time telemetry data, historical environmental trends, sensor node status, and a unified feed combining both threshold and ML-based alerts.
+
+\end{itemize}
+
+
+
+\subsection{Performance and Behavioral Requirements}
+
+The system is expected to maintain reliable operation despite the limitations of low-power wireless hardware and BLE-based communication. Since the proposed architecture relies on distributed sensor nodes and wireless telemetry, several performance and behavioral considerations must be addressed during implementation and testing.
+
+\begin{itemize}
+
+    \item \textbf{Wireless Communication Reliability:}  
+    BLE communication should remain stable under conditions such as packet loss, communication interruptions, and signal interference commonly present in indoor wireless environments.
+
+    \item \textbf{Resource Efficiency:}  
+    Embedded sensor nodes must operate efficiently with limited computational resources and low power consumption while maintaining stable periodic sampling and data transmission intervals.
+
+    \item \textbf{Low-Latency Processing:}  
+    The backend infrastructure should process incoming telemetry data with minimal delay to support near real-time environmental monitoring, anomaly detection, and system status tracking.
+
+    \item \textbf{Graceful Degradation and Fault Tolerance:}  
+    The monitoring system should continue operating even if individual sensor nodes become unavailable or disconnected. Basic fault-tolerance mechanisms and fault-detection logic should ensure that failures in a single node do not compromise the overall functionality of the distributed monitoring network.
+
+\end{itemize}
+
+
+
+
+\subsection{Safety, Security, and Reliability Targets}
+
+Because inaccurate or unavailable environmental data may lead to incorrect assumptions regarding indoor conditions, the system emphasizes reliability, fault detection, and secure communication throughout the monitoring process.
+
+\begin{itemize}
+
+    \item \textbf{Safety and Failure Handling:}  
+    A primary safety objective is preventing ``silent failures,'' where outdated sensor readings continue to be displayed after data collection or communication has stopped. If a sensor node becomes unavailable or disconnected, the system should explicitly indicate the loss of connectivity rather than presenting stale environmental data.
+
+    \item \textbf{Reliability and Fault Recovery:}
+
+    \begin{itemize}
+
+        \item \textbf{Firmware Watchdog Mechanisms:}  
+        Embedded firmware running on the sensor nodes utilizes watchdog timers to automatically recover from potential software deadlocks or unexpected execution failures.
+
+        \item \textbf{Timeout Monitoring and Alerts:}  
+        The backend processing layer continuously monitors sensor node activity and triggers alerts if telemetry data is not received within predefined timeout intervals.
+
+    \end{itemize}
+
+    \item \textbf{Security and Access Control:}
+
+    \begin{itemize}
+
+        \item \textbf{Node Authorization:}  
+        The gateway accepts communication only from authorized BLE sensor nodes using predefined device identifiers and MAC address filtering mechanisms.
+
+        \item \textbf{Backend Authentication:}  
+        Access to the backend server, database, and monitoring dashboard is protected through authentication mechanisms to reduce the risk of unauthorized data access or modification.
+
+    \end{itemize}
+
+\end{itemize}
+
+
+\subsection{Management and Technical Constraints}
+
+The design, implementation, and deployment of the proposed monitoring system are subject to several management and technical constraints that influence the final system architecture and development process.
+
+\begin{itemize}
+
+    \item \textbf{Hardware Constraints:}  
+    Due to current hardware availability limitations, the system will initially be validated using a single fully instrumented sensor node equipped with a five-sensor suite (SCD41, SPS30, CCS811, MCP9808, KY-018) rather than multiple partially equipped nodes. The gateway functionality is provided by a Bluetooth-capable host machine running Python.
+
+    \item \textbf{Technical Constraints:}  
+    The system architecture must account for the inherent limitations of BLE communication and embedded hardware resources. These limitations include restricted wireless communication range, potential signal interference, limited processing capability of embedded nodes, and the accuracy constraints associated with low-cost environmental sensors.
+
+    \item \textbf{Development Timeline and Project Management:}  
+    The project is constrained by a 14-week semester development schedule. Since the implementation spans multiple technical domains, including embedded systems, wireless networking, backend infrastructure, and frontend visualization, successful project delivery requires effective task distribution, sprint-based planning, and coordinated team collaboration.
+
+\end{itemize}
+
+
+\subsection{Process Model}
+
+The project follows an Agile software development methodology using the Scrum framework. Development activities are organized into iterative two-week sprint cycles, enabling incremental implementation, integration, testing, and validation of system components throughout the semester.
+
+The Scrum process supports adaptive planning, continuous progress tracking, and collaborative development among the six project members. Team responsibilities are distributed across embedded systems development, backend infrastructure, frontend visualization, system integration, testing, and project coordination activities.
+
+Software Configuration Management (SCM) practices are implemented using Git-based version control with dedicated feature branches and structured integration workflows. Jira is used for sprint planning, backlog management, task assignment, and project progress tracking.
+
+Sprint reviews and retrospectives are conducted regularly to evaluate technical progress, identify development challenges, and continuously improve the development process during the project lifecycle.
+
+
+
+
+
+
+
+\section{Project Estimates}
+
+This section provides effort, workload, and resource estimations for the BLE-based indoor environmental monitoring system project.
+
+\subsection{Estimation Assumptions and Baselines}
+
+The project estimation is based on assumptions derived from published IoT and wireless sensor network (WSN) literature, standard software engineering practices, and the technical constraints of embedded system development.
+
+\begin{itemize}
+
+    \item \textbf{Historical Baselines:}  
+    Previous studies on embedded IoT systems indicate that system integration, debugging, communication reliability, and hardware validation typically consume a significant portion of the total development effort.
+
+    \item \textbf{Technical Complexity Factors:}  
+    Hardware-software integration activities such as BLE communication setup, gateway synchronization, sensor calibration, backend integration, and fault-handling mechanisms are considered high-effort development tasks. Additional effort is therefore allocated for integration testing, communication validation, and system stabilization.
+
+    \item \textbf{Resource Capacity:}  
+    The project is constrained by a fourteen-week semester timeline. Assuming a six-member development team contributing approximately ten hours per week, the total estimated project effort is approximately 840 person-hours.
+
+\end{itemize}
+
+
+
+\subsection{Estimation Techniques Applied and Results}
+
+For this project, a hybrid estimation strategy combining Bottom-Up Estimation and Expert Judgment was adopted.
+
+\subsubsection{Bottom-Up Estimation}
+
+The system was decomposed into manageable development activities including sensor integration, BLE networking, Python gateway development, Spring Boot backend development, dashboard implementation, Machine Learning analytics integration, testing, and documentation. Effort estimates were assigned to each subsystem and later combined to form the overall project estimate.
+
+\subsubsection{Expert Judgment}
+
+Estimates were refined using prior development experience and technical complexity assessments regarding the complexity of Nordic nRF52840 BLE development, backend integration, debugging effort, and software testing activities. Greater effort allocation was assigned to wireless communication and system integration due to their higher technical risk.
+
+\subsubsection{Estimated Workload Distribution}
+
+The total estimated workload for the semester project is approximately 840 person-hours.
+
+\begin{table}[h!]
+\centering
+\caption{Estimated Workload Distribution}
+\label{tab:workload}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Project Activity} & \textbf{Percentage} & \textbf{Estimated Hours} \\
+\hline
+Hardware Interfacing and Sensor Integration & 15\% & 126 \\
+BLE Communication and Python Gateway & 15\% & 126 \\
+Backend Platform and Data Pipeline & 15\% & 126 \\
+Frontend Dashboard Development & 15\% & 126 \\
+ML Analytics and Anomaly Detection & 15\% & 126 \\
+Testing, Validation and Debugging & 15\% & 126 \\
+Documentation and Project Management & 10\% & 84 \\
+\hline
+\textbf{Total} & \textbf{100\%} & \textbf{840} \\
+\hline
+\end{tabular}
+\end{table}
+
+
+
+
+
+\subsection{Reconciled Estimate}
+
+After comparing the results from Bottom-Up Estimation and Expert Judgment, the reconciled estimate for the project is considered achievable within a fourteen-week semester schedule.
+
+The project benefits from having all required hardware components already available, reducing procurement delays and allowing the team to focus on implementation, integration, and testing activities during the early project phases.
+
+Additional schedule margin has been reserved for BLE debugging, hardware calibration, and system-level verification because these tasks typically require iterative testing and troubleshooting.
+
+
+
+
+\subsection{Project Resources}
+
+\subsubsection{Hardware Resources}
+
+The project utilizes the following hardware resources:
+
+\begin{itemize}
+\item 1x Nordic nRF52840 Development Kit
+\item 1x Sensirion SCD41 CO$_2$, Temperature, and Humidity Sensor
+\item 1x Sensirion SPS30 Particulate Matter Sensor
+\item 1x Adafruit CCS811 TVOC and eCO$_2$ Sensor
+\item 1x Microchip MCP9808 Temperature Sensor
+\item 1x KY-018 Light Intensity Sensor
+\item Bluetooth-capable host workstation
+\end{itemize}
+
+\subsubsection{Software Resources}
+
+The following software technologies and tools are planned for development and testing:
+
+\begin{itemize}
+\item Nordic nRF Connect SDK
+\item Zephyr RTOS
+\item Visual Studio Code
+\item Git and GitHub for Software Configuration Management
+\item Spring Boot backend framework
+\item MongoDB or other NoSQL database
+\item Dashboard visualization framework
+\item Overleaf for LaTeX documentation
+\end{itemize}
+
+
+
+
+
+
+\section{Safety and Security Plan}
+
+\subsection{Safety Objectives}
+
+The primary safety objective of the monitoring system is to ensure reliable and continuous environmental monitoring without silent system failures. The system must immediately indicate when valid sensor measurements are unavailable or communication failures occur.
+
+The monitoring architecture is designed to provide fault awareness rather than assuming uninterrupted operation. This is particularly important in distributed wireless sensor systems where hardware failures, communication interruptions, or sensor malfunctions may occur unexpectedly.
+
+Importantly, the Machine Learning subsystem operates as a supplementary analytics layer and is not a safety-critical component. Deterministic threshold alerts are evaluated independently in the backend and remain fully operational if the ML service is unavailable or undergoing model recalibration. This separation ensures that core occupant safety guarantees are never contingent on ML subsystem availability.
+
+\subsection{Fault Detection Mechanisms}
+
+The backend processing system implements several fault detection strategies:
+
+\begin{itemize}
+\item Timeout monitoring for disconnected sensor nodes
+\item Detection of frozen or repeated sensor measurements
+\item Communication failure monitoring between BLE nodes and gateway
+\item Validation of received sensor payload structure
+\end{itemize}
+
+If a sensor node fails to transmit data within a predefined time interval, the backend marks the node as unavailable and generates a warning within the dashboard interface.
+
+\subsection{Reliability Considerations}
+
+System reliability depends on stable operation across the distributed architecture layers:
+
+\begin{itemize}
+\item Sensor node operation
+\item BLE wireless communication
+\item Gateway forwarding functionality
+\item Backend server availability
+\item Dashboard visualization services
+\end{itemize}
+
+To improve operational stability, watchdog timers may be implemented on the nRF52840 boards to automatically recover from firmware execution failures.
+
+
+\subsection{Communication Reliability}
+
+The project utilizes a BLE star-topology network where sensor nodes communicate directly with the gateway node. Wireless communication reliability is influenced by signal interference, physical obstacles, and transmission range limitations.
+
+To reduce communication interruptions, the system incorporates:
+
+\begin{itemize}
+\item Automated BLE reconnection logic
+\item Periodic node heartbeat transmission
+\item Continuous gateway monitoring
+\item Error handling for malformed packets
+\end{itemize}
+
+
+\subsection{Sensor Reliability}
+
+Environmental sensors may exhibit measurement inaccuracies and calibration drift over time. Prior to deployment, baseline calibration procedures and environmental stabilization will be performed for the 5-sensor suite, particularly the SCD41, SPS30, and KY-018 sensors.
+
+The backend processing layer additionally performs basic filtering to reject physically impossible measurement values and reduce transient noise spikes.
+
+
+\subsection{Security Considerations}
+
+The security strategy focuses on maintaining communication integrity and controlled system access.
+
+\begin{itemize}
+\item BLE communication is restricted to authorized sensor nodes
+\item Gateway acceptance is limited to known device addresses
+\item Backend dashboard access requires authentication
+\item Logged environmental data is protected against unauthorized modification
+\end{itemize}
+
+
+\subsection{Failure Handling Strategy}
+
+The architecture is designed for graceful degradation. If one sensor node becomes unavailable, the remaining nodes continue operation independently.
+
+The backend server isolates failed nodes while maintaining monitoring availability for active nodes. Dashboard notifications inform users about degraded operational states and communication failures.
+
+
+
+
+
+\section{Risk Management and Analysis}
+
+\subsection{Overview}
+
+Risk management is an essential component of safety-critical systems engineering. The purpose of this analysis is to identify technical, hardware, software, communication, and project-management risks that could affect the successful development or operation of the monitoring system.
+
+\subsection{Project Risk Assessment}
+
+\begin{table}[H]
+\centering
+\caption{Project Risk Assessment}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|p{3cm}|p{4cm}|p{4cm}|p{4cm}|c|c|}
+\hline
+\textbf{Risk Category} &
+\textbf{Risk Description} &
+\textbf{Possible Impact} &
+\textbf{Mitigation Strategy} &
+\textbf{Probability} &
+\textbf{Severity} \\
+\hline
+
+Technical Risks &
+Complexity of BLE integration and wireless debugging &
+Development delays and unstable communication &
+Early BLE prototyping and use of Nordic SDK examples &
+Medium &
+High \\
+\hline
+
+Hardware Risks &
+Sensor inaccuracies and calibration drift &
+Incorrect environmental measurements &
+Baseline sensor calibration and software filtering &
+High &
+Medium \\
+\hline
+
+Software Risks &
+Integration bugs between distributed subsystems &
+Backend instability or incorrect dashboard behavior &
+Git-based configuration management and peer reviews &
+Medium &
+High \\
+\hline
+
+Communication Risks &
+BLE packet loss and connection interruptions &
+Missing telemetry and delayed alerts &
+Heartbeat monitoring and automatic reconnection logic &
+Medium &
+High \\
+\hline
+
+Safety Risks &
+Undetected sensor malfunction or frozen data &
+Silent monitoring failure and incorrect system state &
+Timeout detection and watchdog monitoring &
+Low &
+Critical \\
+\hline
+
+Project Management Risks &
+Semester timeline limitations &
+Incomplete implementation or reduced testing coverage &
+SCRUM sprint planning and milestone tracking &
+Medium &
+Medium \\
+\hline
+
+\end{tabular}
+}
+\end{table}
+
+\subsection{Technical Risk Discussion}
+
+The most significant technical challenge is the implementation and stabilization of the BLE communication infrastructure. Wireless communication systems often require extensive debugging due to synchronization problems, signal interference, and device compatibility issues.
+
+Additionally, the integration of unsupervised Machine Learning (Isolation Forest) introduces new technical risks, such as model false positives and environmental concept drift (where changing seasons or sensor relocations trigger false anomalies).
+
+To reduce integration risk, early development sprints focus specifically on hardware and BLE communication validation before expanding the architecture to backend processing, dashboard visualization, and ML analytics integration.
+
+\subsection{Safety Risk Discussion}
+
+The most critical safety-related risk is silent failure, where the system appears operational while valid environmental measurements are no longer being received.
+
+The architecture addresses this risk using timeout detection mechanisms, heartbeat monitoring, and backend-side fault analysis capable of identifying disconnected or malfunctioning nodes.
+
+\subsection{Project Management Strategy}
+
+The SCRUM process model enables iterative development and incremental validation throughout the semester timeline. Weekly progress reviews, sprint planning sessions, and milestone tracking are used to reduce scheduling risk and improve implementation visibility across the development team.
+
+
+
+
+\section{Architecture Discussion}
+
+\subsection{System Overview}
+
+The proposed system follows a distributed wireless environmental monitoring architecture utilizing Bluetooth Low Energy (BLE) communication and Nordic nRF52840 hardware.
+
+The architecture is divided into five primary layers:
+
+\begin{enumerate}
+\item Sensor Layer
+\item Gateway Layer
+\item Backend Processing Layer
+\item Analytics Layer
+\item Visualization Layer
+\end{enumerate}
+
+\subsection{Sensor Layer}
+
+The sensing layer consists of Nordic nRF52840 Development Kits operating as distributed wireless sensor nodes.
+
+Each node is responsible for acquiring multi-dimensional environmental data using a five-sensor suite:
+
+\begin{itemize}
+    \item Acquiring CO$_2$, temperature, and humidity using the Sensirion SCD41
+    \item Acquiring particulate matter (PM1.0/2.5/4.0/10) using the Sensirion SPS30
+    \item Acquiring TVOC and eCO$_2$ using the Adafruit CCS811
+    \item Acquiring high-precision thermal baselines using the MCP9808
+    \item Acquiring ambient light intensity using the KY-018 sensor
+    \item Packaging telemetry data into structured BLE payloads
+    \item Periodically transmitting measurements via BLE Advertising
+\end{itemize}
+
+The sensor nodes operate independently and periodically communicate with the gateway node using BLE advertising or BLE peripheral communication.
+
+\subsection{Communication Layer}
+
+The communication layer utilizes a BLE star-topology architecture.
+
+In this topology:
+
+\begin{itemize}
+\item Sensor nodes operate as BLE Advertising broadcasters
+\item A host machine running the Python Bleak client acts as the BLE central gateway
+\item All sensor data is captured and forwarded to the backend through the software gateway
+\item Inter-node communication is not required in the selected star-topology architecture.
+\end{itemize}
+
+The BLE star topology simplifies communication management and reduces routing complexity compared to mesh-based architectures.
+
+\subsection{Gateway Layer}
+
+The gateway layer acts as a bridge between the wireless BLE domain and the HTTP-based backend. It is implemented as a Python 3.12 microservice utilizing the \texttt{Bleak} library.
+
+The gateway is responsible for:
+
+\begin{itemize}
+\item Scanning for BLE sensor advertisements
+\item Decoding sensor payloads
+\item Validating received telemetry formatting
+\item Forwarding measurements to the backend server via HTTP REST POST requests
+\item Monitoring node connectivity status
+\end{itemize}
+
+This software-based gateway abstracts the hardware layer, ensuring that switching from simulated to physical BLE hardware requires no downstream changes.
+
+\subsection{Backend Processing Layer}
+
+The backend server is a Java 21 Spring Boot 3.3 microservice that performs centralized data ingestion and orchestration. It utilizes MongoDB 7 for persistent document storage.
+
+Primary responsibilities include:
+
+\begin{itemize}
+\item REST API telemetry ingestion
+\item Evaluating deterministic safety thresholds
+\item Database logging to MongoDB
+\item Timeout monitoring and fault detection
+\item Managing node status and alert generation
+\item Exposing endpoints for the dashboard and ML service
+\end{itemize}
+
+The backend continuously evaluates communication status to identify disconnected nodes.
+
+\subsection{Analytics Layer}
+
+The analytics layer introduces intelligent, multi-variable anomaly detection to the system. It is implemented as a FastAPI Python microservice utilizing \texttt{scikit-learn}.
+
+Primary responsibilities include:
+
+\begin{itemize}
+\item Asynchronously polling the backend telemetry stream
+\item Training a per-node Isolation Forest unsupervised machine learning model
+\item Evaluating the joint distribution of all 5 sensor readings simultaneously
+\item Identifying subtle, cross-parameter behavioral anomalies
+\item Dispatching \texttt{ML\_ANOMALY} alerts to the backend
+\end{itemize}
+
+This layer creates a hybrid alerting architecture, complementing deterministic safety rules with proactive environmental intelligence.
+
+\subsection{Dashboard Visualization Layer}
+
+The presentation layer is a React 19 single-page application served via Nginx. The dashboard interface displays:
+
+\begin{itemize}
+    \item Real-time environmental telemetry charts
+    \item Historical environmental trends
+    \item Active sensor node connectivity status
+    \item A unified alert feed combining deterministic and ML-triggered warnings
+    \item Communication failure notifications
+\end{itemize}
+
+The visualization layer improves monitoring transparency and assists users in identifying abnormal environmental conditions.
+
+\subsection{System Data Flow}
+
+The complete system data flow is summarized as follows:
+
+\begin{enumerate}
+\item Sensor nodes acquire environmental measurements
+\item nRF52840 nodes package sensor data
+\item BLE payloads are transmitted to the gateway
+\item Gateway forwards telemetry to the backend server
+\item Backend stores and processes the data
+\item Dashboard visualizes measurements and alerts
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\fbox{
+\parbox{0.9\textwidth}{
+\centering
+
+Sensor Node (nRF52840 DK + 5-Sensor Suite) \\
+$\downarrow$ BLE Advertising \\
+
+BLE Gateway (Python / Bleak) \\
+$\downarrow$ HTTP REST POST \\
+
+Backend Microservices (Spring Boot + FastAPI) \\
+- Telemetry Ingestion \& MongoDB Logging \\
+- Deterministic Threshold Alerting \\
+- ML Anomaly Detection (Isolation Forest) \\
+
+$\downarrow$ API Polling / WebSocket \\
+
+Dashboard Visualization (React 19) \\
+- Real-Time Monitoring \\
+- Unified Alert Feed
+}
+}
+\caption{BLE-Based Smart Indoor Environmental Monitoring System Architecture}
+\label{fig:architecture}
+\end{figure}
+
+
+
+\section{Project Schedule}
+
+\subsection{Project Task Set}
+
+The project task set defines the major engineering activities required for the development of the BLE-based indoor environmental monitoring system.
+
+\begin{itemize}
+\item Hardware setup and multi-sensor interfacing
+\item BLE communication and payload formatting
+\item Python BLE gateway and HTTP REST forwarding
+\item Backend microservice implementation using Spring Boot and MongoDB
+\item Dashboard visualization and unified alert feed using React
+\item Machine Learning anomaly detection using Isolation Forest
+\item Testing and validation
+\item Documentation and final presentation
+\end{itemize}
+
+\subsection{Functional Decomposition}
+
+The project is divided into several functional subsystems:
+
+\begin{enumerate}
+\item Sensor acquisition subsystem
+\item BLE communication subsystem
+\item Python Gateway forwarding subsystem
+\item Backend processing and database subsystem
+\item Machine Learning analytics subsystem
+\item Dashboard visualization subsystem
+\end{enumerate}
+
+Each subsystem can be developed and tested independently before full system integration.
+
+\subsection{Task Network}
+
+The development activities follow a dependency-based sequence.
+
+\begin{itemize}
+\item Sensor interfacing must be completed before BLE transmission testing.
+\item BLE communication must function before gateway integration.
+\item Gateway communication must be operational before backend ingestion testing.
+\item Database integration is required before dashboard visualization.
+\item System validation depends on the successful integration of all previous components.
+\end{itemize}
+
+This dependency structure minimizes integration risks and supports iterative SCRUM development.
+
+\subsection{Timeline Chart}
+
+The project follows a fourteen-week semester schedule divided into SCRUM sprints.
+
+\begin{table}[h!]
+\centering
+\caption{Semester Development Schedule}
+\label{tab:schedule}
+\renewcommand{\arraystretch}{1.4}
+
+\begin{tabular}{|c|p{4.2cm}|p{7.2cm}|}
+\hline
+\textbf{Weeks} & \textbf{Sprint / Phase} & \textbf{Main Activities} \\
+\hline
+
+1--2 &
+Project Initialization &
+Hardware familiarization, literature review, architecture design, repository setup \\
+\hline
+
+3--4 &
+Sprint 1 -- Hardware and BLE Communication &
+Sensor integration, firmware development, BLE Advertising, gateway telemetry validation \\
+\hline
+
+5--6 &
+Sprint 2 -- Backend Platform and Data Pipeline &
+Docker orchestration, MongoDB, REST API, telemetry ingestion, threshold alerting \\
+\hline
+
+7--8 &
+Sprint 3 -- Dashboard and Integration &
+React dashboard, telemetry visualization, node status, alert feed, distributed service integration \\
+\hline
+
+9--10 &
+Sprint 4 -- ML Analytics and Finalization &
+Anomaly detection integration, system testing, documentation, final hardware integration \\
+\hline
+
+11--12 &
+Sprint 5 -- Testing and Validation &
+End-to-end integration, full pipeline testing, ML anomaly validation \\
+\hline
+
+13--14 &
+Sprint 6 -- Finalization &
+Bug fixing, report completion, presentation preparation \\
+\hline
+
+\end{tabular}
+\end{table}
+
+
+
+\section{Staff Organization}
+
+\subsection{Team Structure}
+
+The project team consists of six members with distributed responsibilities.
+
+
+\begin{table}[H]
+\centering
+\caption{Project Team Structure and Responsibilities}
+\label{tab:team}
+
+\renewcommand{\arraystretch}{1.3}
+
+\begin{tabular}{|c|p{3.2cm}|p{4cm}|p{6.5cm}|}
+\hline
+\textbf{No.} & \textbf{Team Member} & \textbf{Role} & \textbf{Primary Responsibilities} \\
+\hline
+
+1 &
+Member 1 &
+Product Owner / Backend Developer &
+Requirement definition, backlog management, backend processing, database integration \\
+\hline
+
+2 &
+Member 2 &
+SCRUM Master / Integration Coordinator &
+Sprint coordination, task tracking, Git management, subsystem integration \\
+\hline
+
+3 &
+Member 3 &
+Embedded Developer A (Sensors) &
+Sensor interfacing, ADC/I2C communication, firmware development \\
+\hline
+
+4 &
+Member 4 &
+Embedded Developer B (BLE Communication) &
+BLE advertising, packet transmission, gateway communication \\
+\hline
+
+5 &
+Member 5 &
+Frontend Dashboard Developer &
+Dashboard visualization, frontend implementation, real-time monitoring UI \\
+\hline
+
+6 &
+Member 6 &
+QA, Safety and Documentation Engineer &
+Testing, validation, safety verification, LaTeX documentation \\
+\hline
+
+\end{tabular}
+\end{table}
+
+
+
+
+
+
+The structure supports parallel subsystem development and iterative integration.
+
+\subsection{Management Reporting and Communication}
+
+The project follows SCRUM-based communication practices.
+
+\begin{itemize}
+\item Weekly sprint meetings
+\item Git-based Software Configuration Management
+\item Shared task tracking and milestone reviews
+\item Peer code reviews
+\item Continuous documentation updates
+\end{itemize}
+
+Technical blockers and risks are discussed during sprint reviews to ensure early mitigation and stable project progress.
+
+
+
+
+
+\section{Tracking and Control Mechanisms}
+
+\subsection{Project Monitoring Strategy}
+
+Project progress is continuously monitored throughout the semester using SCRUM sprint planning, milestone tracking, sprint reviews, and integration validation procedures.
+
+The distributed nature of the architecture requires careful coordination between embedded firmware development, backend integration, dashboard implementation, and testing activities.
+
+\subsection{Quality Assurance and Quality Control}
+
+Quality Assurance (QA) procedures are applied throughout both hardware and software development activities.
+
+Hardware Quality Control includes:
+
+\begin{itemize}
+\item Sensor calibration verification
+\item Communication stability testing
+\item Gateway functionality validation
+\item Power and connectivity checks
+\end{itemize}
+
+Software Quality Assurance includes:
+
+\begin{itemize}
+\item Peer code reviews
+\item Incremental integration testing
+\item Backend validation procedures
+\item Dashboard verification
+\item Error handling validation
+\end{itemize}
+
+\subsection{Software Configuration Management}
+
+The project utilizes Git as the primary Software Configuration Management (SCM) platform.
+
+The repository structure separates firmware, backend, frontend, documentation, and testing components into independent modules.
+
+The Git workflow consists of:
+
+\begin{itemize}
+\item \texttt{main} branch for stable releases
+\item \texttt{develop} branch for subsystem integration
+\item \texttt{feature/*} branches for isolated development tasks
+\end{itemize}
+
+Merge operations into stable branches require successful subsystem testing and peer review approval.
+
+\subsection{Progress Tracking}
+
+Sprint progress is monitored using:
+
+\begin{itemize}
+\item Product Backlog management
+\item Sprint Backlog tracking
+\item Weekly SCRUM meetings
+\item Sprint review demonstrations
+\item Sprint retrospectives
+\item Milestone validation checkpoints
+\end{itemize}
+
+Technical blockers and communication issues are documented during sprint meetings to ensure early risk identification and mitigation.
+
+\subsection{Testing and Validation Strategy}
+
+The testing process is divided into multiple validation phases:
+
+\subsubsection{Unit Testing}
+
+Individual firmware components, sensor drivers, and backend functions are validated independently before subsystem integration.
+
+\subsubsection{Integration Testing}
+
+Integration testing validates communication between:
+
+\begin{itemize}
+\item Sensor nodes and BLE gateway
+\item Gateway and backend server
+\item Backend server and dashboard interface
+\end{itemize}
+
+\subsubsection{System Validation}
+
+Complete end-to-end system validation is performed using realistic monitoring scenarios and fault injection procedures.
+
+Examples include:
+
+\begin{itemize}
+\item Disconnecting sensor nodes
+\item Simulating communication interruptions
+\item Validating timeout detection behavior
+\item Verifying dashboard alert generation
+\end{itemize}
+
+\subsection{Documentation and Reporting}
+
+Project documentation is continuously maintained throughout the semester.
+
+Documentation activities include:
+
+\begin{itemize}
+\item Sprint meeting minutes
+\item Architecture refinement
+\item Risk management updates
+\item Testing documentation
+\item Safety validation records
+\item Final report preparation
+\end{itemize}
+
+All official project documentation is maintained using LaTeX to ensure consistent formatting and professional presentation quality.
+
+
+
+
+
+
+\section{Literature Review}
+
+\subsection{Indoor Environmental Monitoring}
+
+Indoor environmental quality has become an important research topic due to its direct impact on human health, comfort, and productivity. Research indicates that individuals spend a significant portion of their daily lives indoors, increasing the importance of continuous monitoring systems capable of detecting environmental changes and hazardous conditions.
+
+IoT-based monitoring systems provide scalable and cost-effective approaches for collecting real-time environmental measurements using distributed wireless sensor networks.
+
+\subsection{IoT-Based Monitoring Architectures}
+
+Several recent studies propose distributed monitoring architectures utilizing low-cost embedded devices and wireless communication technologies.
+
+John et al. developed an IoT-based monitoring framework for asthma-related environmental tracking capable of collecting environmental measurements within residential environments.
+
+Rosa-Bilbao et al. proposed an intelligent indoor air quality management architecture utilizing distributed wireless nodes, backend processing, and event detection mechanisms for educational environments.
+
+Simamora et al. explored mobile environmental monitoring approaches using autonomous IoT-based robotic systems capable of performing indoor environmental measurements dynamically.
+
+\subsection{Wireless Communication Technologies}
+
+The literature identifies several wireless communication technologies commonly used within IoT monitoring systems, including:
+
+\begin{itemize}
+\item Wi-Fi
+\item ZigBee
+\item LoRa
+\item Bluetooth Low Energy (BLE)
+\end{itemize}
+
+While Wi-Fi provides higher throughput and cloud connectivity, BLE offers lower power consumption and simpler deployment for localized wireless sensor networks.
+
+The proposed architecture therefore adopts BLE communication using Nordic nRF52840 hardware in a star-topology configuration suitable for low-power indoor monitoring applications.
+
+\subsection{Sensor Technologies}
+
+Low-cost environmental sensing devices are widely used within IoT monitoring systems due to their accessibility and ease of integration.
+
+The project utilizes an advanced multi-parameter suite:
+
+\begin{itemize}
+\item Sensirion SCD41 (CO$_2$, Temp, Humidity)
+\item Sensirion SPS30 (Particulate Matter)
+\item Adafruit CCS811 (TVOC, eCO$_2$)
+\item Microchip MCP9808 (High-precision temperature)
+\item KY-018 (Light intensity)
+\end{itemize}
+
+The literature demonstrates that low-cost sensors may exhibit calibration limitations and measurement inaccuracies. Consequently, software-level filtering and calibration procedures are important components of reliable environmental monitoring systems.
+
+\subsection{Safety and Reliability Considerations}
+
+Reliability remains a major concern within distributed wireless monitoring systems. Several studies discuss the importance of detecting communication failures, disconnected nodes, and sensor malfunctions.
+
+The literature strongly supports the use of timeout monitoring, heartbeat detection, and backend-side fault analysis to prevent silent system failures.
+
+These findings directly influence the fault detection strategies implemented within the proposed architecture.
+
+\subsection{AI-Assisted Research and Planning Tools}
+
+AI-assisted research tools including NotebookLM, Perplexity AI, and ChatGPT were used during literature exploration, architecture analysis, document refinement, and project planning activities.
+
+All generated outputs were critically reviewed, refined, and adapted to ensure technical consistency with the project requirements and hardware architecture.
+
+
+\subsection{Documentation of LLM Interaction}
+
+
+
+Representative prompts used during literature analysis,
+architecture planning, project scheduling, risk management,
+and LaTeX document preparation are documented below.
+
+
+
+\subsubsection*{Prompt 1 -- Architecture Planning TODO}
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+Paste your prompt here.
+
+\end{tcolorbox}
+
+\subsubsection*{Prompt 2 -- Literature Analysis}
+
+% start 
+
+\begin{tcolorbox}[
+colback=gray!4,
+colframe=gray!60,
+boxrule=0.3pt,
+arc=1.5mm,
+left=6pt,
+right=6pt,
+top=6pt,
+bottom=6pt
+]
+
+\small
+
+Create a Literature section for a Software Project Plan
+about a BLE-based indoor monitoring system using Nordic
+nRF52840 boards.
+
+Use the uploaded research papers and project sources to create:
+
+\begin{enumerate}
+    \item Preliminary literature overview
+    \item Summary of related indoor monitoring systems
+    \item Discussion of BLE and IoT communication approaches
+    \item Summary of sensor technologies
+    \item Safety and reliability considerations from the literature
+    \item Research limitations and future directions
+    \item Documentation of AI-assisted research and planning tools used during project development
+\end{enumerate}
+
+Maintain academic writing style suitable for a
+Software Project Plan.
+
+\end{tcolorbox}
+
+% end 
+
+\subsubsection*{Prompt 3 -- Project Planning}
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+Paste your prompt here.
+
+\end{tcolorbox}
+
+\subsubsection*{Prompt 4 -- Risk Management}
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+Create a project risk analysis for my BLE-based indoor monitoring system using nRF52840 boards.
+
+Include:
+- technical risks
+- hardware risks
+- software risks
+- communication risks
+- safety and reliability concerns
+- project management risks
+
+For each risk provide:
+1. Risk description
+2. Possible impact
+3. Mitigation strategy
+4. Probability level
+5. Severity level
+
+Present results in structured table format suitable for a university Software Project Plan.
+
+
+\end{tcolorbox}
+\subsubsection*{Prompt 5 -- Project Estimates}
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+
+
+Create a Project Estimates section for a Software Project Plan about a BLE-based indoor monitoring system using Nordic nRF52840 boards.
+
+The project includes:
+- distributed BLE sensor nodes
+- gateway node
+- backend server
+- dashboard visualization
+- temperature and light sensing
+
+The development team consists of 6 members working in a SCRUM-based process during a semester-long project.
+
+Include:
+1. Historical assumptions used for estimation
+2. Effort estimation approach
+3. Estimated workload distribution
+4. Time estimation
+5. Project resources
+6. Hardware and software resources
+7. Reconciled project estimate
+
+Maintain a professional software-engineering perspective and realistic implementation scope.
+
+Use academic writing style suitable for a Software Project Plan.
+
+
+\end{tcolorbox}
+
+\subsubsection*{Prompt 6 -- Safety and Security Plan}
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+Create a Safety and Security Plan section for a Software Project Plan about a BLE-based indoor monitoring system using Nordic nRF52840 boards.
+
+The system includes:
+- distributed BLE sensor nodes
+- gateway node
+- backend server
+- dashboard visualization
+- temperature and light sensing
+
+Include:
+1. Safety objectives
+2. Reliability considerations
+3. Fault detection mechanisms
+4. Communication reliability
+5. Sensor reliability concerns
+6. Security considerations
+7. Data integrity and monitoring
+8. Failure handling strategies
+
+The project should emphasize:
+- reliability
+- monitoring
+- fault detection
+- communication integrity
+- risk management
+- system availability
+
+Maintain a professional systems-engineering perspective while keeping the implementation complexity realistic for the proposed architecture.
+
+Use academic writing style suitable for a Software Project Plan.
+
+
+
+\end{tcolorbox}
+
+\subsubsection*{Prompt 7 -- Project Schedule + Team Organization}
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+Create a project schedule and SCRUM-based team organization for a university project developing a BLE-based indoor monitoring system using nRF52840 boards.
+
+The project team consists of 6 students.
+
+Include:
+1. Suggested SCRUM roles
+2. Team task distribution for 6 members
+3. Functional decomposition of the project
+4. Development milestones
+5. Weekly implementation schedule for a semester-long project
+6. Suggested Git repository organization
+7. Testing and integration phases
+8. Documentation and presentation preparation phases
+
+The system includes:
+- BLE sensor nodes
+- gateway node
+- backend server
+- dashboard visualization
+- temperature and light sensing
+
+Use academic project-planning style suitable for a Software Project Plan.
+
+
+
+\end{tcolorbox}
+
+
+
+\subsubsection*{Prompt 8 -- Tracking and Control Mechanisms}
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+
+
+Create a Tracking and Control Mechanisms section for a Software Project Plan about a BLE-based indoor monitoring system using Nordic nRF52840 boards.
+
+The project uses:
+- SCRUM-based development
+- distributed BLE sensor nodes
+- gateway node
+- backend server
+- dashboard visualization
+
+Include:
+1. Quality assurance and quality control
+2. Progress tracking mechanisms
+3. Sprint reviews and retrospectives
+4. Software configuration management
+5. Git workflow and version control
+6. Change management procedures
+7. Testing and validation tracking
+8. Documentation and reporting practices
+
+Maintain a professional software-engineering and systems-engineering perspective suitable for an academic Software Project Plan.
+
+
+
+\end{tcolorbox}
+
+
+\subsubsection*{Prompt 9 -- }
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+Paste your prompt here.
+
+
+\end{tcolorbox}
+
+\subsubsection*{Prompt 10 -- }
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+Paste your prompt here.
+
+
+\end{tcolorbox}
+
+\subsubsection*{Prompt  -- }
+
+\begin{tcolorbox}[
+colback=gray!5,
+colframe=gray!70,
+boxrule=0.4pt,
+arc=1mm,
+left=4pt,
+right=4pt,
+top=4pt,
+bottom=4pt
+]
+
+\small
+
+Paste your prompt here.
+
+
+\end{tcolorbox}
+
+
+
+
+
+
+\section{Appendix}
+
+\subsection{Hardware Kit Inventory}
+
+The project hardware kit contains:
+
+\begin{itemize}
+\item 1x Nordic nRF52840 Development Kit (Sensor Node)
+\item 1x Sensirion SCD41 CO\textsubscript{2}, Temperature, and Humidity Sensor
+\item 1x Sensirion SPS30 Particulate Matter Sensor
+\item 1x Adafruit CCS811 TVOC and eCO\textsubscript{2} Sensor
+\item 1x Microchip MCP9808 Temperature Sensor
+\item 1x KY-018 Light Intensity Sensor
+\end{itemize}
+
+\subsection{Repository Structure}
+
+The Git repository is organized into the following components:
+
+\begin{itemize}
+\item \texttt{/firmware} -- Sensor node Zephyr firmware
+\item \texttt{/gateway} -- Python BLE-to-HTTP Gateway
+\item \texttt{/backend} -- Spring Boot processing services
+\item \texttt{/analytics} -- FastAPI ML anomaly detection service
+\item \texttt{/dashboard} -- React frontend visualization
+\item \texttt{/docs} -- LaTeX documentation and reports
+\item \texttt{/docker} -- Docker Compose orchestration files
+\end{itemize}
+
+\subsection{Sprint Documentation}
+
+Sprint documentation includes:
+
+\begin{itemize}
+\item Sprint planning notes
+\item Task allocation records
+\item Weekly progress reports
+\item Risk tracking updates
+\item Testing results
+\item Validation procedures
+\end{itemize}
+
+
+\section{References}
+
+\begin{thebibliography}{99}
+
+\bibitem{john2021}
+R. John, R. R. Kureshi, D. Thakker, and B. K. Mishra,
+``Internet of Things (IoT) and Indoor Air Quality (IAQ) Monitoring in the Health Domain,''
+in \textit{Proceedings of the International Conference on Internet of Things},
+ACM, 2021.
+
+\bibitem{nordic}
+Nordic Semiconductor,
+``nRF52840 Product Specification,'' 2023.
+
+\bibitem{isofor}
+F. T. Liu, K. M. Ting, and Z.-H. Zhou,
+``Isolation Forest,''
+\textit{Proc. 8th IEEE Int. Conf. Data Mining}, pp. 413--422, 2008.
+
+\bibitem{who}
+World Health Organisation,
+``WHO Guidelines for Indoor Air Quality: Selected Pollutants,''
+WHO Press, 2010.
+
+\bibitem{scikit}
+F. Pedregosa et al.,
+``Scikit-learn: Machine Learning in Python,''
+\textit{JMLR}, vol. 12, pp. 2825--2830, 2011.
+
+\bibitem{scd41}
+Sensirion AG,
+``SCD41 CO2 Sensor Datasheet,'' 2021.
+
+\bibitem{sps30}
+Sensirion AG,
+``SPS30 Particulate Matter Sensor Datasheet,'' 2020.
+
+\bibitem{newman}
+S. Newman,
+``Building Microservices (2nd ed.),''
+O'Reilly Media, 2021.
+
+\end{thebibliography}
+
+\end{document}

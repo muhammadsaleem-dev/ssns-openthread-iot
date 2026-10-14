@@ -25,8 +25,15 @@ build/
 *.elf
 *.map
 
-# Temporarily Ignore Docs
-docs/
+# LaTeX build artifacts
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.log
 
 # Python / Gateway
 __pycache__/
@@ -77,7 +84,6 @@ PHASE3_DELTA_COMPRESSION_PLAN.md
 PHASE3_FLASH_STORAGE_PLAN.md
 SATELLITE_STORAGE_ROADMAP.md
 SYSTEM_CONTEXT.md
-README.md
 
 # OpenThread Persistent Storage
 otbr-data/

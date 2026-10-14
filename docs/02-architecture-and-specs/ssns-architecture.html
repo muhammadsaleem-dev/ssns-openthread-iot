@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSNS Project Architecture</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .diagram-container {
+            width: 1000px;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            position: relative;
+        }
+
+        .title {
+            text-align: center;
+            color: #1a202c;
+            margin-bottom: 20px;
+        }
+
+        .title h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .title p {
+            margin: 5px 0 0 0;
+            color: #718096;
+            font-size: 16px;
+        }
+
+        .tier {
+            border: 2px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 30px;
+            position: relative;
+            background: #f8fafc;
+        }
+
+        .tier-title {
+            position: absolute;
+            top: -15px;
+            left: 30px;
+            background: white;
+            padding: 0 15px;
+            font-weight: 800;
+            color: #2d3748;
+            font-size: 18px;
+            border: 2px solid #cbd5e0;
+            border-radius: 20px;
+        }
+
+        /* Tier specific colors */
+        .cloud-tier { border-color: #90cdf4; background: #ebf8ff; }
+        .cloud-tier .tier-title { border-color: #90cdf4; color: #2b6cb0; }
+        
+        .fog-tier { border-color: #f6e05e; background: #fffff0; }
+        .fog-tier .tier-title { border-color: #f6e05e; color: #975a16; }
+
+        .edge-tier { border-color: #9ae6b4; background: #f0fff4; }
+        .edge-tier .tier-title { border-color: #9ae6b4; color: #276749; }
+
+        /* Node components */
+        .nodes-row {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .node-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            width: 200px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            position: relative;
+            z-index: 2;
+        }
+
+        .node-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .node-title {
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .node-desc {
+            color: #718096;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .node-highlight {
+            display: inline-block;
+            background: #edf2f7;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-top: 10px;
+        }
+
+        /* Arrows between tiers */
+        .connection-arrow {
+            text-align: center;
+            color: #a0aec0;
+            font-size: 24px;
+            height: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .connection-label {
+            background: white;
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            position: relative;
+            top: -15px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="diagram-container">
+    <div class="title">
+        <h1>SSNS Architecture Diagram</h1>
+        <p>Intelligent Indoor Environmental Monitoring System</p>
+    </div>
+
+    <!-- CLOUD TIER -->
+    <div class="tier cloud-tier">
+        <div class="tier-title">3. Core Platform (Cloud VPS)</div>
+        <div class="nodes-row">
+            <div class="node-card">
+                <div class="node-icon">🌐</div>
+                <div class="node-title">React Dashboard</div>
+                <div class="node-desc">Vite, Material-UI</div>
+                <div class="node-highlight">Port 80/443 (Caddy)</div>
+            </div>
+            <div class="node-card">
+                <div class="node-icon">🧠</div>
+                <div class="node-title">Python ML-Service</div>
+                <div class="node-desc">Isolation Forest Anomaly Detection</div>
+                <div class="node-highlight">Docker Container</div>
+            </div>
+            <div class="node-card">
+                <div class="node-icon">⚙️</div>
+                <div class="node-title">Node.js API Backend</div>
+                <div class="node-desc">Express.js Telemetry Ingestion</div>
+                <div class="node-highlight">Docker Container</div>
+            </div>
+            <div class="node-card">
+                <div class="node-icon">🗄️</div>
+                <div class="node-title">MongoDB</div>
+                <div class="node-desc">Timeseries Persistence</div>
+                <div class="node-highlight">Docker Container</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="connection-arrow">
+        ↑
+        <div class="connection-label">HTTP REST API (Internet)</div>
+    </div>
+
+    <!-- FOG TIER -->
+    <div class="tier fog-tier">
+        <div class="tier-title">2. Gateway Tier (Fog)</div>
+        <div class="nodes-row">
+            <div class="node-card">
+                <div class="node-icon">📡</div>
+                <div class="node-title">OpenThread Border Router</div>
+                <div class="node-desc">Routes IPv6 Mesh Packets to LAN</div>
+                <div class="node-highlight">OTBR</div>
+            </div>
+            <div class="node-card">
+                <div class="node-icon">🐍</div>
+                <div class="node-title">Python Gateway</div>
+                <div class="node-desc">CoAP Server & HTTP Client Bridge</div>
+                <div class="node-highlight">main.py</div>
+            </div>
+            <div class="node-card">
+                <div class="node-icon">💾</div>
+                <div class="node-title">Redis Cache</div>
+                <div class="node-desc">Message Broker & State</div>
+                <div class="node-highlight">Local Docker</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="connection-arrow">
+        ↑
+        <div class="connection-label">CoAP over UDP / OpenThread Mesh (IPv6)</div>
+    </div>
+
+    <!-- EDGE TIER -->
+    <div class="tier edge-tier">
+        <div class="tier-title">1. Physical Hardware (Edge)</div>
+        <div class="nodes-row">
+            <div class="node-card">
+                <div class="node-icon">🌡️</div>
+                <div class="node-title">nRF52840 Node 1</div>
+                <div class="node-desc">Kitchen (Temp, Hum, CO2)</div>
+                <div class="node-highlight">Zephyr RTOS</div>
+            </div>
+            <div class="node-card">
+                <div class="node-icon">💨</div>
+                <div class="node-title">nRF52840 Node 2</div>
+                <div class="node-desc">Server Room (Temp, Hum)</div>
+                <div class="node-highlight">Zephyr RTOS</div>
+            </div>
+            <div class="node-card">
+                <div class="node-icon">🌬️</div>
+                <div class="node-title">nRF52840 Node 3</div>
+                <div class="node-desc">Lobby (VOC, PM2.5)</div>
+                <div class="node-highlight">Zephyr RTOS</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

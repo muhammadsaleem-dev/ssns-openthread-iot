@@ -1,0 +1,403 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{url}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.7}
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{8}
+\addtolength{\textheight}{28pt}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Thread-Based Intelligent Indoor Environmental Monitoring System}
+
+\author{
+\IEEEauthorblockN{Muhammad Saleem}
+\IEEEauthorblockA{\textit{M.Sc. High Integrity Systems} \\
+\textit{Frankfurt University of Applied Sciences}\\
+Frankfurt am Main, Germany \\
+muhammad.saleem2@stud.fra-uas.de}
+}
+
+\maketitle
+
+\begin{abstract}
+The rapid deployment of Internet of Things (IoT) platforms in indoor environments requires highly scalable, reliable, and intelligent systems. This report details the complete implementation of the Thread-Based Intelligent Indoor Environmental Monitoring System, henceforth referred to as the Smart Sensor Network System (SSNS), a multi-tier platform designed for real-time environmental monitoring. The proposed architecture integrates IEEE 802.15.4 OpenThread mesh networks, fog computing, and a decoupled cloud backend to process high-frequency telemetry. The system employs a multi-engine alert architecture combining deterministic safety thresholds, dynamic statistical heuristics, and an advanced Machine Learning (ML) pipeline based on Isolation Forests. This document presents the hardware constraints, software implementation, mathematical models, and architectural decisions informed by ASHRAE \cite{b1,b15}, OSHA \cite{b14}, WHO \cite{b3}, EPA \cite{b4}, and WELL \cite{b5} guidelines.
+\end{abstract}
+
+\begin{IEEEkeywords}
+IoT, Edge Computing, Fog Computing, Machine Learning, OpenThread, Isolation Forest, Smart Monitoring
+\end{IEEEkeywords}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\section{Introduction and Motivation}
+\subsection{Indoor Environmental Monitoring}
+Indoor environmental quality profoundly impacts human health, cognitive performance, and operational efficiency. Prolonged exposure to high concentrations of carbon dioxide (CO$_2$), particulate matter (PM2.5), and volatile organic compounds (VOCs) presents acute health risks and degrades overall building safety.
+
+\subsection{Life-Safety Motivation}
+The primary motivation for the SSNS project is to protect life-safety by distinguishing between transient anomalies (e.g., breath or cleaning aerosols) and genuine hazards (e.g., fires or gas leaks). The proposed system employs rigorous mathematical correlation to eliminate false positives and ensure actionable intelligence.
+
+\subsection{Limitations of Cloud-Centric IoT Systems}
+Traditional cloud-centric IoT architectures suffer from inherent latency, single points of failure, and excessive bandwidth consumption when processing high-frequency telemetry. These limitations necessitate pushing computation toward the network edge.
+
+\subsection{Fog Computing}
+The proposed architecture implements a fog computing tier to bridge the constrained edge devices and the centralized backend. The fog layer provides local buffering, deduplication, protocol translation, and high-availability queueing, ensuring fault tolerance during network partitions.
+
+\subsection{OpenThread Mesh Networking}
+\label{sec:intro-thread}
+To ensure reliable communication in physically obstructed indoor environments, the system utilizes an IPv6-based OpenThread mesh network operating on the IEEE 802.15.4 standard \cite{b10}. The mesh enables autonomous routing and self-healing connectivity.
+
+\subsection{Project Objectives}
+The core objectives of the SSNS include establishing a scalable microservice architecture, developing a robust multi-engine alerting system compliant with global safety standards, and integrating explainable machine learning models for predictive forecasting.
+
+\subsection{Related Work}
+Related work informed key design choices. Ortega et al. \cite{b16} show Isolation Forest can be made 79$\times$/166$\times$ more efficient without accuracy loss, reinforcing its choice as a lightweight, unsupervised algorithm for this project's decoupled ML service; Wu et al. \cite{b17} survey GNN-based IIoT anomaly detection, an approach avoided here given its overhead for a single-room deployment; Guha and Datta \cite{b18} show that a fixed sliding window is suboptimal for IIoT drift-adaptation, reinforcing this project's own move away from a static window toward the statistically-triggered recalibration evaluated in Section~\ref{sec:mlevalresults}; Khattak et al. \cite{b19} validate IEEE 802.15.4-based Thread mesh networking, supporting the OpenThread architecture used here. Localized, edge-native systems combining these elements remain limited, motivating this project's integrated design.
+
+\section{Hardware and Software Components}
+\subsection{Hardware Platform}
+The edge nodes are built upon the Nordic Semiconductor nRF52840 development kit. This microcontroller provides native IEEE 802.15.4 radio support, executing the Zephyr Real-Time Operating System (RTOS) \cite{b6} while adhering to strict low-power constraints.
+
+\subsection{Sensor Components}
+The edge nodes interface with multiple high-precision I2C sensors:
+\begin{itemize}
+\setlength{\itemsep}{0pt}
+\item \textbf{SCD41}: Monitors CO$_2$ concentration.
+\item \textbf{SPS30}: Measures particulate matter (PM1.0, PM2.5, PM4.0, PM10).
+\item \textbf{CCS811}: Detects Total Volatile Organic Compounds (TVOC).
+\end{itemize}
+
+\subsection{Communication Protocols}
+The constrained edge nodes transmit telemetry utilizing the Constrained Application Protocol (CoAP) \cite{b8} over UDP/IPv6. Payloads are aggressively compressed using Concise Binary Object Representation (CBOR) \cite{b9}. The fog layer translates these packets into standard HTTP JSON POST requests.
+
+\subsection{Backend Technologies}
+The core platform is implemented as a stateless Java Spring Boot application exposing REST APIs. A MongoDB NoSQL database manages highly denormalized telemetry data, while WebSockets facilitate low-latency broadcasting. Nginx provides Layer 7 load balancing.
+
+\subsection{Frontend Technologies}
+The operator dashboard is a Single Page Application (SPA) developed with React and Vite. It utilizes Material UI for responsive design, Recharts for time-series visualization, and React Flow for dynamic topology mapping.
+
+\subsection{Monitoring Infrastructure}
+The application relies on Docker's stdout/stderr logging, Spring Boot Actuator endpoints, and custom background scheduling jobs to evaluate network health and node timeouts autonomously.
+
+\subsection{Development Environment}
+The entire ecosystem relies heavily on Docker and Docker Compose for orchestration. The deployment isolates dependencies across independent containers utilizing host and bridge networking.
+
+\section{System Architecture}
+\subsection{Overall Architecture}
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/figure1.png}
+\caption{Overall architecture}
+\label{fig:figure1}
+\end{figure}
+
+Fig.~\ref{fig:figure1} presents the overall architecture. The SSNS architecture represents a highly decoupled, multi-tier distributed system comprising edge nodes, fog gateways, backend ingestion services, document-oriented databases, and isolated machine-learning pipelines.
+
+\subsection{Sensor Layer}
+The sensor layer operates as a highly concurrent \textbf{Producer-Consumer} architecture. Given the strict timing requirements of the physical I2C sensors (SCD41, SPS30, CCS811), a single-threaded polling loop would introduce unacceptable latency and jitter. Instead, the sensors act as independent producers, polled asynchronously by dedicated Zephyr RTOS threads executing at hardware-specific intervals (e.g., 5.5s for CO$_2$, 1.0s for TVOC). These producer threads calculate local statistics (Mean, Max, Standard Deviation) and write the aggregated payloads into a shared memory space. A centralized network thread acts as the consumer, safely extracting this data utilizing Mutex locks to enforce thread safety and eliminate race conditions on the I2C bus. This decoupled architecture entirely prevents main-loop blocking, ensuring deterministic execution even under heavy sensor load.
+
+\subsection{Fog Layer}
+The fog layer implements a \textbf{Store-and-Forward} architectural pattern to ensure absolute fault tolerance across unstable wide-area networks. Operating as a Linux-based edge-gateway, it terminates the constrained 802.15.4 radio mesh via an OpenThread Border Router (OTBR). To prevent data corruption from concurrent mesh transmissions, incoming CoAP UDP datagrams are strictly deduplicated using distributed Redis \texttt{SETNX} locks evaluated against unique message IDs. Once validated, the payloads are pushed to a Redis \texttt{LPUSH} queue. If the upstream cloud connection drops, an exponential backoff algorithm caches the JSON payloads locally in Redis, ensuring zero data loss and forwarding them only when HTTP TCP connectivity is restored.
+
+\subsection{Platform Layer}
+The backend tier is designed around a highly scalable \textbf{Event-Driven Publisher-Subscriber} model. A stateless Java Spring Boot API acts as the central ingestion broker. By remaining entirely stateless, the backend can be horizontally scaled (two redundant replicas in the current deployment) behind an Nginx Layer 7 Load Balancer to handle thousands of concurrent edge nodes. Upon ingestion, the API executes synchronous multi-engine alert heuristics in memory. Validated telemetry is asynchronously persisted to a highly denormalized MongoDB NoSQL database, optimized with compound indexes for rapid time-series queries. Simultaneously, the payload is published to an active WebSocket topic, enabling zero-latency broadcasting to connected clients without the overhead of HTTP polling.
+
+\subsection{Operator Layer}
+The presentation tier operates as a \textbf{Reactive Single Page Application (SPA)} constructed with React and Vite. Serving as a real-time Network Operations Center (NOC) dashboard, it maintains a persistent, bidirectional WebSocket subscription to the backend. Because environmental sensors can emit thousands of data points per hour, rendering the entire dataset would cause catastrophic browser DOM memory exhaustion and UI freezing. To mitigate this, the client implements a bounded sliding-window state manager (maximum 10,000 records) coupled with React Flow for dynamic SVG topology mapping. This ensures that administrators can visualize complex OpenThread routing paths and investigate anomalies with 60 FPS rendering performance.
+
+\subsection{Data Flow}
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/figure3.png}
+\caption{Communication workflow}
+\label{fig:figure3}
+\end{figure}
+
+As shown in Fig.~\ref{fig:figure3}, telemetry follows a synchronous ingest pipeline: sensor acquisition (I2C) $\rightarrow$ OpenThread (CoAP/CBOR) $\rightarrow$ fog gateway (HTTP/JSON) $\rightarrow$ Nginx load balancer $\rightarrow$ Java API $\rightarrow$ MongoDB $\rightarrow$ WebSocket $\rightarrow$ React UI. The ML service is decoupled from this path: it polls the API on its own $\sim$15-second interval (Section~\ref{sec:mlpipeline}) rather than sitting inline before the WebSocket push.
+
+\section{Mesh Networking and OpenThread Infrastructure}
+
+\subsection{IEEE 802.15.4 Physical Layer}
+To ensure reliable communication in physically obstructed indoor environments, the system utilizes an IPv6-based mesh network operating on the constrained IEEE 802.15.4 radio standard. The low-power radio allows the sensor nodes to operate continuously without thermal interference to the highly sensitive ambient sensors.
+
+\subsection{OpenThread Routing Topology}
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/figure2.png}
+\caption{OpenThread mesh topology -- sensor nodes are Router-eligible (FTD)}
+\label{fig:figure2}
+\end{figure}
+
+Fig.~\ref{fig:figure2} illustrates the OpenThread role topology. Sensor node firmware deliberately omits \texttt{CONFIG\_OPENTHREAD\_MTD}, keeping every node Router-eligible (a Full Thread Device) so sensors can relay packets for each other and form a genuine multi-hop mesh rather than a single-hop star. Communication utilizes a hardcoded Thread dataset (Channel 26, PanId 0x1235). The OpenThread stack dynamically routes packets and initiates autonomous parent searches upon connection loss.
+
+\subsection{Constrained Application Protocol (CoAP)}
+The Constrained Application Protocol (CoAP) \cite{b8} is executed over UDP. Edge nodes send PUT requests to the URI \texttt{storedata} and block for up to 5,000 ms awaiting an explicit CoAP ACK.
+
+\subsection{OpenThread Border Router (OTBR)}
+The OpenThread Border Router bridges the IEEE 802.15.4 radio network to the IPv4/IPv6 host network. The system polls \texttt{ot-ctl} to monitor routing topologies and child tables.
+
+\section{System Implementation}
+\subsection{Sensor Acquisition}
+\label{sec:sensoracq}
+The embedded firmware implements a Dual-Mode Abstraction (Hardware and Simulation). In hardware mode, the Zephyr RTOS spawns dedicated background threads to poll the SCD41 (5.5s), CCS811 (1.0s), and SPS30 (1.5s). Data is aggregated using a mutually exclusive lock (Mutex).
+
+\subsection{Sensor Scheduling}
+The firmware executes a 60-second silent warm-up phase to populate internal caches. It samples the sensors every 6 seconds and transmits statistics over the network every 30 seconds to minimize RF overhead.
+
+\subsection{CBOR Encoding}
+Payloads are serialized using the \texttt{zcbor} library to produce CBOR \cite{b9} arrays. A single batch contains raw sample arrays and a 27-element statistics map capturing the Mean, Standard Deviation, and Maximum values computed natively on the node using a two-pass algorithm.
+
+\subsection{Gateway Implementation}
+The Python gateway runs an asynchronous CoAP server (\texttt{aiocoap}). It decodes CBOR, deduplicates payloads via Redis \texttt{SETNX} commands with a 300-second TTL, and anchors relative uptimes against UTC timestamps.
+
+\subsection{Redis Buffering}
+The fog tier utilizes Redis as a high-availability Store-and-Forward queue (\texttt{LPUSH}/\texttt{LPOP}). Failed HTTP transmissions invoke an exponential backoff retry mechanism.
+
+\subsection{Database Persistence}
+The system employs MongoDB for persistence. The \texttt{SensorData} documents are heavily denormalized. A unique compound index on \texttt{nodeId}, \texttt{bootId}, and \texttt{sequenceNumber} enforces telemetry deduplication, while single-field indexes on \texttt{nodeId} and \texttt{timestamp} optimize read throughput for time-series charts.
+
+\subsection{Threshold Justification and Standards}
+The deterministic safety thresholds are informed by global environmental and public health guidelines, as summarized in Table~\ref{tab:thresholds}. The parameters were selected to monitor acute toxicity, respiratory safety, and thermal comfort.
+
+\begin{table}[h]
+\centering
+\caption{Environmental Thresholds}
+\label{tab:thresholds}
+{\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.4cm}|>{\raggedright\arraybackslash}p{1.4cm}|>{\raggedright\arraybackslash}p{2.4cm}|}
+\hline
+\textbf{Parameter} & \textbf{Threshold} & \textbf{Source} & \textbf{Justification} \\ \hline
+Carbon Dioxide (CO$_2$) & $> 1500\text{ ppm}$ & ASHRAE Position Doc. on Indoor CO$_2$ \cite{b15} & Upper end of the $\sim$1000--1500 ppm ISIAQ-compiled international CO$_2$ guideline range; elevated CO$_2$ reduces cognitive performance and indoor air quality. \\ \hline
+Particulate Matter (PM2.5) & $> 35\text{ }\mu\text{g/m}^3$ & U.S. EPA \cite{b4} & EPA NAAQS 24-hour primary standard for fine inhalable particulates. \\ \hline
+Total VOCs (TVOC) & $> 1000\text{ ppb}$ & WELL v2 \cite{b5} & Conservative ppb-scale threshold, set above WELL v2's continuous-monitoring concern level (500 $\mu$g/m$^3$). \\ \hline
+Temperature & $< 10^\circ\text{C}$ or $> 35^\circ\text{C}$ & ASHRAE 55 \cite{b1} & Project-specific life-safety bounds beyond the ASHRAE 55 comfort zone (typically 20--26$^\circ$C). \\ \hline
+Humidity & $< 20\%$ or $> 60\%$ RH & OSHA \cite{b14} & OSHA Technical Manual indoor humidity control range (20--60\% RH), consistent with EPA mould-prevention guidance (below 60\%). \\ \hline
+\end{tabular}}
+\end{table}
+
+\subsection{Alert Engine}
+\label{sec:alertengine}
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/figure4.png}
+\caption{Alert engine workflow -- one representative rule shown per engine; in practice $\sim$13 independently-evaluated rules run unconditionally on every packet, not a gated either/or chain}
+\label{fig:figure4}
+\end{figure}
+
+The Java backend features a multi-engine architecture processing deterministic and heuristic rules independently and in parallel on every packet, as depicted in Fig.~\ref{fig:figure4}. With the Machine-Learning Engine (Section~\ref{sec:mlpipeline}) and Forecasting Engine (Section~\ref{sec:forecastengine}), this forms a five-engine alert architecture; the Heuristic Engine is the one addition beyond a deterministic-safety / behavioral-anomaly / early-warning / infrastructure split, closing the Machine-Learning Engine's structural blind spot for short-lived, sub-confirmation-window events (e.g., a window opening or a cleaning spray) by evaluating every packet instantly, with no confirmation delay.
+\begin{itemize}
+\setlength{\itemsep}{0pt}
+\item \textbf{Static Engine}: Enforces explicit public health thresholds. It triggers alerts when Carbon Dioxide exceeds $1500\text{ ppm}$ (ASHRAE Position Document on Indoor CO$_2$ \cite{b15}), Particulate Matter (PM2.5) exceeds $35\text{ }\mu\text{g/m}^3$ (U.S. EPA \cite{b4}), TVOC exceeds $1000\text{ ppb}$ (WELL v2 \cite{b5}), Temperature breaches the $10^\circ\text{C}$ to $35^\circ\text{C}$ life-safety bounds (ASHRAE 55 \cite{b1}), or Humidity breaches the $20\%$ to $60\%$ RH bounds (OSHA \cite{b14}).
+\item \textbf{Heuristic Engine}: Isolates transient and sustained events using rolling 30-sample statistics clamped by sensor-specific noise floors: SCD41 accuracy \cite{b11} of $\pm0.8^\circ\text{C}$ (15--35$^\circ$C) and $\pm(50\text{ ppm} + 3\%)$; SPS30 precision \cite{b13} of $\pm5\ \mu\text{g/m}^3$; and a CCS811 TVOC floor of $\pm25\text{ ppb}$, a project-selected margin since its datasheet \cite{b12} publishes no TVOC accuracy spec. Transient VOC bursts are identified when $ \text{VOC}_{max} > \text{VOC}_{mean} + \max(1.5 \times \text{VOC}_{std}, 25) $, and a fusion rule flags cleaning events when TVOC and PM2.5 register simultaneous 3-sigma spikes.
+\item \textbf{Hardware Engine}: Evaluates 8-bit \texttt{healthStatus} masks and detects placeholder sentinel values (-999.0).
+\item \textbf{Distributed Debouncing}: To prevent cascading alert storms during sustained anomalies, the backend queries the shared MongoDB store for the most recent alert of the same node and type. Once an INFO-level alert triggers, it enforces a strict 300-second suppression window per node and alert type; non-INFO alerts are deduplicated by checking for an existing unresolved alert of the same type.
+\end{itemize}
+
+\subsection{Machine-Learning Pipeline}
+\label{sec:mlpipeline}
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.6\linewidth]{figures/figure5.png}
+\caption{Machine-learning pipeline}
+\label{fig:figure5}
+\end{figure}
+
+The ML service operates autonomously via asynchronous polling, as illustrated in Fig.~\ref{fig:figure5}. The sensor nodes generate a 37-dimensional feature vector consisting of ten raw measurements and twenty-seven statistical aggregations. The machine-learning service receives the complete packet but selects five primary measurements and derives five rate-of-change features and two temporal encodings, producing a 12-dimensional feature vector for the Isolation Forest model.
+
+The core inference engine utilizes Scikit-Learn's Isolation Forest algorithm \cite{b7}. The contamination parameter is configured to ``auto'', applying a fixed decision threshold derived from the original Isolation Forest paper rather than requiring a manually specified outlier fraction. Features are normalized using robust scaling to resist transient outlier corruption. Explainable AI (XAI) feature attribution is achieved using absolute Z-score ranking.
+
+The baseline warm-up window is dashboard-configurable per node rather than fixed, allowing operators to trade off calibration time against deployment speed: a short window enables rapid activation when redeploying a node to a new room under time pressure, while a longer window permits more thorough calibration for permanent installations.
+
+\subsection{Forecasting Engine}
+\label{sec:forecastengine}
+The forecaster utilizes a 60-sample sliding deque smoothed via an Exponential Moving Average. Linear regression projections are gated; forecasting aborts if the R-Squared correlation coefficient drops below 0.65.
+
+\subsection{Self-Healing Logic}
+\label{sec:selfheal}
+The system employs three independent, layer-specific self-healing mechanisms:
+\begin{itemize}
+\setlength{\itemsep}{0pt}
+\item \textbf{Edge Buffering}: The edge node buffers up to 50 packets in a RAM queue to survive 25-minute network partitions.
+\item \textbf{ML Imputation}: The ML service imputes dead sensor channels via a duration-tiered scheme: LOCF under 5 minutes, damped median-decay from 5--60 minutes, full median masking beyond 60 minutes.
+\item \textbf{Alert Debouncing}: The backend initiates a 300-second distributed debounce to suppress identical duplicate alerts.
+\end{itemize}
+
+\subsection{Dashboard Implementation and Real-Time Operations}
+The operator dashboard is a Single Page Application constructed with React, Vite, and Material UI. It consumes high-frequency telemetry via WebSockets and retains a maximum sliding window of 10,000 records locally to prevent browser DOM memory exhaustion. Dynamic topological maps are rendered using React Flow to visualize multi-hop OpenThread routing paths at 60 FPS.
+
+\subsection{Historical Topology Scrubber and Time-Travel Engine}
+\label{sec:topologyscrubber}
+To observe and empirically validate OpenThread's autonomous mesh restructuring, self-healing, and dynamic role migrations over time, the platform incorporates a temporal topology auditing subsystem.
+
+\subsubsection{Historical Snapshot Persistence}
+The Spring Boot backend periodically captures the complete multi-node graph into a dedicated \texttt{NetworkTopologyHistory} MongoDB document collection. Each snapshot records active Border Router metadata, node hardware extended addresses, operational roles (\texttt{LEADER}, \texttt{ROUTER}, \texttt{CHILD}, \texttt{DETACHED}), link quality metrics, route path costs, and gateway connectivity states.
+
+\subsubsection{Temporal Scrubber and Event Detection}
+The dashboard presentation layer features an interactive \texttt{TopologyScrubber} timeline component with automated frame-by-frame event recognition. As the operator interacts with or plays through the timeline, a differential analysis algorithm compares consecutive topological states to identify critical mesh events:
+\begin{itemize}
+\setlength{\itemsep}{0pt}
+\item \textbf{Gateway Outages (Red Marker)}: Detects state transitions between \texttt{ONLINE} and \texttt{OFFLINE} at the edge fog gateway.
+\item \textbf{Leader Election (Orange Marker)}: Flags shifts in the designated Thread mesh Leader, identifying dynamic network partitions and reconciliations.
+\item \textbf{Node Lifecycle (Green/Grey Marker)}: Tracks nodes joining or ungracefully departing the 802.15.4 radio cluster.
+\item \textbf{Self-Healing Role Promotions (Purple Marker)}: Visualizes autonomous OpenThread role transformations (e.g., \texttt{Child} $\rightarrow$ \texttt{Router} when routing redundancy degrades, or \texttt{Router} $\rightarrow$ \texttt{Child} during topology optimization).
+\end{itemize}
+
+\subsubsection{Dynamic Playback Visualization}
+Coupled with React Flow, the UI provides fluid play, pause, and step-through scrubbing. Graph nodes dynamically indicate active leader status via rhythmic pulsing animations, color-code link qualities according to empirical signal budgets, and dynamically reposition without DOM thrashing or transient edge crashes. This transforms network state auditing from static post-mortem logs into an intuitive, deterministic visual time-machine.
+
+\section{Theoretical Performance and Evaluation Methodology}
+
+\subsection{Mathematical Formulations}
+To ensure robust analytical rigor, the system centralizes its core mathematical logic:
+\begin{itemize}
+\setlength{\itemsep}{0pt}
+\item \textbf{Standard Deviation}: Computed natively on the edge nodes using a two-pass algorithm: $ \sigma = \sqrt{\frac{\sum(x - \mu)^2}{n}} $
+\item \textbf{Exponential Moving Average (EMA)}: Utilized by the forecasting engine to smooth time-series data: $ \text{EMA}_t = 0.25 \times X_t + 0.75 \times \text{EMA}_{t-1} $
+\item \textbf{Z-Score}: Used for Explainable AI (XAI) feature attribution by calculating the absolute standard score.
+\item \textbf{Exponential Backoff}: Implemented in the fog layer queue to prevent network flooding: $ \text{Delay} = \min(3600, 2^{\text{retry}}) $
+\item \textbf{Robust Scaling}: Applied during machine learning preprocessing to resist transient outlier corruption: $ \text{Scaled} = \frac{X - \text{Median}}{\max(\text{IQR}, 10^{-9})} $
+\item \textbf{Linear Regression}: Evaluated for trend projection; forecasting aborts if the R-Squared coefficient drops below $0.65$.
+\item \textbf{Decay Function}: The damped-decay tier of the ML imputation scheme (Section~\ref{sec:selfheal}) blends the last valid reading toward the channel median: $ \text{Decay} = e^{-0.000385 \times t} $
+\end{itemize}
+
+\subsection{Deployment Methodology}
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/figure6.png}
+\caption{Deployment architecture}
+\label{fig:figure6}
+\end{figure}
+
+Fig.~\ref{fig:figure6} shows the deployment architecture. The proposed deployment was experimentally validated using Docker Compose orchestration over isolated IPv4 bridge networks to accurately simulate production edge-to-cloud topologies.
+
+\subsection{Fault-Tolerance Constraints}
+The system imposes strict guarantees on offline survivability: the 50-packet edge RAM queue, at a fixed 30-second transmission interval, guarantees exactly 25 minutes of data preservation during a partition, while the 5,000 ms CoAP UDP timeout bounds the latency impact of deep partitions.
+
+\subsection{Statistical Filtering and Heuristic Constraints}
+Transient noise is distinguished from sustained hazards by combining edge-computed statistical summaries (Section~\ref{sec:sensoracq}) with the rolling 30-sample, noise-floor-clamped evaluation and multi-sensor fusion detailed in the Heuristic Engine (Section~\ref{sec:alertengine}); clamping variance multipliers to hardware noise floors eliminates false positives in low-variance environments (e.g., empty rooms).
+
+\subsection{Model Adaptability}
+The ML architecture uses a 12-dimensional Isolation Forest. Paired with a Kolmogorov-Smirnov drift detector (0.25 threshold), it autonomously rescales median/IQR normalization bounds when the environment shifts, leaving the original trees untouched -- refitting the full ensemble on drift-sized buffers destabilized the false-positive rate regardless of buffer size (Section~\ref{sec:mlevalresults}).
+
+\subsection{Empirical Evaluation Results}
+\label{sec:mlevalresults}
+An offline evaluation used a 2.8-day historical recording from a single deployed sensor node: the first 24 hours established the Isolation Forest baseline, and the remaining $\sim$48 hours served as the streaming test set. Synthetic hazard events were injected at 30\% above the ASHRAE-documented indoor CO$_2$ guideline \cite{b15} and the project's WELL v2-informed TVOC threshold \cite{b5}, ensuring injected anomalies represent genuine safety breaches, not ordinary room variability.
+
+This evaluation exposed and corrected several drift-adaptation issues: an oversized retraining window, an unstable scaling floor for near-constant rate-of-change features, and contamination of the retraining reference window by the anomaly it targeted. With these fixes plus a consecutive-reading confirmation requirement (an anomaly reports only after 50 consecutive out-of-distribution readings, filtering transient noise from sustained hazards), the corrected pipeline achieved the results in Table~\ref{tab:mlresults}.
+
+\begin{table}[h]
+\centering
+\caption{ML Anomaly Detector and Forecasting Engine Evaluation Results}
+\label{tab:mlresults}
+{\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Metric} & \textbf{Result} \\ \hline
+True Positive Rate (TPR) & 77.31\% \\ \hline
+False Positive Rate (FPR) & 0.45\% \\ \hline
+False Negative Rate (FNR) & 22.69\% \\ \hline
+CO$_2$ Detection Latency & 584 s (within 900 s ramp) \\ \hline
+Test Dataset Span & 2.8 days, single room \\ \hline
+Confirmation Window & 50 consecutive readings \\ \hline
+Forecasting MAE (CO$_2$, 30-min horizon) & 1,664.5 ppm \\ \hline
+Forecasting RMSE (CO$_2$, 30-min horizon) & 1,776.5 ppm \\ \hline
+\end{tabular}}
+\end{table}
+
+Because the confirmation requirement imposes a minimum sustained duration, brief sub-five-minute events fall outside this layer's detection horizon; the deterministic Heuristic Engine (Section~\ref{sec:alertengine}) independently covers these, evaluating raw threshold breaches on each packet with no confirmation delay. This division is intentional: fixed thresholds need no historical data and cannot be destabilized by drift, but are blind to sub-threshold, multi-variable patterns only anomalous in combination -- exactly what the ML layer targets, at the cost of learning (and re-learning) what ``normal'' means for that room.
+
+Using the same injected event, the Forecasting Engine's 30-minute-horizon projection was separately evaluated (Table~\ref{tab:mlresults}). The error is large relative to the hazard threshold: a linear trend model designed for gradual drift is poorly matched to an abrupt 15-minute step-ramp. Rapid-onset events remain the Static/Heuristic/ML engines' responsibility (Section~\ref{sec:alertengine}); this is reported honestly and flagged for future evaluation (Section~\ref{sec:futurework}).
+
+These results carry the scale and confirmation-window caveats in Section~\ref{sec:futurework}. A sensitivity check against a much larger recalibration window (6,534 samples, the full training baseline) confirmed the smaller window's advantage: performance degraded on both axes (TPR 5.86\%, FPR 2.44\%), since a several-hundred-sample anomaly barely perturbs the Kolmogorov-Smirnov statistic over such a large window, keeping the model frozen near its initial calibration -- a measured design choice, not an arbitrary simplification.
+
+\subsection{Live Network Self-Organization}
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.65\linewidth]{figures/figure7.png}
+\caption{Live dashboard capture during hardware testing: two independent Border Routers and three sensor nodes self-organized into one Thread mesh (one Border Router auto-elected Leader, all links 99\% quality) -- real hardware, not simulated telemetry}
+\label{fig:figure7}
+\end{figure}
+
+Fig.~\ref{fig:figure7}'s edges reflect each Border Router's own \texttt{ot-ctl} observations, not a verified spanning tree. During the same testing session, a genuine network partition was also observed: the two Border Routers temporarily lost mutual radio visibility and each independently self-elected as Leader of its own partition; once visibility was restored, the mesh reconciled to a single Leader without manual intervention, empirically evidencing the self-healing connectivity claimed in Section~\ref{sec:intro-thread}. This dynamic recovery was audited and confirmed post-hoc using the Historical Topology Scrubber (Section~\ref{sec:topologyscrubber}), which registered the transient partition via an orange leader-change marker and visualized the subsequent role realignment without packet loss.
+
+\subsection{Security Considerations and Future Work}
+\label{sec:futurework}
+The architecture has known limitations in security, power loss, and ML validation scale: the edge node's 50-packet queue is volatile RAM only, telemetry is unencrypted UDP, and the empirical evaluation (Section~\ref{sec:mlevalresults}) surfaces further ML validation gaps. Future work targets:
+\begin{itemize}
+\setlength{\itemsep}{0pt}
+\item \textbf{Persistence}: Migrate the RAM-only packet queue to Zephyr NVS Flash, preventing data loss on power failure during a partition.
+\item \textbf{Transport/Auth Security}: Enforce CoAP-over-DTLS instead of unencrypted UDP, and implement robust JWT validation on the frontend.
+\item \textbf{Orchestration}: Migrate to Kubernetes to remove the reverse-proxy single point of failure.
+\item \textbf{Firmware Updates}: Integrate MCUboot for OTA firmware upgrades via SMP, removing the need for physical JTAG.
+\item \textbf{ML Evaluation Scale}: Validate against a 30-day, multi-room dataset rather than the 2.8-day, single-room recording used here.
+\item \textbf{Confirmation Window}: Derive the window analytically per anomaly type instead of the tuned constant (50 readings) used here, closing the blind spot for hazards shorter than $\sim$5 min.
+\item \textbf{Forecaster Evaluation}: Validate the Forecasting Engine against gradual trends rather than the abrupt step-ramp used in Section~\ref{sec:mlevalresults}.
+\end{itemize}
+
+\section{Conclusion}
+The Smart Sensor Network System provides a robust, decoupled architecture capable of translating raw physical telemetry into actionable life-safety intelligence. By fusing low-power Thread networking, fog computing, statistical heuristics, and unsupervised machine learning, the platform achieves high reliability while effectively eliminating transient false positives. The explicit alignment with WHO, EPA, ASHRAE, OSHA, and WELL guidelines supports empirical safety compliance.
+
+\footnotesize
+\begin{thebibliography}{00}
+\setlength{\itemsep}{0pt}
+\setlength{\parskip}{0pt}
+\setlength{\parsep}{0pt}
+\bibitem{b1} ANSI/ASHRAE Standard 55-2023, ``Thermal Environmental Conditions for Human Occupancy.''
+\bibitem{b15} ASHRAE, ``Position Document on Indoor Carbon Dioxide,'' Approved by the ASHRAE Board of Directors, Feb. 12, 2025. [Online]. Available: \url{https://www.ashrae.org/file%20library/about/position%20documents/pd-on-indoor-carbon-dioxide-english.pdf}
+\bibitem{b14} U.S. Department of Labor, Occupational Safety and Health Administration, ``OSHA Technical Manual (OTM), Section III: Chapter 2 -- Indoor Air Quality Investigation.'' [Online]. Available: \url{https://www.osha.gov/otm/section-3-health-hazards/chapter-2}
+\bibitem{b3} World Health Organization, ``WHO Global Air Quality Guidelines,'' 2021.
+\bibitem{b4} U.S. Environmental Protection Agency, ``National Ambient Air Quality Standards (NAAQS) Table.'' [Online]. Available: \url{https://www.epa.gov/criteria-air-pollutants/naaqs-table}
+\bibitem{b5} International WELL Building Institute, ``WELL Building Standard v2,'' 2020.
+\bibitem{b10} IEEE Std 802.15.4-2020, ``IEEE Standard for Low-Rate Wireless Networks.'' [Online]. Available: \url{https://standards.ieee.org/ieee/802.15.4/7029/}
+\bibitem{b16} E. Ortega, F. Su, R. Chattopadhyay, and K. Chakrabarty, ``Discretized-Isolation Forest: Memory- and Compute-Efficient Unsupervised Anomaly Detection for Resource-Constrained Internet of Things Edge Devices,'' \textit{IEEE Internet of Things Journal}, vol. 12, no. 2, pp. 1699--1717, 2025.
+\bibitem{b17} Y. Wu, H.-N. Dai, and H. Tang, ``Graph Neural Networks for Anomaly Detection in Industrial Internet of Things,'' \textit{IEEE Internet of Things Journal}, vol. 9, no. 12, pp. 9214--9231, 2022.
+\bibitem{b18} S. Guha and A. Datta, ``GDRNet: A Deep Learning Framework for Dynamic Sliding Window Determination and Improved Prediction Accuracy in Online IIoT Systems,'' \textit{IEEE Access}, vol. 13, pp. 200382--200393, 2025.
+\bibitem{b19} S. B. A. Khattak, M. M. Nasralla, H. Farman, and N. Choudhury, ``Performance Evaluation of an IEEE 802.15.4-Based Thread Network for Efficient Internet of Things Communications in Smart Cities,'' \textit{Applied Sciences (MDPI)}, vol. 13, no. 13, art. 7745, 2023.
+\bibitem{b6} Zephyr Project, ``Zephyr RTOS API Reference.'' [Online]. Available: \url{https://docs.zephyrproject.org/latest/doxygen/html/index.html}
+\bibitem{b8} RFC 7252, ``The Constrained Application Protocol (CoAP),'' 2014. [Online]. Available: \url{https://datatracker.ietf.org/doc/html/rfc7252}
+\bibitem{b9} RFC 8949, ``Concise Binary Object Representation (CBOR),'' 2020. [Online]. Available: \url{https://datatracker.ietf.org/doc/html/rfc8949}
+\bibitem{b11} Sensirion AG, ``SCD4x CO2 Sensor Datasheet.'' [Online]. Available: \url{https://sensirion.com/media/documents/48C4B7FB/67FE0194/CD_DS_SCD4x_Datasheet_D1.pdf}
+\bibitem{b13} Sensirion AG, ``SPS30 Particulate Matter Sensor Datasheet.'' [Online]. Available: \url{https://sensirion.com/media/documents/8600FF88/64A3B8D6/Sensirion_PM_Sensors_Datasheet_SPS30.pdf}
+\bibitem{b12} ScioSense (formerly ams), ``CCS811 Ultra-Low Power Digital Gas Sensor Datasheet.'' [Online]. Available: \url{https://cdn.sparkfun.com/assets/2/c/c/6/5/CN04-2019_attachment_CCS811_Datasheet_v1-06.pdf}
+\bibitem{b7} Scikit-Learn Developers, ``sklearn.ensemble.IsolationForest Documentation.'' [Online]. Available: \url{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html}
+\end{thebibliography}
+
+\section*{Appendix: Environmental Noise Floors}
+\textbf{SCD41 (Temperature)}: $\pm0.8^{\circ}$C, 15--35$^\circ$C \cite{b11}.
+\textbf{SCD41 (CO$_2$)}: $\pm(50\text{ ppm} + 3\%\text{ of reading})$, 1001--2000 ppm \cite{b11}.
+\textbf{CCS811 (TVOC)}: $\pm25$ ppb, project-selected margin (not in \cite{b12}).
+\textbf{SPS30 (PM2.5)}: $\pm5 \mu g/m^3$, 0--100 $\mu$g/m$^3$ \cite{b13}.
+\vspace{-6pt}
+\section*{Glossary}
+\textbf{CBOR}: Concise Binary Object Representation.
+\textbf{CoAP}: Constrained Application Protocol.
+\textbf{DTLS}: Datagram Transport Layer Security.
+\textbf{EMA}: Exponential Moving Average.
+\textbf{FTD}: Full Thread Device (Router-eligible).
+\textbf{GNN}: Graph Neural Network.
+\textbf{IIoT}: Industrial Internet of Things.
+\textbf{IPv4/IPv6}: Internet Protocol versions 4 and 6.
+\textbf{IQR}: Interquartile Range.
+\textbf{JTAG}: Joint Test Action Group (hardware debug interface).
+\textbf{LOCF}: Last-Observation-Carried-Forward.
+\textbf{MTD}: Minimal Thread Device (child-only, non-relaying).
+\textbf{NVS}: Non-Volatile Storage.
+\textbf{OTBR}: OpenThread Border Router.
+\textbf{SMP}: Simple Management Protocol (MCUboot's update transport).
+\textbf{XAI}: Explainable Artificial Intelligence.
+
+\end{document}

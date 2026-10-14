@@ -1,0 +1,482 @@
+% ============================================================
+%  SSNS Project Proposal V3 — Overleaf-compatible LaTeX
+%  Compact single-column academic formatting, target: ~4 pages
+%  All content verbatim from project-proposal-v3.tex
+% ============================================================
+\documentclass[10pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[margin=0.75in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}          % Better text fill / fewer overfull hboxes
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{cite}
+\usepackage[compact]{titlesec}
+\usepackage[skip=1pt,font=small]{caption}
+\usepackage[hidelinks,
+            colorlinks=true,
+            linkcolor=black,
+            citecolor=black,
+            urlcolor=blue,
+            pdftitle={Revised Project Proposal (V2)},
+            pdfauthor={M.Sc. High Integrity Systems}
+           ]{hyperref}
+
+% Tighten lists globally — preserves all content, reduces vertical space
+\setlist[itemize]{noitemsep, topsep=0pt, parsep=0pt, partopsep=0pt, leftmargin=*}
+\setlist[enumerate]{noitemsep, topsep=0pt, parsep=0pt, partopsep=0pt, leftmargin=*}
+
+% Tighter section spacing
+\titlespacing{\section}{0pt}{*1.0}{*0.5}
+\titlespacing{\subsection}{0pt}{*0.5}{*0.2}
+
+% Tighter paragraph spacing
+\setlength{\parskip}{0pt}
+\setlength{\parindent}{1.2em}
+
+% Tighter float spacing
+\setlength{\floatsep}{4pt}
+\setlength{\intextsep}{4pt}
+\setlength{\textfloatsep}{4pt}
+
+% ============================================================
+\begin{document}
+
+\title{\vspace{-2em}Thread-Based Intelligent Indoor Environmental Monitoring System\\
+\large Smart Sensor Network System --- Revised Project Proposal (V2)\vspace{-0.5em}}
+
+\author{%
+Haris Tauseef Khan, Mobeen Anwar, Muhammad Faris Mufti,\\
+Muhammad Inayat Hussain, Muhammad Saleem, Sohail Asghar Minhas
+\vspace{0.5em}
+  \\
+  M.Sc.\ High Integrity Systems - Summer Semester 2026
+}
+\date{\vspace{-2em}}
+
+\maketitle
+
+% ============================================================
+\begin{abstract}
+\normalsize
+\noindent This proposal presents a scalable IoT platform for intelligent indoor environmental
+monitoring. The proposed system integrates OpenThread (IPv6) sensor nodes based on the
+Nordic nRF52840 microcontroller with a containerized Gateway-Tier Fog backend. By
+applying unsupervised machine learning---specifically Isolation Forest-based anomaly
+detection and sliding window linear regression---across a multi-dimensional telemetry
+stream, the platform moves beyond conventional single-parameter threshold alerting.
+Furthermore, a lightweight Explainable AI (XAI) layer is integrated to interpret
+complex, multi-variable environmental anomalies. This architecture aims to provide
+operators with transparent, context-aware insights while maintaining implementation
+feasibility on edge devices, ultimately delivering a reproducible and intelligent
+telemetry analytics system.
+\end{abstract}
+
+% ============================================================
+\section{Introduction}
+
+Indoor air quality directly affects human health, comfort, and occupational safety.
+Elevated concentrations of particulate matter, carbon dioxide, and volatile organic
+compounds (VOCs) are associated with adverse respiratory and cognitive effects in
+indoor environments \cite{who2021}. Despite well-established risks, many built
+environments still rely on periodic manual inspection or rigid threshold-based
+monitoring systems. Such approaches often lack adaptive multi-variable analysis and
+may struggle to generalize across dynamic IoT and industrial monitoring environments
+\cite{ortega2025,wu2022}.
+
+This project proposes a scalable IoT platform designed to support multi-node
+environmental monitoring utilizing low-power Thread sensor nodes. The system processes
+telemetry using both deterministic safety rules and unsupervised machine learning. It
+is designed to identify subtle multi-variable environmental anomalies and provide early
+warning indicators for hazardous trends before they breach critical safety thresholds.
+
+% ============================================================
+\section{Literature Review \& Research Gap}
+
+Recent advancements in IoT environmental monitoring have explored machine-learning
+approaches for anomaly detection in resource-constrained and Industrial IoT environments.
+Ortega et al.\ \cite{ortega2025} presented a lightweight Isolation Forest-based anomaly
+detection approach for edge devices, while Wu et al.\ \cite{wu2022} discussed GNN-based
+anomaly detection methods for Industrial Internet of Things (IIoT) systems. However,
+many existing frameworks rely heavily on cloud infrastructure, introducing latency and
+privacy concerns, or suffer from the ``Cold Start Problem'' when deployed in new
+environments \cite{chhabra2025}. Furthermore, while dynamic sliding window techniques
+have been explored for predictive accuracy in industrial systems \cite{guha2025}, their
+integration into low-power indoor monitoring networks remains limited.
+
+\textbf{Research Gap:} There is a distinct lack of localized and adaptive edge-native
+IoT monitoring systems that combine unsupervised micro-climate anomaly detection with
+low-power mesh networking and fog-assisted processing. This project addresses this gap
+by coupling a Thread-based CoAP sensor network with a localized Gateway-Tier Fog
+backend, integrating anomaly detection, trend analysis, and Explainable AI into a
+cohesive, edge-deployable system \cite{chaturvedi2026}.
+
+% ============================================================
+\section{Proposed System Architecture}
+
+\subsection{Environmental Parameters \& Sensor Mapping}
+
+The system employs a suite of complementary sensors, measuring distinct environmental
+parameters mapped to international health guidelines (ASHRAE, WHO, EPA). Sensor readings
+are transmitted via CoAP over Thread.
+
+\begin{table}[htbp]
+\centering
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.0}
+\caption{Environmental Parameters \& Sensor Mapping}
+\label{tab:sensors}
+\small
+\begin{tabularx}{\textwidth}{@{} l l l >{\raggedright\arraybackslash}X @{}}
+\toprule
+\textbf{Measurement} & \textbf{Hardware} & \textbf{Typical Indoor Range} & \textbf{Health Guideline Threshold} \\
+\midrule
+CO\textsubscript{2}  & Sensirion SCD41   & 400 -- 1000~ppm          & $>$ 1500~ppm (ASHRAE 62.1) \\
+Humidity             & Sensirion SCD41   & 30\% -- 60\%               & $>$ 70\% or $<$ 20\% (ASHRAE 55) \\
+Temperature          & Microchip MCP9808 & 19\textdegree C -- 28\textdegree C  & $>$ 35\textdegree C or $<$ 10\textdegree C (ASHRAE 55) \\
+PM 2.5 / PM 10       & Sensirion SPS30   & 0 -- 45~\textmu g/m\textsuperscript{3} & $>$ 35~\textmu g/m\textsuperscript{3} (WHO / EPA) \\
+TVOC                 & Adafruit CCS811  & 0 -- 500~ppb             & $>$ 1000~ppb (WELL v2) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Architecture Layers (Gateway-Tier Fog)}
+
+The system logically decouples microservices on a local Gateway-Tier Fog appliance to
+reduce latency and minimize external internet dependency.
+
+\begin{table}[htbp]
+\centering
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.0}
+\caption{Architecture Layers (Gateway-Tier Fog)}
+\label{tab:arch}
+\small
+\begin{tabularx}{\textwidth}{@{} >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}p{3.5cm} >{\raggedright\arraybackslash}X @{}}
+\toprule
+\textbf{Layer} & \textbf{Component} & \textbf{Technology} & \textbf{Role} \\
+\midrule
+Hardware Node  & nRF52840 DK        & ARM Cortex-M4, OpenThread     & Sensor acquisition \& CoAP transmission. \\
+\midrule
+Edge Gateway   & Serial Gateway     & Python 3.12, pyserial         & Serial-to-HTTP bridge, telemetry ingestion. \\
+\midrule
+Backend API    & Spring Boot        & Java 21, Spring Boot 3.3      & Telemetry routing, evaluation, and persistence. \\
+\midrule
+ML Engine      & ML Service         & Python, FastAPI, scikit-learn & Isolation Forest, Trend Analysis, \& XAI execution. \\
+\midrule
+Database       & Timeseries DB      & MongoDB 7                     & Telemetry and historical context persistence. \\
+\midrule
+Presentation   & Dashboard          & React, Vite                   & Visualization and alert interpretation. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Wireless Protocol Justification (OpenThread \& CoAP)}
+
+OpenThread (IPv6) was selected for the hardware nodes to address the strict power and
+reliability constraints of indoor monitoring:
+
+\begin{itemize}
+  \item \textbf{Energy Efficiency:} Thread operates as a low-power wireless mesh network,
+    allowing battery-operated sensor nodes to run continuously without excessive power draw.
+  \item \textbf{Self-Healing Mesh Topology:} Thread natively forms a self-healing mesh,
+    allowing packets to route automatically around physical obstacles (e.g., concrete walls)
+    without requiring a direct line-of-sight to the gateway \cite{khattak2023}.
+  \item \textbf{Data Reliability (CoAP):} The system utilizes CoAP over Thread, supporting
+    \texttt{CONFIRMABLE} message delivery. This mitigates packet loss and enhances the
+    robustness of telemetry ingestion, a strict requirement for accurate machine learning
+    evaluation \cite{coap2014}.
+  \item \textbf{Scalability:} For multi-floor deployments, OpenThread nodes act as
+    low-power routers, bouncing telemetry to a central gateway, thereby reducing
+    infrastructure overhead.
+\end{itemize}
+
+% ============================================================
+\section{Intelligent Analysis \& Alerting}
+
+\subsection{Machine Learning Pipeline}
+
+The system avoids heavy, cloud-dependent Deep Learning models in favor of lightweight,
+Edge-native algorithms suitable for Fog Computing:
+
+\begin{itemize}
+  \item \textbf{Anomaly Detection (Isolation Forest):} Analyzes multi-dimensional sensor
+    data to generate a dynamic, rolling baseline for individual micro-climates. Isolation
+    Forest is utilized due to its linear time complexity, minimal memory footprint, and
+    unsupervised nature \cite{ortega2025,wu2022}.
+  \item \textbf{Trend Analysis (Sliding Window Linear Regression):} Provides early
+    warning indicators for primary environmental parameters and pollutant concentrations
+    (e.g., CO\textsubscript{2}, PM2.5, TVOC, Temperature). By capturing short-term local
+    trends using a sliding window, the system provides lightweight predictive support
+    suitable for resource-constrained edge environments. Prior IIoT research has shown
+    that many deep-learning-based sliding-window forecasting approaches introduce higher
+    computational overhead and runtime complexity in low-latency deployments \cite{guha2025}.
+  \item \textbf{Explainable AI (XAI) \& Interpretability:} To prevent opaque alerting,
+    the ML engine implements a lightweight XAI layer. During an anomaly, the system
+    calculates a baseline deviation ranking, providing interpretable contextual feedback
+    directly to the operator to improve situational awareness.
+\end{itemize}
+
+\subsection{Layered Alerting Model}
+
+The platform employs a four-tier alerting model:
+
+\begin{enumerate}
+  \item \textbf{Deterministic Safety Alerts:} Synchronous notifications triggered when
+    metrics breach established health guidelines.
+  \item \textbf{Behavioral Anomaly Alerts:} Asynchronous alerts triggered when
+    multi-variable patterns deviate from the established micro-climate baseline.
+  \item \textbf{Early Warning Indicators:} Proactive notifications triggered when trend
+    analysis suggests a potential threshold breach.
+  \item \textbf{Infrastructure Notifications:} Continuous monitoring of hardware health,
+    evaluating Thread node reachability and gateway connectivity.
+\end{enumerate}
+
+
+% ============================================================
+\section{Hazard Analysis \& Reliability}
+
+Given the context of environmental monitoring, the system implements mitigation
+strategies for operational and distributed system hazards:
+
+\begin{table}[htbp]
+\centering
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.0}
+\caption{Hazard Analysis \& Reliability Mitigation}
+\label{tab:hazards}
+\small
+\begin{tabularx}{\textwidth}{@{} >{\raggedright\arraybackslash}p{3.8cm} >{\raggedright\arraybackslash}X @{}}
+\toprule
+\textbf{Hazard / Failure Mode} & \textbf{Mitigation / Reliability Strategy} \\
+\midrule
+ML Calibration Phase
+  & Deterministic safety limits remain active independently during model warm-up. \\
+\midrule
+Model Drift (False Positives)
+  & Isolation Forest utilizes a rolling 24-hour window, automatically absorbing slow environmental drift. \\
+\midrule
+Network Loss (No ISP)
+  & Fog-Native architecture allows local LAN users to receive alerts even without external internet. \\
+\midrule
+CoAP/UDP Packet Loss
+  & CoAP \texttt{CONFIRMABLE} messages enforce acknowledgments, triggering retransmissions to reduce data gaps. \\
+\midrule
+Mesh Node Failure
+  & Thread multipath routing bypasses dead nodes. Isolated nodes utilize onboard flash for temporary Store-and-Forward buffering. \\
+\midrule
+Sensor Drift / Failure
+  & Plausibility validation, stuck-value detection, and cross-sensor consistency checks. \\
+\midrule
+Gateway / Service Crash
+  & Redundant Docker restart policies, heartbeat monitoring, and decoupled deterministic safety thresholds. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ============================================================
+\section{Evaluation Methodology}
+
+To validate the proposed system, the following evaluation metrics will be measured
+during the testing phase:
+
+\begin{itemize}
+  \item \textbf{Network Performance:} Thread mesh reliability, telemetry latency, and
+    packet delivery ratio under simulated indoor interference.
+  \item \textbf{ML Effectiveness:} Anomaly detection accuracy, false positive rate, and
+    the convergence speed of the Isolation Forest during the calibration phase.
+  \item \textbf{System Scalability \& Resource Utilization:} CPU/Memory footprint of
+    the Gateway-Tier Fog microservices and response times of the Spring Boot API under
+    increased simulated node loads.
+\end{itemize}
+
+% ============================================================
+\section{Limitations \& Expected Outcomes}
+
+\textbf{Limitations:}
+\begin{itemize}
+  \item \textbf{Deployment Scale:} Current physical validation is constrained to a
+    localized indoor environment utilizing a single physical sensor node. The proposed
+    architecture is designed to support scalable multi-node OpenThread mesh deployments.
+  \item \textbf{Training Duration:} The rolling baseline relies on a 24-hour window,
+    meaning long-term seasonal environmental changes will not be captured in the
+    immediate dataset.
+  \item \textbf{Hardware Constraints:} The lightweight nature of the ML models restricts
+    the implementation of highly complex, multi-layered predictive neural networks.
+\end{itemize}
+
+\textbf{Expected Outcomes:}
+The project aims to deliver a fully functional, end-to-end prototype that demonstrates
+the viability of combining low-power Thread mesh networking with localized, edge-native
+anomaly detection. The resulting architecture will provide a reproducible framework for
+privacy-preserving, intelligent indoor monitoring.
+
+% ============================================================
+\section{Project Management Summary}
+
+\subsection{Project Team}
+
+\begin{table}[htbp]
+\centering
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.0}
+\caption{Project Team Structure}
+\label{tab:team}
+\small
+\begin{tabularx}{\textwidth}{@{} >{\raggedright\arraybackslash}p{3.5cm} >{\raggedright\arraybackslash}p{4cm} >{\raggedright\arraybackslash}X @{}}
+\toprule
+\textbf{Team Members} & \textbf{Role} & \textbf{Responsibilities} \\
+\midrule
+M.~F.~Mufti / M.~Anwar
+  & Embedded Systems Engineer
+  & OpenThread firmware, sensor integration, CoAP communication \\
+\midrule
+M.~I.~Hussain
+  & Machine Learning Engineer
+  & Anomaly detection, trend analysis, XAI integration \\
+\midrule
+H.~T.~Khan / M.~Saleem
+  & Backend \& Database Engineer
+  & Ingestion API, database schema design, persistence \\
+\midrule
+H.~T.~Khan / S.~A.~Minhas
+  & Frontend Developer
+  & Dashboard UI/UX, visualization, frontend integration \\
+\midrule
+M.~Anwar / M.~Saleem
+  & Gateway \& Infrastructure Engineer
+  & Serial Gateway development, Docker orchestration \\
+\midrule
+M.~Anwar / S.~A.~Minhas
+  & Scrum Master \& Documentation Lead
+  & Sprint planning, technical documentation, presentations \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\newpage
+\subsection{Sprint Schedule}
+
+The project utilizes an Agile framework with one-week sprints over a 10-week lifecycle, executing cross-functional development tracks concurrently:
+
+\begin{table}[htbp]
+\centering
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.0}
+\caption{Agile Sprint Schedule}
+\label{tab:sprint}
+\small
+\begin{tabularx}{\textwidth}{@{} >{\bfseries}p{2cm} >{\raggedright\arraybackslash}X @{}}
+\toprule
+Sprint & Concurrent Cross-Functional Tracks \\
+\midrule
+Sprint 1--2
+  & OpenThread sensor provisioning (Embedded) \& database schema design (Backend) \\
+\midrule
+Sprint 3--4
+  & Serial Gateway bridging (Infrastructure) \& React UI/UX development (Frontend) \\
+\midrule
+Sprint 5--6
+  & CoAP-to-HTTP telemetry ingestion (Backend) \& Isolation Forest / Trend Analysis (ML) \\
+\midrule
+Sprint 7--8
+  & Explainable AI alert integration (ML) \& real-time Dashboard data binding (Frontend) \\
+\midrule
+Sprint 9--10
+  & Docker orchestration, system calibration, and academic documentation (Cross-Functional) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Workload Estimation}
+
+A hybrid approach combining Bottom-Up Estimation and Complexity-Based Estimation was adopted, yielding a total workload of approximately 600 cumulative team hours over the 10-week lifecycle. Subsystem tasks were individually estimated and refined based on technical complexity, with additional effort allocated to high-risk components including Thread/CoAP network validation, ML baseline calibration, and Docker multi-service orchestration.
+
+\begin{table}[htbp]
+\centering
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.0}
+\caption{Estimation Methods}
+\label{tab:estimation}
+\small
+\begin{tabularx}{\textwidth}{@{} >{\raggedright\arraybackslash}p{4cm} >{\raggedright\arraybackslash}X @{}}
+\toprule
+\textbf{Estimation Method} & \textbf{Purpose} \\
+\midrule
+Bottom-Up Estimation
+  & Subsystem-level workload estimation and task allocation \\
+\midrule
+Complexity-Based Estimation
+  & Integration, technical risk, and complexity evaluation \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ============================================================
+\vspace{-0.5em}
+\begin{thebibliography}{8}
+\setlength{\itemsep}{-2pt}
+\setlength{\parskip}{0pt}
+
+\bibitem{ortega2025}
+E.~Ortega, F.~Su, R.~Chattopadhyay, and K.~Chakrabarty,
+``Discretized-Isolation Forest: Memory- and Compute-Efficient Unsupervised Anomaly
+Detection for Resource-Constrained Internet of Things Edge Devices,''
+\textit{IEEE Internet of Things Journal}, vol.~12, no.~2, pp.~1699--1717, Jan.\ 2025.
+\newblock \href{https://doi.org/10.1109/JIOT.2024.3468950}{doi:10.1109/JIOT.2024.3468950}
+
+\bibitem{wu2022}
+Y.~Wu, H.-N.~Dai, and H.~Tang,
+``Graph Neural Networks for Anomaly Detection in Industrial Internet of Things,''
+\textit{IEEE Internet of Things Journal}, vol.~9, no.~12, pp.~9214--9231, Jun.\ 2022.
+\newblock \href{https://doi.org/10.1109/JIOT.2021.3094295}{doi:10.1109/JIOT.2021.3094295}
+
+\bibitem{chaturvedi2026}
+P.~Chaturvedi, S.~Ahmad, and A.~Mewada,
+``Fog Computing for Intelligent and Sustainable IoT: Architectures, Optimization,
+Datasets, and Open Challenges,''
+in \textit{Proc.\ 2026 IEEE Madhya Pradesh Section Conference (MPCON)}, Gwalior, India, 2026.
+\newblock \href{https://doi.org/10.1109/MPCON69668.2026.11508383}{doi:10.1109/MPCON69668.2026.11508383}
+
+\bibitem{chhabra2025}
+G.~S.~Chhabra, G.~N.~V.~Rajareddy, A.~Mahapatra, S.~S.~Mangalampalli, K.~S.~Sahoo, D.~Sethi, and K.~Mishra,
+``Deep Learning-Centric Task Offloading in IoT-Fog-Cloud Continuum: A State-of-the-Art
+Review, Open Research Issues, and Future Directions,''
+\textit{IEEE Access}, vol.~13, pp.~144241--144270, Aug.\ 2025.
+\newblock \href{https://doi.org/10.1109/ACCESS.2025.3599190}{doi:10.1109/ACCESS.2025.3599190}
+
+\bibitem{guha2025}
+S.~Guha and A.~Datta,
+``GDRNet: A Deep Learning Framework for Dynamic Sliding Window Determination and
+Improved Prediction Accuracy in Online IIoT Systems,''
+\textit{IEEE Access}, vol.~13, 2025.
+\newblock \href{https://doi.org/10.1109/ACCESS.2025.3634671}{doi:10.1109/ACCESS.2025.3634671}
+
+\bibitem{who2021}
+World Health Organization,
+\textit{WHO Global Air Quality Guidelines: Particulate Matter (PM\textsubscript{2.5}
+and PM\textsubscript{10}), Ozone, Nitrogen Dioxide, Sulfur Dioxide and Carbon Monoxide}.
+Geneva: WHO Press, 2021.
+\newblock \href{https://www.who.int/publications/i/item/9789240034228}{Available online}
+
+\bibitem{khattak2023}
+S.~B.~A.~Khattak, M.~M.~Nasralla, H.~Farman, and N.~Choudhury,
+``Performance Evaluation of an IEEE 802.15.4-Based Thread Network for Efficient Internet
+of Things Communications in Smart Cities,''
+\textit{Applied Sciences (MDPI)}, vol.~13, no.~13, p.~7745, 2023.
+\newblock \href{https://doi.org/10.3390/app13137745}{doi:10.3390/app13137745}
+
+\bibitem{coap2014}
+Z.~Shelby, K.~Hartke, and C.~Bormann,
+``The Constrained Application Protocol (CoAP),''
+\textit{IETF RFC~7252}, Internet Engineering Task Force, Jun.\ 2014.
+\newblock \href{https://www.rfc-editor.org/rfc/rfc7252}{Available online}
+
+\end{thebibliography}
+
+\end{document}
