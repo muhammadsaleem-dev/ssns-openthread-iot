@@ -398,7 +398,9 @@ def run_replayer():
     # General pool stream of all authentic readings for calibrating router nodes
     general_pool_stream = NodeRecordStream(master_col, None, base_query)
 
-    seq_counters: Dict[str, int] = {k: 100000 for k in PHYSICAL_NODES}
+    session_boot_id = f"b{int(time.time()):08x}"
+    logger.info("Session bootId initialized: %s", session_boot_id)
+    seq_counters: Dict[str, int] = {k: 1 for k in PHYSICAL_NODES}
 
     last_topology_time = time.time()
     last_prune_time = time.time()
@@ -439,7 +441,7 @@ def run_replayer():
                 "nodeId": node_id,
                 "meshId": mesh_id,
                 "ipv6Address": ipv6_addr,
-                "bootId": "live-replay",
+                "bootId": session_boot_id,
                 "sequenceNumber": seq,
                 "temperature": float(record.get("temperature", 22.0)),
                 "humidity": float(record.get("humidity", 45.0)),
