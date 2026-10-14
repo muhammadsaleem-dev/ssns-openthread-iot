@@ -191,7 +191,7 @@ The system employs three independent, layer-specific self-healing mechanisms:
 ### 5.12 Dashboard implementation and real-time operations
 The operator dashboard is a Single Page Application constructed with React, Vite, and Material UI. It consumes high-frequency telemetry via WebSockets, storing a maximum sliding window of 10,000 records locally to prevent browser DOM memory exhaustion. Dynamic topological maps are rendered using React Flow to visualize multi-hop OpenThread routing paths at 60 FPS.
 
-### 5.13 Historical topology scrubber and time-travel engine
+### 5.13 Historical topology scrubber and temporal state playback
 To observe and empirically validate OpenThread's autonomous mesh restructuring, self-healing, and dynamic role migrations over time, the platform incorporates a temporal topology auditing subsystem:
 - **Historical Snapshot Persistence**: The Spring Boot backend periodically captures the multi-node graph into a dedicated `NetworkTopologyHistory` MongoDB document collection. Each snapshot records active Border Router metadata, node hardware extended addresses, operational roles (`LEADER`, `ROUTER`, `CHILD`, `DETACHED`), link quality metrics, route path costs, and gateway connectivity states.
 - **Differential Event Markers**: The dashboard features an interactive `TopologyScrubber` timeline component with automated frame-by-frame event recognition. It compares consecutive topological states to highlight key events:

@@ -239,7 +239,7 @@ The system employs three independent, layer-specific self-healing mechanisms:
 \subsection{Dashboard Implementation and Real-Time Operations}
 The operator dashboard is a Single Page Application constructed with React, Vite, and Material UI. It consumes high-frequency telemetry via WebSockets and retains a maximum sliding window of 10,000 records locally to prevent browser DOM memory exhaustion. Dynamic topological maps are rendered using React Flow to visualize multi-hop OpenThread routing paths at 60 FPS.
 
-\subsection{Historical Topology Scrubber and Time-Travel Engine}
+\subsection{Historical Topology Scrubber and Temporal State Playback}
 \label{sec:topologyscrubber}
 To observe and empirically validate OpenThread's autonomous mesh restructuring, self-healing, and dynamic role migrations over time, the platform incorporates a temporal topology auditing subsystem.
 
@@ -257,7 +257,7 @@ The dashboard presentation layer features an interactive \texttt{TopologyScrubbe
 \end{itemize}
 
 \subsubsection{Dynamic Playback Visualization}
-Coupled with React Flow, the UI provides fluid play, pause, and step-through scrubbing. Graph nodes dynamically indicate active leader status via rhythmic pulsing animations, color-code link qualities according to empirical signal budgets, and dynamically reposition without DOM thrashing or transient edge crashes. This transforms network state auditing from static post-mortem logs into an intuitive, deterministic visual time-machine.
+Coupled with React Flow, the UI provides fluid play, pause, and step-through scrubbing. Graph nodes dynamically indicate active leader status via rhythmic pulsing animations, color-code link qualities according to empirical signal budgets, and dynamically reposition without DOM thrashing or transient edge crashes. This enables deterministic, chronological verification of dynamic mesh routing states without requiring manual inspection of low-level diagnostic logs.
 
 \section{Theoretical Performance and Evaluation Methodology}
 

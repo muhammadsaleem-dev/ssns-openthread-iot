@@ -21,7 +21,7 @@ The **Smart Sensor Network System (SSNS)** is an industrial-grade, distributed I
 2. **Heterogeneous Fog Tier:** Autonomous edge gateways (Linux & macOS) providing protocol translation, deduplication, and store-and-forward persistence.
 3. **Multi-Engine Alert Pipeline:** High-speed parallel evaluation across deterministic thresholds (ASHRAE, OSHA, WHO, EPA, WELL v2), noise-floor-clamped rolling heuristics, and hardware health bitmasks.
 4. **Machine Learning & Predictive Intelligence:** An unsupervised Isolation Forest anomaly detection engine with dynamic drift adaptation (Kolmogorov-Smirnov) and $R^2$-gated trend forecasting.
-5. **⭐ Flagship Post-Submission Feature — Historical Topology Scrubber & Mesh Time-Travel Engine:** Deterministic forensic auditing and frame-by-frame visual verification of OpenThread self-healing, role promotions, and leader elections.
+5. **Historical Topology Scrubber & Temporal State Playback:** Deterministic auditing and frame-by-frame visual verification of OpenThread self-healing, dynamic role promotions, and leader elections.
 
 ---
 
@@ -76,15 +76,15 @@ The **Smart Sensor Network System (SSNS)** is an industrial-grade, distributed I
 │        React Operations Center & SCADA Dashboard         │
 │  - Real-Time Live Telemetry (Recharts)                   │
 │  - React Flow Dynamic Multi-Hop Topology Graph           │
-│  - 🌟 Historical Topology Scrubber & Time Travel Player   │
+│  - Historical Topology Scrubber & Temporal State Playback │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🌟 Flagship Feature: Historical Topology Scrubber & Mesh Time Travel
+## ⏱️ Historical Topology Scrubber & Temporal State Playback
 
-Developed as the capstone enhancement to demonstrate autonomous mesh resilience, the **Topology Scrubber** transforms static network tables into an interactive, deterministic **forensic time machine**.
+Developed to empirically validate autonomous mesh resilience, the **Topology Scrubber** enables operators to audit and reconstruct chronological network topology states deterministically.
 
 ```text
  ◀◀ [ PLAY / PAUSE ] ▶▶  ───[ Timeline Slider: Snapshots 0 ... N ]───  [ ⟲ LIVE SNAP ]
@@ -172,7 +172,7 @@ docker compose -f platform/docker-compose.ha.yml up -d
 
 ### 2. Access Web Dashboard
 Open your browser and navigate to:
-* **Dashboard & Time-Travel Scrubber:** `http://localhost:3000`
+* **Dashboard & Topology Scrubber:** `http://localhost:3000`
 * **Spring Boot API Swagger/Health:** `http://localhost:8080/actuator/health`
 * **ML Service Docs:** `http://localhost:8000/docs`
 
