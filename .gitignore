@@ -59,6 +59,7 @@ target/
 .docker/
 *.tar
 *.tar.gz
+*.archive.gz
 
 # Untracked project files
 PROJECT_KNOWLEDGE.md

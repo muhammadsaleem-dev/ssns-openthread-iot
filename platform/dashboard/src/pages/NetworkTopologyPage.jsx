@@ -93,7 +93,7 @@ export default function NetworkTopologyPage() {
       </Card>
 
       <Box sx={{ mt: 4, mb: 2 }}>
-        <SectionHeader title="Time Travel" subtitle="Replay historical network events and routing transitions" />
+        <SectionHeader title="Historical Topology Scrubber" subtitle="Inspect historical network states and routing transitions" />
         {/* We find the active Border Router for the scrubber, or fallback to the first one */}
         {topologyList && topologyList.length > 0 && (() => {
           const activeTopo = topologyList.find(t => t.gatewayHealth?.status === 'active') || topologyList[0];

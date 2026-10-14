@@ -105,6 +105,29 @@ services:
     networks:
       - ssns-network
 
+  # ── Telemetry Replayer Service ───────────────────────────
+  # Streams authentic historical hardware readings to maintain live telemetry,
+  # active node statuses, real-time charts, ML anomaly scoring, and topology snapshots.
+  replayer:
+    build:
+      context: ./replayer
+      dockerfile: Dockerfile
+    container_name: ssns-telemetry-replayer
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/ssns_monitoring
+      API_URL: http://dashboard:80
+      INTERVAL_SECONDS: 10
+      TOPOLOGY_INTERVAL_SECONDS: 30
+      TZ: "Europe/Berlin"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      dashboard:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - ssns-network
+
 networks:
   ssns-network:
     name: ssns-monitoring-network
@@ -112,3 +135,4 @@ networks:
 
 volumes:
   mongo_data:
+

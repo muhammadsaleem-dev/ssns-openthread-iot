@@ -197,10 +197,10 @@ export default function TopologyScrubber({ borderRouterId, onHistorySelected }) 
     <Box sx={{ px: 4, py: 2, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider', mt: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="subtitle2" color="primary" fontWeight="bold">
-          Historical Topology Scrubber ⏳
+          Historical Topology Scrubber
         </Typography>
-        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold', color: currentSnapshot ? 'error.main' : 'success.main' }}>
-          {currentSnapshot ? `TIMETRAVEL: ${displayTime}` : 'LIVE FEED'}
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold', color: currentSnapshot ? 'warning.main' : 'success.main' }}>
+          {currentSnapshot ? `HISTORICAL SNAPSHOT: ${displayTime}` : 'LIVE FEED'}
         </Typography>
       </Box>
 
