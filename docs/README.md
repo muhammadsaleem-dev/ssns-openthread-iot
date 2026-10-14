@@ -78,5 +78,5 @@ docs/
 
 **Muhammad Saleem**  
 *M.Sc. High Integrity Systems, Frankfurt University of Applied Sciences*  
-Contact: [muhammad.saleem2@stud.fra-uas.de](mailto:muhammad.saleem2@stud.fra-uas.de)  
+Contact: [muhammadsaleem.dev@gmail.com](mailto:muhammadsaleem.dev@gmail.com)  
 Project Repository: [muhammadsaleem-dev/ssns-openthread-iot](https://github.com/muhammadsaleem-dev/ssns-openthread-iot)

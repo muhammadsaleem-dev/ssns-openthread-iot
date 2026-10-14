@@ -205,5 +205,5 @@ To stress-test fault-tolerance, dynamic leader failover, and queue recovery:
 **Muhammad Saleem**  
 *M.Sc. High Integrity Systems*  
 Frankfurt University of Applied Sciences, Frankfurt am Main, Germany  
-Contact: [muhammad.saleem2@stud.fra-uas.de](mailto:muhammad.saleem2@stud.fra-uas.de)  
+Contact: [muhammadsaleem.dev@gmail.com](mailto:muhammadsaleem.dev@gmail.com)  
 GitHub: [@muhammadsaleem-dev](https://github.com/muhammadsaleem-dev)
