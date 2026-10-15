@@ -32,13 +32,13 @@ export default function AdminLoginDialog() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      const result = login(username, password);
+    try {
+      const result = await login(username, password);
       setLoading(false);
       if (!result.success) {
         setError(result.error);
@@ -46,7 +46,10 @@ export default function AdminLoginDialog() {
         setPassword('');
         setError('');
       }
-    }, 300);
+    } catch {
+      setLoading(false);
+      setError('An error occurred during authentication.');
+    }
   };
 
   const handleClose = () => {

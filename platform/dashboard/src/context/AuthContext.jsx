@@ -7,13 +7,40 @@ export const DEFAULT_VISITOR_USER = {
   role: 'visitor',
 };
 
+const SALT = 'ssns_salt_2026_openthread_iot';
+
+// Cryptographic salted SHA-256 hashes of credentials.
+// Raw passwords are never stored in code, git, or client bundles.
+const ADMIN_CREDENTIAL_HASH =
+  import.meta.env.VITE_ADMIN_HASH ||
+  '07979e2f08d315bb0300f270ace3ecbcdfcb4a9a211fbf1a1f06d97a91fdc7f6';
+const ADMIN_SIG =
+  '441227c1590db70e5b05fe4b8775ff32d16ed63c27496bd22135a3632356b713';
+
+const VISITOR_CREDENTIAL_HASH =
+  import.meta.env.VITE_VISITOR_HASH ||
+  'cd6a3073f74767fe7d7bc857d9928491175d1960ba9b9cead562bee9e395b704';
+
+async function hashCredential(username, secret) {
+  const data = `${SALT}:${(username || '').trim().toLowerCase()}:${secret || ''}`;
+  const msgUint8 = new TextEncoder().encode(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const stored = localStorage.getItem('ssns_auth_user');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && parsed.role) return parsed;
+        if (parsed?.role === 'admin' && parsed.sig === ADMIN_SIG) {
+          return parsed;
+        }
+        if (parsed?.role === 'visitor') {
+          return parsed;
+        }
       }
     } catch {
       // ignore
@@ -23,21 +50,18 @@ export function AuthProvider({ children }) {
 
   const [loginModalOpen, setLoginModalOpen] = useState(false);
 
-  const ADMIN_USER = import.meta.env.VITE_ADMIN_USER || 'root';
-  const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASS || 'root1234@';
-  const VISITOR_USER = import.meta.env.VITE_VISITOR_USER || 'user';
-  const VISITOR_PASS = import.meta.env.VITE_VISITOR_PASS || 'user1234@';
-
-  const login = (username, password) => {
+  const login = async (username, password) => {
     const cleanUser = (username || '').trim();
-    if (cleanUser === ADMIN_USER && password === ADMIN_PASS) {
-      const authData = { username: ADMIN_USER, role: 'admin' };
+    const computedHash = await hashCredential(cleanUser, password);
+
+    if (computedHash === ADMIN_CREDENTIAL_HASH) {
+      const authData = { username: cleanUser, role: 'admin', sig: ADMIN_SIG };
       localStorage.setItem('ssns_auth_user', JSON.stringify(authData));
       setUser(authData);
       setLoginModalOpen(false);
       return { success: true };
-    } else if (cleanUser === VISITOR_USER && password === VISITOR_PASS) {
-      const authData = { username: VISITOR_USER, role: 'visitor' };
+    } else if (computedHash === VISITOR_CREDENTIAL_HASH) {
+      const authData = { username: cleanUser, role: 'visitor' };
       localStorage.setItem('ssns_auth_user', JSON.stringify(authData));
       setUser(authData);
       setLoginModalOpen(false);
@@ -77,4 +101,3 @@ export function useAuth() {
   }
   return context;
 }
-
