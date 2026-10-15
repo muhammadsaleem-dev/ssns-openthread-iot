@@ -13,9 +13,9 @@ const SALT = 'ssns_salt_2026_openthread_iot';
 // Raw passwords are never stored in code, git, or client bundles.
 const ADMIN_CREDENTIAL_HASH =
   import.meta.env.VITE_ADMIN_HASH ||
-  '07979e2f08d315bb0300f270ace3ecbcdfcb4a9a211fbf1a1f06d97a91fdc7f6';
+  '70f7f5e87feac713fdcdc78a2c3a1dc3bfc444f9b349c88c7865eaa9bb5cbcf2';
 const ADMIN_SIG =
-  '441227c1590db70e5b05fe4b8775ff32d16ed63c27496bd22135a3632356b713';
+  'bde537b2db85c881abe8ebce2f3af1d6698b426be31d278e3fd31c77053a1f4a';
 
 const VISITOR_CREDENTIAL_HASH =
   import.meta.env.VITE_VISITOR_HASH ||
