@@ -50,8 +50,8 @@ docs/
 ## 🎯 Quick Navigation: What Should I Read?
 
 ### 1. Academic Deliverables & Research Papers
-* **[IEEE Conference Report (PDF)](01-final-deliverables/report/ieee-report.pdf):** The formal 9-page IEEE conference publication covering theoretical performance, mathematical formulation, hardware constraints, multi-engine alerting, and the historical topology scrubber.
-* **[IEEE LaTeX Source Code](01-final-deliverables/report/ieee-report.tex):** Full reproducible publication source.
+* **[Technical Report - IEEE Format (PDF)](01-final-deliverables/report/ieee-report.pdf):** The formal 9-page project technical report prepared according to IEEE manuscript specifications covering theoretical performance, mathematical formulation, hardware constraints, multi-engine alerting, and the historical topology scrubber.
+* **[IEEE LaTeX Source Code](01-final-deliverables/report/ieee-report.tex):** Full reproducible manuscript source.
 * **[AI Usage Appendix (PDF)](01-final-deliverables/ai-interaction/ai-usage-appendix.pdf):** Methodological documentation detailing AI-assisted debugging, verification, and code auditing.
 * **[Viva & Defense Q&A Prep](01-final-deliverables/viva/):** Comprehensive oral examination questions and answers on distributed systems, OpenThread mesh self-healing, and isolation forest mathematics.
 
@@ -65,7 +65,7 @@ docs/
   * `frontend-tier.md`: Reactive Vite/React SCADA operations center, React Flow, and Historical Scrubber.
 
 ### 3. Physical Hardware & Electronics
-* **[Sensor Wiring Schematic](03-hardware/wiring.md):** Complete pin-to-pin wiring guide connecting Sensirion SCD41 ($\text{CO}_2$), Sensirion SPS30 (PM), and ScioSense CCS811 (TVOC) to the Nordic nRF52840-DK.
+* **[Sensor Wiring Schematic](03-hardware/wiring.md):** Complete pin-to-pin wiring guide connecting Sensirion SCD41 (CO₂), Sensirion SPS30 (PM), and ScioSense CCS811 (TVOC) to the Nordic nRF52840-DK.
 * **[External Power & Jumper Configuration](03-hardware/wiring_external_power.md):** Breadboard power supply module configuration, 3.3V / 5.0V bus isolation, and common ground wiring.
 * **[Physical Sensor Integration Blueprint](03-hardware/PHYSICAL_SENSOR_INTEGRATION.md):** Hardware-native sampling frequencies, startup warm-up delays, and I2C mutex arbitration.
 
